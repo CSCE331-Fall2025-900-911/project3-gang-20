@@ -1,5 +1,33 @@
-venv
-__pycache__
-migrations
+# Python / Django
+
+# Virtual Environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Secrets
 .env
+.env.*
+
+# JavaScript / React
+
+# Dependencies
+node_modules/
+
+# Production build folder
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Other
 todo.md
+
