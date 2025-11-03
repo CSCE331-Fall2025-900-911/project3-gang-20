@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Test Page</title>
+    <style>
+        body { font-family: sans-serif; margin: 2em; background-color: #f9f9f9; }
+        h1 { color: #333; }
+        h2 { border-bottom: 2px solid #007bff; padding-bottom: 5px; color: #007bff; }
+        div { background-color: #fff; border-radius: 8px; padding: 1em; margin-bottom: 1em; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 8px; }
+        .error { background-color: #ffe0e0; border: 1px solid #d00; padding: 1em; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Database Test Page</h1>
+    <p>TESTING DATABASE VIEW!</p>
+
+    <!-- Check for a connection error -->
+    {% if error %}
+        <div class="error">
+            <strong>Error:</strong> {{ error }}
+        </div>
+    {% endif %}
+
+    <!-- Section for Ingredients -->
+    <div>
+        <h2>Ingredients (from 'ingredients' table)</h2>
+        {% if ingredients %}
+            <ul>
+                {% for ingredient in ingredients %}
+                    <li>
+                        <strong>{{ ingredient.ingredient_name }}</strong> 
+                        (ID: {{ ingredient.ingredient_id }}) - 
+                        Stock: {{ ingredient.stock_level }} {{ ingredient.unit }}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No ingredients found.</p>
+        {% endif %}
+    </div>
+
+    <!-- Section for Menu Items -->
+    <div>
+        <h2>Menu Items (from 'menu_items' table)</h2>
+        {% if menu_items %}
+            <ul>
+                {% for item in menu_items %}
+                    <li>
+                        <strong>{{ item.name }}</strong> 
+                        (ID: {{ item.menu_item_id }}) - 
+                        Price: ${{ item.price }}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No menu items found.</p>
+        {% endif %}
+    </div>
+
+    <!-- Section for Employees -->
+    <div>
+        <h2>Employees (from 'employees' table)</h2>
+        {% if employees %}
+            <ul>
+                {% for employee in employees %}
+                    <li>
+                        <strong>{{ employee.first_name }} {{ employee.last_name }}</strong> 
+                        (ID: {{ employee.employee_id }}) - 
+                        Position: {{ employee.position }}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No employees found.</D>
+        {% endif %}
+    </div>
+
+</body>
+</html>
