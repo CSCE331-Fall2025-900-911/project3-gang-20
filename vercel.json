@@ -12,8 +12,8 @@
   "outputDirectory": "frontend/dist",
   "routes": [
     {
-      "src": "/",
-      "dest": "frontend/dist/index.html"
+      "src": "/[^/]+\\.[^/]+$",
+      "continue": true
     },
     {
       "src": "/(.*)",
