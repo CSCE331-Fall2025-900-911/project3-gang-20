@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import './App.css'; // Shares the main CSS
 
 // The API endpoint for menu items
-const API_URL = 'http://127.0.0.1:8000/api/menu-items/';
+const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/'; //'http://127.0.0.1:8000/api/menu-items/';
 
 function MenuItemsList() {
   const [menuItems, setMenuItems] = useState([]);

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import './App.css'; // Shares the main CSS
 
 // The API endpoint for ingredients
-const API_URL = 'http://127.0.0.1:8000/api/ingredients/';
+const API_URL = "https://project3-gang-20.onrender.com/api/ingredients/";//'http://127.0.0.1:8000/api/ingredients/';
 
 function IngredientsList() {
   const [ingredients, setIngredients] = useState([]);
