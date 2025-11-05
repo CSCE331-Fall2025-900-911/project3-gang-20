@@ -4,7 +4,12 @@ from .views import *
 
 router = DefaultRouter()
 router.register(r'ingredients', IngredientsViewSet)
-router.register(r'menu-items', MenuItemsViewSet) # <-- Add this new line
+router.register(r'recipe-items', RecipeItemsViewSet)
+router.register(r'add-ons', AddOnsViewSet)
+router.register(r'menu-items', MenuItemsViewSet)
+router.register(r'orders', OrdersViewSet)
+router.register(r'order-items', OrderItemsViewSet)
+router.register(r'employees', EmployeesViewSet)
 
 # The API URLs are now determined automatically by the router.
 urlpatterns = [
