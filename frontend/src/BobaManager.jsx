@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, Check, Search, FileText, Calendar, TrendingUp, Package, Users } from 'lucide-react';
 
-const API_BASE = 'http://127.0.0.1:8000/api';
+const API_BASE = 'https://project3-gang-20.onrender.com/api';
 const TAX_RATE = 0.0825;
 const SERVICE_CHARGE_RATE = 0.025;
 
