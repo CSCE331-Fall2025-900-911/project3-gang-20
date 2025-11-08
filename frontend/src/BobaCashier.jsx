@@ -1,82 +1,19 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart, Trash2, User, LogOut } from 'lucide-react';
+import { Trash2, LogOut } from 'lucide-react';
 
 const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
 const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
 const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
 const ORDER_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/order-items/';
 const TAX_RATE = 0.0825;
-
-function App() {
-  const [currentPage, setCurrentPage] = useState('home');
-
-  if (currentPage === 'cashier') {
-    return <BobaCashier onBack={() => setCurrentPage('home')} />;
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-200 flex items-center justify-center p-8">
-      <div className="max-w-4xl w-full">
-        <div className="text-center mb-12">
-          <h1 className="text-6xl font-bold text-amber-900 mb-4">
-            🧋 Boba Restaurant
-          </h1>
-          <p className="text-2xl text-amber-700">
-            Select Your Portal
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-8">
-          <button
-            onClick={() => setCurrentPage('cashier')}
-            className="bg-white rounded-2xl p-12 shadow-2xl hover:scale-105 transition-transform duration-200 border-4 border-transparent hover:border-amber-500"
-          >
-            <div className="text-7xl mb-6">💳</div>
-            <h2 className="text-3xl font-bold text-amber-900 mb-4">
-              Cashier
-            </h2>
-            <p className="text-lg text-amber-700">
-              Point of Sale system
-            </p>
-          </button>
-
-          <button
-            onClick={() => window.location.href = '/kiosk'}
-            className="bg-white rounded-2xl p-12 shadow-2xl hover:scale-105 transition-transform duration-200 border-4 border-transparent hover:border-amber-500"
-          >
-            <div className="text-7xl mb-6">🥤</div>
-            <h2 className="text-3xl font-bold text-amber-900 mb-4">
-              Customer Kiosk
-            </h2>
-            <p className="text-lg text-amber-700">
-              Self-service ordering
-            </p>
-          </button>
-
-          <button
-            onClick={() => window.location.href = '/manager'}
-            className="bg-white rounded-2xl p-12 shadow-2xl hover:scale-105 transition-transform duration-200 border-4 border-transparent hover:border-amber-500"
-          >
-            <div className="text-7xl mb-6">⚙️</div>
-            <h2 className="text-3xl font-bold text-amber-900 mb-4">
-              Manager Dashboard
-            </h2>
-            <p className="text-lg text-amber-700">
-              Manage menu & inventory
-            </p>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+const SERVICE_CHARGE_RATE = 0.025;
 
 function BobaCashier({ onBack }) {
   const [menuItems, setMenuItems] = useState([]);
   const [addOns, setAddOns] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('Milky');
   const [cart, setCart] = useState([]);
-  const [currentOrder, setCurrentOrder] = useState(null);
+  const [selectedPaymentType, setSelectedPaymentType] = useState(null);
   const [customizationModal, setCustomizationModal] = useState(false);
   const [selectedDrink, setSelectedDrink] = useState(null);
   const [selectedAddOns, setSelectedAddOns] = useState({
@@ -85,10 +22,12 @@ function BobaCashier({ onBack }) {
     toppings: []
   });
   const [loading, setLoading] = useState(true);
-  const [orderNumber, setOrderNumber] = useState(31830);
+  const [orderNumber, setOrderNumber] = useState(0);
+  const [transactionMessage, setTransactionMessage] = useState('');
 
   useEffect(() => {
     fetchData();
+    fetchNextOrderId();
   }, []);
 
   const fetchData = async () => {
@@ -108,6 +47,25 @@ function BobaCashier({ onBack }) {
       console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchNextOrderId = async () => {
+    try {
+      const response = await fetch(ORDERS_URL);
+      const orders = await response.json();
+      
+      if (orders.length > 0) {
+        // Find the maximum order_id and add 1
+        const maxOrderId = Math.max(...orders.map(order => order.order_id));
+        setOrderNumber(maxOrderId + 1);
+      } else {
+        // If no orders exist, start from 1
+        setOrderNumber(1);
+      }
+    } catch (err) {
+      console.error("Error fetching order ID:", err);
+      setOrderNumber(1);
     }
   };
 
@@ -165,34 +123,66 @@ function BobaCashier({ onBack }) {
 
   const clearCart = () => {
     setCart([]);
+    setSelectedPaymentType(null);
+    setTransactionMessage('');
   };
 
+  // Helper calculation methods matching Java controller
   const getSubtotal = () => {
     return cart.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
   };
 
+  const getServiceCharge = () => {
+    if (selectedPaymentType === 'Card') {
+      return getSubtotal() * SERVICE_CHARGE_RATE;
+    }
+    return 0.0;
+  };
+
   const getTax = () => {
-    return getSubtotal() * TAX_RATE;
+    // Tax is calculated on subtotal + service charge
+    return (getSubtotal() + getServiceCharge()) * TAX_RATE;
   };
 
   const getTotal = () => {
-    return getSubtotal() + getTax();
+    return getSubtotal() + getServiceCharge() + getTax();
   };
 
-  const completeTransaction = async (paymentType) => {
+  // Payment method selection handlers
+  const handleCashPayment = () => {
+    setSelectedPaymentType('Cash');
+    setTransactionMessage('');
+  };
+
+  const handleCardPayment = () => {
+    setSelectedPaymentType('Card');
+    setTransactionMessage('');
+  };
+
+  const completeTransaction = async () => {
+    // Validation checks
     if (cart.length === 0) {
-      alert('Cart is empty!');
+      setTransactionMessage('Add items to cart');
+      return;
+    }
+
+    if (!selectedPaymentType) {
+      setTransactionMessage('Please select payment method (Cash or Card)');
       return;
     }
 
     try {
       // Create order
+      const now = new Date();
       const orderData = {
-        order_date: new Date().toISOString().split('T')[0],
-        order_time: new Date().toTimeString().split(' ')[0],
-        employee: 1, // Default employee
-        payment_type: paymentType
+        order_id: orderNumber,
+        order_date: now.toISOString().split('T')[0],
+        order_time: now.toTimeString().split(' ')[0],
+        employee: 101,
+        payment_type: selectedPaymentType
       };
+
+      console.log('Creating order:', orderData);
 
       const orderResponse = await fetch(ORDERS_URL, {
         method: 'POST',
@@ -200,28 +190,66 @@ function BobaCashier({ onBack }) {
         body: JSON.stringify(orderData)
       });
 
-      const order = await orderResponse.json();
-
-      // Create order items
-      for (const item of cart) {
-        await fetch(ORDER_ITEMS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            order: order.order_id,
-            menu_item: item.menu_item_id,
-            quantity: 1
-          })
-        });
+      if (!orderResponse.ok) {
+        const errorText = await orderResponse.text();
+        throw new Error(`Order creation failed: ${orderResponse.status} - ${errorText}`);
       }
 
-      alert(`Order #${order.order_id} completed successfully!\nPayment: ${paymentType}\nTotal: $${getTotal().toFixed(2)}`);
+      const order = await orderResponse.json();
+      console.log('Order created:', order);
+
+      // Group cart items by menu_item_id to get quantities
+      const itemQuantities = {};
+      cart.forEach(item => {
+        if (itemQuantities[item.menu_item_id]) {
+          itemQuantities[item.menu_item_id]++;
+        } else {
+          itemQuantities[item.menu_item_id] = 1;
+        }
+      });
+
+      // Create order items with quantities
+      for (const [menuItemId, quantity] of Object.entries(itemQuantities)) {
+        const orderItemData = {
+          order: order.order_id, // Changed from order_id to order
+          menu_item: parseInt(menuItemId), // Changed from menu_item_id to menu_item
+          quantity: quantity
+        };
+
+        console.log('Creating order item:', orderItemData);
+
+        const orderItemResponse = await fetch(ORDER_ITEMS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderItemData)
+        });
+
+        if (!orderItemResponse.ok) {
+          const errorText = await orderItemResponse.text();
+          console.error('Order item creation failed:', errorText);
+          throw new Error(`Order item creation failed: ${orderItemResponse.status}`);
+        }
+
+        console.log('Order item created successfully');
+      }
+
+      const finalTotal = getTotal();
+      setTransactionMessage(`Transaction Complete - Order #${order.order_id} - Total: $${finalTotal.toFixed(2)}`);
       
+      // Clear cart and reset payment type
       setCart([]);
-      setOrderNumber(order.order_id);
+      setSelectedPaymentType(null);
+
+      // Fetch the next order ID and reset UI after 3 seconds
+      setTimeout(() => {
+        fetchNextOrderId();
+        setTransactionMessage('');
+      }, 3000);
+
     } catch (err) {
       console.error('Error completing transaction:', err);
-      alert('Failed to complete transaction. Please try again.');
+      setTransactionMessage(`Transaction Failed: ${err.message}`);
+      setSelectedPaymentType(null);
     }
   };
 
@@ -240,6 +268,12 @@ function BobaCashier({ onBack }) {
     }
   };
 
+  const handleLogout = () => {
+    if (onBack) {
+      onBack();
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-200 flex items-center justify-center">
@@ -254,7 +288,7 @@ function BobaCashier({ onBack }) {
       <div className="bg-white rounded-lg shadow-lg p-4 mb-4 flex justify-between items-center">
         <h1 className="text-3xl font-bold text-amber-900">Cashier</h1>
         <button 
-          onClick={onBack}
+          onClick={handleLogout}
           className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700"
         >
           <LogOut size={20} />
@@ -374,8 +408,14 @@ function BobaCashier({ onBack }) {
               <span>Subtotal:</span>
               <span>${getSubtotal().toFixed(2)}</span>
             </div>
+            {selectedPaymentType === 'Card' && (
+              <div className="flex justify-between text-lg text-amber-700">
+                <span>Service Charge ({(SERVICE_CHARGE_RATE * 100).toFixed(1)}%):</span>
+                <span>${getServiceCharge().toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-lg">
-              <span>Tax (8.25%):</span>
+              <span>Tax ({(TAX_RATE * 100).toFixed(2)}%):</span>
               <span>${getTax().toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-2xl font-bold text-amber-900 border-t pt-2">
@@ -384,25 +424,41 @@ function BobaCashier({ onBack }) {
             </div>
           </div>
 
+          {transactionMessage && (
+            <div className={`mt-4 p-3 rounded-lg text-center font-bold ${
+              transactionMessage.includes('Complete') 
+                ? 'bg-green-100 text-green-800' 
+                : 'bg-red-100 text-red-800'
+            }`}>
+              {transactionMessage}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2 mt-4">
             <button
-              onClick={() => completeTransaction('Cash')}
-              disabled={cart.length === 0}
-              className="bg-black text-white py-3 rounded-lg font-bold hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              onClick={handleCashPayment}
+              className={`py-3 rounded-lg font-bold transition-colors ${
+                selectedPaymentType === 'Cash'
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+              }`}
             >
               Cash
             </button>
             <button
-              onClick={() => completeTransaction('Card')}
-              disabled={cart.length === 0}
-              className="bg-black text-white py-3 rounded-lg font-bold hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              onClick={handleCardPayment}
+              className={`py-3 rounded-lg font-bold transition-colors ${
+                selectedPaymentType === 'Card'
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+              }`}
             >
               Card
             </button>
           </div>
 
           <button
-            onClick={() => completeTransaction('Card')}
+            onClick={completeTransaction}
             disabled={cart.length === 0}
             className="w-full bg-black text-white py-3 rounded-lg font-bold mt-2 hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >

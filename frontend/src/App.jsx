@@ -15,7 +15,7 @@ function App() {
   }
 
   if (currentPage === 'cashier') {
-    return <BobaCashier />;
+    return <BobaCashier onBack={() => setCurrentPage('home')} />;
   }
 
   return (
