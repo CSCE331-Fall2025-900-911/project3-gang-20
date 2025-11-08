@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import BobaKiosk from './BobaKiosk';
 import BobaManager from './BobaManager';
+import BobaCashier from './BobaCashier';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -11,6 +12,10 @@ function App() {
 
   if (currentPage === 'manager') {
     return <BobaManager />;
+  }
+
+  if (currentPage === 'cashier') {
+    return <BobaCashier />;
   }
 
   return (
@@ -49,6 +54,19 @@ function App() {
             </h2>
             <p className="text-lg text-amber-700">
               Manage menu, inventory & orders
+            </p>
+          </button>
+
+          <button
+            onClick={() => setCurrentPage('cashier')}
+            className="bg-white rounded-2xl p-12 shadow-2xl hover:scale-105 transition-transform duration-200 border-4 border-transparent hover:border-amber-500"
+          >
+            <div className="text-7xl mb-6">💳</div>
+            <h2 className="text-3xl font-bold text-amber-900 mb-4">
+              Cashier Dashboard
+            </h2>
+            <p className="text-lg text-amber-700">
+              Take orders for customers
             </p>
           </button>
         </div>
