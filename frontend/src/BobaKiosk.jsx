@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { ShoppingCart } from 'lucide-react';
 
-const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
-const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
+// const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
+// const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
+
+const API_URL = 'http://127.0.0.1:8000/api/menu-items/';
+const ADDONS_URL = 'http://127.0.0.1:8000/api/add-ons/';
+
 
 function BobaKiosk() {
   const [currentView, setCurrentView] = useState('welcome');
