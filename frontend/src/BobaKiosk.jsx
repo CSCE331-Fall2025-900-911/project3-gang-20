@@ -3,7 +3,8 @@ import { ShoppingCart } from 'lucide-react';
 
 const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
 const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
-
+const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
+const ORDER_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/order-items/';
 
 function BobaKiosk() {
   const [currentView, setCurrentView] = useState('welcome');
@@ -19,6 +20,7 @@ function BobaKiosk() {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -99,6 +101,86 @@ function BobaKiosk() {
 
   const getTotalPrice = () => {
     return cart.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0).toFixed(2);
+  };
+
+  const processPayment = async () => {
+    setProcessingPayment(true);
+    try {
+      // Step 1: Get the last order_id
+      const ordersResponse = await fetch(ORDERS_URL);
+      if (!ordersResponse.ok) throw new Error('Failed to fetch orders');
+      const orders = await ordersResponse.json();
+      
+      // Find the highest order_id
+      const lastOrderId = orders.length > 0 
+        ? Math.max(...orders.map(order => order.order_id))
+        : 0;
+      const newOrderId = lastOrderId + 1;
+
+      // Step 2: Get current date and time
+      const now = new Date();
+      const orderDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+      const orderTime = now.toTimeString().split(' ')[0]; // HH:MM:SS
+
+      // Step 3: Create the order
+      const orderData = {
+        order_id: newOrderId,
+        order_date: orderDate,
+        order_time: orderTime,
+        employee_id: 0, // Kiosk orders use employee_id 0
+        payment_type: 'Card'
+      };
+
+      const createOrderResponse = await fetch(ORDERS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData)
+      });
+
+      if (!createOrderResponse.ok) throw new Error('Failed to create order');
+
+      // Step 4: Group cart items by menu_item_id and sum quantities
+      const itemQuantities = {};
+      cart.forEach(item => {
+        if (itemQuantities[item.menu_item_id]) {
+          itemQuantities[item.menu_item_id] += 1;
+        } else {
+          itemQuantities[item.menu_item_id] = 1;
+        }
+      });
+
+      // Step 5: Create order_items entries
+      const orderItemsPromises = Object.entries(itemQuantities).map(([menuItemId, quantity]) => {
+        const orderItemData = {
+          order_id: newOrderId,
+          menu_item_id: parseInt(menuItemId),
+          quantity: quantity
+        };
+
+        return fetch(ORDER_ITEMS_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(orderItemData)
+        });
+      });
+
+      await Promise.all(orderItemsPromises);
+
+      // Step 6: Clear cart and show success
+      setCart([]);
+      alert(`Order #${newOrderId} placed successfully! Total: ${getTotalPrice()}`);
+      setCurrentView('welcome');
+      
+    } catch (err) {
+      console.error('Payment processing error:', err);
+      alert('Failed to process payment. Please try again.');
+    } finally {
+      setProcessingPayment(false);
+    }
   };
 
   const toggleTopping = (topping) => {
@@ -690,19 +772,20 @@ function BobaKiosk() {
                   Add More
                 </button>
                 <button
-                  onClick={() => alert('Payment processing would happen here!')}
+                  onClick={processPayment}
+                  disabled={processingPayment}
                   style={{
-                    backgroundColor: '#16a34a',
+                    backgroundColor: processingPayment ? '#9ca3af' : '#16a34a',
                     color: 'white',
                     fontSize: '20px',
                     fontWeight: 'bold',
                     padding: '16px 40px',
                     borderRadius: '12px',
                     border: 'none',
-                    cursor: 'pointer'
+                    cursor: processingPayment ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  Pay Now
+                  {processingPayment ? 'Processing...' : 'Pay Now'}
                 </button>
               </div>
             </>
