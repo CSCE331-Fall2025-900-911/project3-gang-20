@@ -119,7 +119,7 @@ function BobaManager() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this item?')) return;
+    if (!confirm('Are you sure you want to delete this item?')) return;
     try {
       // Handle cascading deletes/updates
       if (activeTab === 'employees') {
@@ -314,7 +314,6 @@ function BobaManager() {
           menuItems={menuItems}
           employees={employees}
           recipeItems={recipeItems}
-          tabData={data}
         />
       )}
 
@@ -616,7 +615,7 @@ function DataTable({ activeTab, data, onEdit, onDelete }) {
   );
 }
 
-function Modal({ activeTab, mode, item, onClose, onSave, ingredients, menuItems, employees, recipeItems, tabData }) {
+function Modal({ activeTab, mode, item, onClose, onSave, ingredients, menuItems, employees, recipeItems }) {
   const [formData, setFormData] = useState(item || {});
   const [selectedIngredients, setSelectedIngredients] = useState([]);
 
@@ -627,27 +626,24 @@ function Modal({ activeTab, mode, item, onClose, onSave, ingredients, menuItems,
         ingredient_id: r.ingredient,
         quantity: r.quantity
       })));
-      setFormData(item);
     } else if (activeTab === 'menu-items' && mode === 'add') {
       setSelectedIngredients([]);
-      const maxId = menuItems.length > 0
-        ? Math.max(...menuItems.map(m => m.menu_item_id))
+      const maxId = menuItems.length > 0 
+        ? Math.max(...menuItems.map(m => m.menu_item_id)) 
         : 0;
-      setFormData(prev => ({ ...prev, menu_item_id: maxId + 1 }));
+      setFormData({ ...formData, menu_item_id: maxId + 1 });
     } else if (activeTab === 'add-ons' && mode === 'add') {
-      const maxId = tabData && tabData.length > 0
-        ? Math.max(...tabData.map(a => a.id || 0))
-        : 0;
-      setFormData(prev => ({ ...prev, id: maxId + 1 }));
+      const maxId = Math.max(...data.map(a => a.id || 0), 0);
+      setFormData({ ...formData, id: maxId + 1 });
     } else if (activeTab === 'employees' && mode === 'add') {
       const maxId = employees.length > 0
         ? Math.max(...employees.map(e => e.employee_id))
         : 0;
-      setFormData(prev => ({ ...prev, employee_id: maxId + 1 }));
+      setFormData({ ...formData, employee_id: maxId + 1 });
     } else if (activeTab === 'ingredients' && mode === 'add') {
-      setFormData(prev => ({ ...prev, ingredient_id: '', ingredient_name: '' }));
+      setFormData({ ...formData, ingredient_id: '', ingredient_name: '' });
     }
-  }, [item, mode, activeTab, menuItems, recipeItems, employees, tabData]);
+  }, [item, mode, activeTab, menuItems, recipeItems, employees, data]);
 
   const getFields = () => {
     const fields = {
@@ -738,7 +734,7 @@ function Modal({ activeTab, mode, item, onClose, onSave, ingredients, menuItems,
         }
       }
     } else {
-      await onSave(formData);
+      onSave(formData);
     }
   };
 
@@ -911,14 +907,14 @@ function ReportModal({ type, onClose, zReportLastRunDate, setZReportLastRunDate 
         if (today === zReportLastRunDate) {
           alert('Z-Report has already been run for today.');
         } else {
-          if (window.confirm('Run End-of-Day Z-Report? This should only be done once per day.')) {
+          if (confirm('Run End-of-Day Z-Report? This should only be done once per day.')) {
             setZReportLastRunDate(today);
             alert('Z-Report generated for ' + today);
           }
         }
       } else if (type === 'void-order') {
         if (orderId) {
-          if (window.confirm(`Are you sure you want to void order #${orderId}?`)) {
+          if (confirm(`Are you sure you want to void order #${orderId}?`)) {
             alert('Order voided: ' + orderId);
           }
         }
