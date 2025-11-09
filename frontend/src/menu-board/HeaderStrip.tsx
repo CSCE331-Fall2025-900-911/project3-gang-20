@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import type { MenuCategory } from './types';
-import { theme } from './theme';
 
 interface HeaderStripProps {
   categories: MenuCategory[];
@@ -14,31 +13,24 @@ export function HeaderStrip({ categories, showClock = true, showWeather = false,
 
   return (
     <header className="menu-board-header">
-      <div className="menu-board-brand">
-        <div className="menu-board-logo">🧋</div>
-        <div>
-          <p>Monkey Business Tea House</p>
-          <h1>Signature Menu Boards</h1>
-          {chips.length ? (
-            <div className="menu-board-header__chips">
-              {chips.map((chip) => (
-                <span key={chip}>{chip}</span>
-              ))}
-            </div>
-          ) : null}
-        </div>
+      <div className="menu-board-header__chips">
+        {chips.map((chip) => (
+          <span key={chip}>{chip}</span>
+        ))}
       </div>
 
       {showClock ? (
         <div className="menu-board-clock">
-          <time>{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
-          <span>
+          <span className="menu-board-clock__date">
             {currentTime.toLocaleDateString(undefined, {
               weekday: 'long',
               month: 'long',
               day: 'numeric',
             })}
           </span>
+          <time className="menu-board-clock__time">
+            {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </time>
         </div>
       ) : null}
     </header>

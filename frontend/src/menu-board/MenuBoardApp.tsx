@@ -1,56 +1,37 @@
 import './menu-board.css';
-import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CategorySection } from './CategorySection';
 import { HeaderStrip } from './HeaderStrip';
-import { buildSegments } from './layout';
 import { useMenuData, FALLBACK_DATA } from './useMenuData';
-import type { MenuBoardAppProps, MenuCategory } from './types';
+import type { MenuBoardAppProps, MenuCategory, MenuItem } from './types';
 
-const SEGMENT_SIZE = 15;
-const MAX_COLUMNS = 3;
-const COLUMN_CYCLE_MS = 5_000;
-const PROMO_DURATION_MS = 7_000;
+const MAX_ITEMS_PER_PANEL = 13;
+const STATIC_PANEL_COUNT = 8;
 
-function SkeletonColumn() {
-  return (
-    <section className="menu-board-column skeleton-shimmer">
-      <header className="menu-board-column__header">
-        <div>
-          <div className="skeleton-block" style={{ width: '160px', height: '24px' }} />
-          <div className="skeleton-block" style={{ width: '120px', height: '12px', marginTop: '6px' }} />
-        </div>
-        <div className="skeleton-block" style={{ width: '60px', height: '12px' }} />
-      </header>
-      <ul className="menu-board-column__list">
-        {Array.from({ length: 6 }).map((_, idx) => (
-          <li key={idx} className="menu-board-item">
-            <div>
-              <div className="skeleton-block" style={{ width: '200px', height: '20px' }} />
-              <div className="skeleton-block" style={{ width: '160px', height: '14px', marginTop: '6px' }} />
-            </div>
-            <div className="menu-board-column__price">
-              <div className="skeleton-block" style={{ width: '50px', height: '18px' }} />
-            </div>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
+const TOPPINGS_PANEL: MenuCategory = {
+  name: 'Toppings',
+  items: [
+    { id: 't1', name: 'Classic Boba', prices: { regular: 0.75 } },
+    { id: 't2', name: 'Mini Boba', prices: { regular: 0.75 } },
+    { id: 't3', name: 'Crystal Boba', prices: { regular: 0.75 } },
+    { id: 't4', name: 'Lychee Jelly', prices: { regular: 0.75 } },
+    { id: 't5', name: 'Rainbow Jelly', prices: { regular: 0.75 } },
+    { id: 't6', name: 'Grass Jelly', prices: { regular: 0.75 } },
+    { id: 't7', name: 'Herbal Jelly', prices: { regular: 0.75 } },
+    { id: 't8', name: 'Egg Pudding', prices: { regular: 0.75 } },
+    { id: 't9', name: 'Cheese Foam', prices: { regular: 0.95 } },
+    { id: 't10', name: 'Sea Salt Cream', prices: { regular: 0.95 } },
+    { id: 't11', name: 'Whipped Cream', prices: { regular: 0.75 } },
+    { id: 't12', name: 'Red Bean', prices: { regular: 0.75 } },
+    { id: 't13', name: 'Chia Seeds', prices: { regular: 0.5 } },
+  ],
+};
 
-function SkeletonBoard() {
-  return (
-    <div className="menu-board-panels count-3">
-      <SkeletonColumn />
-      <SkeletonColumn />
-      <SkeletonColumn />
-    </div>
-  );
+function trimItems(items: MenuItem[]): MenuItem[] {
+  return items.slice(0, MAX_ITEMS_PER_PANEL);
 }
 
 export default function MenuBoardApp({
-  pageDurationMs = COLUMN_CYCLE_MS,
   pollMs,
   showClock = true,
   showWeather = false,
@@ -60,18 +41,30 @@ export default function MenuBoardApp({
   const categories = data.categories.length ? data.categories : FALLBACK_DATA.categories;
   const promos = data.promos.length ? data.promos : FALLBACK_DATA.promos;
 
-  const segments = useMemo(() => buildSegments(categories, SEGMENT_SIZE), [categories]);
-  const columnCount = segments.length ? Math.min(MAX_COLUMNS, segments.length) : segments.length;
+  const panels = useMemo(() => {
+    const base = categories.map((category) => ({
+      ...category,
+      items: trimItems(category.items),
+    }));
+
+    const filled: MenuCategory[] = [];
+    let index = 0;
+
+    while (filled.length < 7) {
+      const source = base[index] ?? FALLBACK_DATA.categories[index % FALLBACK_DATA.categories.length];
+      filled.push({
+        ...source,
+        items: trimItems(source.items),
+      });
+      index += 1;
+    }
+
+    filled.push(TOPPINGS_PANEL);
+    return filled.slice(0, STATIC_PANEL_COUNT);
+  }, [categories]);
 
   const [now, setNow] = useState(() => new Date());
   const [promoIndex, setPromoIndex] = useState(0);
-  const [columns, setColumns] = useState<MenuCategory[]>([]);
-  const [animatedColumn, setAnimatedColumn] = useState<number | null>(null);
-
-  const slotIndexRef = useRef(0);
-  const nextIndexRef = useRef(0);
-  const currentIndicesRef = useRef<number[]>([]);
-const prevSegmentsKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1_000);
@@ -80,107 +73,26 @@ const prevSegmentsKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!promos.length) return undefined;
-    const ticker = setInterval(() => {
-      setPromoIndex((prev) => (prev + 1) % promos.length);
-    }, PROMO_DURATION_MS);
+    const ticker = setInterval(() => setPromoIndex((prev) => (prev + 1) % promos.length), 7_000);
     return () => clearInterval(ticker);
   }, [promos.length]);
-
-const segmentsKey = useMemo(
-  () => segments.map((segment) => `${segment.name}-${segment.partIndex ?? 0}`).join('|'),
-  [segments]
-);
-
-  useEffect(() => {
-    if (!segments.length) {
-      setColumns([]);
-      currentIndicesRef.current = [];
-      slotIndexRef.current = 0;
-      nextIndexRef.current = 0;
-    prevSegmentsKeyRef.current = null;
-      return;
-    }
-
-  if (prevSegmentsKeyRef.current === segmentsKey && columns.length) {
-    return;
-  }
-
-  prevSegmentsKeyRef.current = segmentsKey;
-
-    const visibleCount = columnCount || 1;
-    const initialIndices = Array.from({ length: visibleCount }, (_, idx) => idx % segments.length);
-
-    setColumns(initialIndices.map((index) => segments[index]));
-    currentIndicesRef.current = initialIndices;
-    slotIndexRef.current = 0;
-    nextIndexRef.current = segments.length > visibleCount ? visibleCount % segments.length : 0;
-}, [segments, columnCount, segmentsKey, columns.length]);
-
-  useEffect(() => {
-    if (!segments.length || !columnCount) return undefined;
-
-    const interval = setInterval(() => {
-      const visible = columnCount || 1;
-      if (!visible) return;
-
-      const current = currentIndicesRef.current;
-      if (!current.length) return;
-
-      const slot = slotIndexRef.current % visible;
-      const nextIdx = nextIndexRef.current % segments.length;
-
-      if (segments.length <= visible && current[slot] === nextIdx) {
-        slotIndexRef.current = (slot + 1) % visible;
-        nextIndexRef.current = (nextIdx + 1) % segments.length;
-        return;
-      }
-
-      const updated = [...current];
-      updated[slot] = nextIdx;
-      currentIndicesRef.current = updated;
-      setColumns(updated.map((index) => segments[index]));
-      setAnimatedColumn(slot);
-      slotIndexRef.current = (slot + 1) % visible;
-      nextIndexRef.current = (nextIdx + 1) % segments.length;
-    }, pageDurationMs);
-
-    return () => clearInterval(interval);
-  }, [segments, columnCount, pageDurationMs]);
-
-  useEffect(() => {
-    if (animatedColumn === null) return undefined;
-    const timeout = setTimeout(() => setAnimatedColumn(null), 320);
-    return () => clearTimeout(timeout);
-  }, [animatedColumn]);
 
   return (
     <div className="menu-board-root">
       <div className="menu-board-frame">
-        <HeaderStrip categories={categories} showClock={showClock} showWeather={showWeather} currentTime={now} />
+        <HeaderStrip categories={panels} showClock={showClock} showWeather={showWeather} currentTime={now} />
 
         {error ? <div className="menu-board-alert">{error}</div> : null}
 
         <div className="menu-board-body">
-          {isLoading && !columns.length ? (
-            <SkeletonBoard />
-          ) : columns.length ? (
-            <div className={`menu-board-panels count-${columns.length || 1}`}>
-              {columns.map((category, idx) => (
-                <AnimatePresence key={`slot-${idx}`} initial={false} mode="wait">
-                  <motion.div
-                    key={`${category.uid ?? category.name}-${category.partIndex ?? 0}`}
-                    initial={animatedColumn === idx ? { x: 30, opacity: 0 } : { x: 0, opacity: 1 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.28, ease: [0.33, 1, 0.68, 1] }}
-                  >
-                    <CategorySection category={category} />
-                  </motion.div>
-                </AnimatePresence>
+          {isLoading ? (
+            <div className="menu-board-loading">Loading menu…</div>
+          ) : (
+            <div className="menu-board-panels static-grid">
+              {panels.map((category) => (
+                <CategorySection key={category.name} category={{ ...category, items: trimItems(category.items) }} />
               ))}
             </div>
-          ) : (
-            <SkeletonBoard />
           )}
         </div>
 
