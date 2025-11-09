@@ -6,7 +6,92 @@ import { useMenuData, FALLBACK_DATA } from './useMenuData';
 import type { MenuBoardAppProps, MenuCategory, MenuItem } from './types';
 
 const MAX_ITEMS_PER_PANEL = 13;
-const STATIC_PANEL_COUNT = 8;
+const DISPLAY_ORDER = [
+  'Freshbrew',
+  'Fruity',
+  'Ice-Blended',
+  'Matcha',
+  'Milky',
+  'Non-Caffeinated',
+  'Seasonal',
+];
+
+const NAME_SYNONYMS: Record<string, string[]> = {
+  Freshbrew: ['freshbrew', 'freshbrewed', 'freshbrewcoffee', 'coffee'],
+  Fruity: ['fruity', 'fruittea'],
+  'Ice-Blended': ['iceblended', 'iceblend', 'blended', 'iceblendedsmoothie'],
+  Matcha: ['matcha'],
+  Milky: ['milky', 'milktea', 'signaturemilktea'],
+  'Non-Caffeinated': ['noncaffeinated', 'noncaffeniated', 'herbal', 'kids'],
+  Seasonal: ['seasonal', 'limited', 'specials'],
+};
+
+const PLACEHOLDER_CATEGORIES: Record<string, MenuCategory> = {
+  Freshbrew: {
+    name: 'Freshbrew',
+    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
+      id: `fresh-${idx}`,
+      name: `Single-Origin Brew #${idx + 1}`,
+      desc: idx % 2 === 0 ? 'Slow-dripped over ice' : 'Pour-over, served hot',
+      prices: { regular: 4.95 + idx * 0.1 },
+    })),
+  },
+  Fruity: {
+    name: 'Fruity',
+    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
+      id: `fruit-${idx}`,
+      name: `Fruit Tea ${idx + 1}`,
+      desc: idx % 2 === 0 ? 'Refreshing tea with real fruit' : 'Sparkling fruit infusion',
+      prices: { regular: 5.75 + idx * 0.1 },
+    })),
+  },
+  'Ice-Blended': {
+    name: 'Ice-Blended',
+    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
+      id: `blend-${idx}`,
+      name: `Ice-Blended Treat ${idx + 1}`,
+      desc: idx % 2 === 0 ? 'Creamy blended drink' : 'Frosty smoothie',
+      prices: { regular: 6.25 + idx * 0.1 },
+    })),
+  },
+  Matcha: {
+    name: 'Matcha',
+    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
+      id: `matcha-${idx}`,
+      name: `Matcha Creation ${idx + 1}`,
+      desc: idx % 2 === 0 ? 'Ceremonial grade matcha' : 'Matcha with house cream',
+      prices: { regular: 6.45 + idx * 0.12 },
+    })),
+  },
+  Milky: {
+    name: 'Milky',
+    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
+      id: `milky-${idx}`,
+      name: `Milky Favorite ${idx + 1}`,
+      desc: idx % 2 === 0 ? 'Traditional milk tea' : 'Creamy latte style',
+      prices: { regular: 5.95 + idx * 0.1 },
+    })),
+  },
+  'Non-Caffeinated': {
+    name: 'Non-Caffeinated',
+    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
+      id: `noncaf-${idx}`,
+      name: `Caffeine-Free Sip ${idx + 1}`,
+      desc: idx % 2 === 0 ? 'Herbal infusion' : 'Kid-friendly smoothie',
+      prices: { regular: 5.45 + idx * 0.1 },
+    })),
+  },
+  Seasonal: {
+    name: 'Seasonal',
+    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
+      id: `seasonal-${idx}`,
+      name: `Seasonal Feature ${idx + 1}`,
+      desc: idx % 2 === 0 ? 'Limited batch flavor' : 'Chef-curated special',
+      prices: { regular: 6.75 + idx * 0.15 },
+      badges: idx % 3 === 0 ? ['Limited'] : undefined,
+    })),
+  },
+};
 
 const TOPPINGS_PANEL: MenuCategory = {
   name: 'Toppings',
@@ -31,6 +116,10 @@ function trimItems(items: MenuItem[]): MenuItem[] {
   return items.slice(0, MAX_ITEMS_PER_PANEL);
 }
 
+function normaliseName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z]/g, '');
+}
+
 export default function MenuBoardApp({
   pollMs,
   showClock = true,
@@ -42,25 +131,28 @@ export default function MenuBoardApp({
   const promos = data.promos.length ? data.promos : FALLBACK_DATA.promos;
 
   const panels = useMemo(() => {
-    const base = categories.map((category) => ({
-      ...category,
-      items: trimItems(category.items),
-    }));
+    const categoryMap = new Map<string, MenuCategory>();
 
-    const filled: MenuCategory[] = [];
-    let index = 0;
+    categories.forEach((category) => {
+      const trimmed = {
+        ...category,
+        items: trimItems(category.items),
+      };
+      categoryMap.set(normaliseName(category.name), trimmed);
+    });
 
-    while (filled.length < 7) {
-      const source = base[index] ?? FALLBACK_DATA.categories[index % FALLBACK_DATA.categories.length];
-      filled.push({
-        ...source,
-        items: trimItems(source.items),
-      });
-      index += 1;
-    }
+    const resolved: MenuCategory[] = DISPLAY_ORDER.map((displayName) => {
+      const variants = NAME_SYNONYMS[displayName] || [displayName.toLowerCase()];
+      let match: MenuCategory | undefined;
+      for (const variant of variants) {
+        match = categoryMap.get(normaliseName(variant));
+        if (match) break;
+      }
+      return match ?? PLACEHOLDER_CATEGORIES[displayName];
+    });
 
-    filled.push(TOPPINGS_PANEL);
-    return filled.slice(0, STATIC_PANEL_COUNT);
+    resolved.push(TOPPINGS_PANEL);
+    return resolved;
   }, [categories]);
 
   const [now, setNow] = useState(() => new Date());
