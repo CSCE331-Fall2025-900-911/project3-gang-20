@@ -24,6 +24,8 @@ function BobaCashier({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [orderNumber, setOrderNumber] = useState(0);
   const [transactionMessage, setTransactionMessage] = useState('');
+  const [temperature, setTemperature] = useState(null);
+  const [description, setDescription] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -274,6 +276,32 @@ function BobaCashier({ onBack }) {
     }
   };
 
+   useEffect(() => {
+    fetch( 
+      "https://api.openweathermap.org/data/2.5/weather?lat=30.621703&lon=-96.340494&appid=" + import.meta.env.VITE_WEATHER_API + "&units=imperial"
+    )
+      .then((response) => response.json())
+      .then((data) => {
+        setTemperature(data.main.temp);
+        setDescription(data.weather[0].description);
+      })
+      .catch((error) => console.error("Error:", error));
+  }, []);
+
+  const getWeatherEmoji = (desc) => {
+    if (desc === "clear sky") return "☀️";
+    if (desc === "few clouds") return "⛅";
+    if (desc === "scattered clouds") return "🌥️";
+    if (desc === "broken clouds") return "☁️";
+    if (desc === "shower rain") return "🌦️";
+    if (desc === "rain") return "🌧️";
+    if (desc === "thunderstorm") return "⛈️";
+    if (desc === "snow") return "❄️";
+    return ""
+  };
+
+  const weatherEmoji = getWeatherEmoji(description);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-200 flex items-center justify-center">
@@ -287,14 +315,24 @@ function BobaCashier({ onBack }) {
       {/* Header */}
       <div className="bg-white rounded-lg shadow-lg p-4 mb-4 flex justify-between items-center">
         <h1 className="text-3xl font-bold text-amber-900">Cashier</h1>
-        <button 
-          onClick={handleLogout}
-          className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700"
-        >
-          <LogOut size={20} />
-          Logout
-        </button>
+
+        <div className="flex items-center gap-6">
+          {/* Weather placeholder */}
+          <div className="flex items-center gap-2 text-lg font-semibold text-amber-800">
+            <span>{temperature}°F</span>
+            <span>{weatherEmoji}</span>
+          </div>
+
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700"
+          >
+            <LogOut size={20} />
+            Logout
+          </button>
+        </div>
       </div>
+
 
       <div className="grid grid-cols-12 gap-4 h-[calc(100vh-120px)]">
         {/* Categories Sidebar */}
