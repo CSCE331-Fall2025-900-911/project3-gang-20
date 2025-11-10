@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, LogOut } from 'lucide-react';
 
 const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
 const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
@@ -8,7 +8,7 @@ const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
 // const ADDONS_URL = 'http://127.0.0.1:8000/api/add-ons/';
 
 
-function BobaKiosk() {
+function BobaKiosk({ onBack }) {
   const [currentView, setCurrentView] = useState('welcome');
   const [menuItems, setMenuItems] = useState([]);
   const [addOns, setAddOns] = useState([]);
@@ -200,6 +200,43 @@ function BobaKiosk() {
     }
   };
 
+  const handleLogout = () => {
+    if (onBack) {
+      onBack();
+    }
+  };
+
+  const LogoutButton = () => {
+    if (currentView === 'welcome') return null;
+    
+    return (
+      <button
+        onClick={handleLogout}
+        style={{
+          position: 'fixed',
+          top: '20px',
+          left: '20px',
+          backgroundColor: '#dc2626',
+          color: 'white',
+          borderRadius: '8px',
+          padding: '12px 20px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          zIndex: 50,
+          fontSize: '16px',
+          fontWeight: 'bold'
+        }}
+      >
+        <LogOut size={20} />
+        Logout
+      </button>
+    );
+  };
+
   const CartButton = () => {
     if (currentView === 'welcome' || currentView === 'checkout') return null;
     
@@ -294,6 +331,7 @@ function BobaKiosk() {
         alignItems: 'center',
         justifyContent: 'center'
       }}>
+        <LogoutButton />
         <CartButton />
         <div style={{ maxWidth: '1280px', width: '100%' }}>
           <h2 style={{ fontSize: '48px', fontWeight: 'bold', color: '#78350f', textAlign: 'center', marginBottom: '48px' }}>
@@ -365,6 +403,7 @@ function BobaKiosk() {
         background: 'linear-gradient(to bottom right, #fffbeb, #fed7aa)',
         padding: '32px'
       }}>
+        <LogoutButton />
         <CartButton />
         <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
           <button
@@ -461,6 +500,7 @@ function BobaKiosk() {
         padding: '32px',
         overflowY: 'auto'
       }}>
+        <LogoutButton />
         <CartButton />
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
           <button
@@ -659,6 +699,7 @@ function BobaKiosk() {
         alignItems: 'center',
         justifyContent: 'center'
       }}>
+        <LogoutButton />
         <div style={{ maxWidth: '800px', width: '100%' }}>
           <h2 style={{ fontSize: '48px', fontWeight: 'bold', color: '#78350f', textAlign: 'center', marginBottom: '48px' }}>
             Checkout

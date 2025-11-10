@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Plus, Edit2, Trash2, X, Check, Search, FileText, Calendar, TrendingUp, Package, Users, ArrowUp, ArrowDown
+  Plus, Edit2, Trash2, X, Check, Search, FileText, Calendar, TrendingUp, Package, Users, ArrowUp, ArrowDown, LogOut
 } from 'lucide-react';
 
 const API_BASE = 'https://project3-gang-20.onrender.com/api';
@@ -129,7 +129,7 @@ function InlineFormCard({ isOpen, onClose, children, title, icon: Icon }) {
 
 
 // ===== MAIN COMPONENT =====
-function BobaManager() {
+function BobaManager({ onBack }) {
   const [activeTab, setActiveTab] = useState('menu-items');
   const [data, setData] = useState([]);
   const [ingredients, setIngredients] = useState([]);
@@ -409,8 +409,15 @@ function BobaManager() {
       {/* Header - Removed max-w-7xl */}
       <div className="bg-gradient-to-r from-amber-900 via-amber-800 to-orange-900 text-white p-8 shadow-2xl border-b-4 border-amber-950">
         {/* Added px-8 to align with content padding */}
-        <div className="px-8">
+        <div className="px-8 flex justify-between items-center">
           <h1 className="text-4xl font-bold">Manager Dashboard</h1>
+          <button 
+            onClick={() => onBack && onBack()}
+            className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700"
+          >
+            <LogOut size={20} />
+            Logout
+          </button>
         </div>
       </div>
 

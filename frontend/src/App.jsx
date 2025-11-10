@@ -8,15 +8,15 @@ function App() {
   const [currentPage, setCurrentPage] = useState('home');
 
   if (currentPage === 'kiosk') {
-    return <BobaKiosk />;
+    return <BobaKiosk onBack={() => setCurrentPage('home')} />;
   }
 
   if (currentPage === 'manager') {
-    return <BobaManager />;
+    return <BobaManager onBack={() => setCurrentPage('home')} />;
   }
 
   if (currentPage === 'cashier') {
-    return <BobaCashier />;
+    return <BobaCashier onBack={() => setCurrentPage('home')} />;
   }
 
   if (currentPage === 'menu-board') {
