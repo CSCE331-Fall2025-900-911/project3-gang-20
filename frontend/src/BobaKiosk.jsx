@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { ShoppingCart, LogOut } from 'lucide-react';
 
-const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
+const MENU_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
 const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
+const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
+const ORDER_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/order-items/';
 
-// const API_URL = 'http://127.0.0.1:8000/api/menu-items/';
+// const MENU_ITEMS_URL = 'http://127.0.0.1:8000/api/menu-items/';
 // const ADDONS_URL = 'http://127.0.0.1:8000/api/add-ons/';
 
 
@@ -29,7 +31,7 @@ function BobaKiosk({ onBack }) {
       try {
         setLoading(true);
         const [menuResponse, addOnsResponse] = await Promise.all([
-          fetch(API_URL),
+          fetch(MENU_ITEMS_URL),
           fetch(ADDONS_URL)
         ]);
         
