@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, LogOut } from 'lucide-react';
 
-const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
+const MENU_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
 const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
+const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
+const ORDER_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/order-items/';
+
+// const MENU_ITEMS_URL = 'http://127.0.0.1:8000/api/menu-items/';
+// const ADDONS_URL = 'http://127.0.0.1:8000/api/add-ons/';
 
 
-function BobaKiosk() {
+function BobaKiosk({ onBack }) {
   const [currentView, setCurrentView] = useState('welcome');
   const [menuItems, setMenuItems] = useState([]);
   const [addOns, setAddOns] = useState([]);
@@ -19,13 +24,14 @@ function BobaKiosk() {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         const [menuResponse, addOnsResponse] = await Promise.all([
-          fetch(API_URL),
+          fetch(MENU_ITEMS_URL),
           fetch(ADDONS_URL)
         ]);
         
@@ -101,6 +107,86 @@ function BobaKiosk() {
     return cart.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0).toFixed(2);
   };
 
+  const processPayment = async () => {
+    setProcessingPayment(true);
+    try {
+      // Step 1: Get the last order_id
+      const ordersResponse = await fetch(ORDERS_URL);
+      if (!ordersResponse.ok) throw new Error('Failed to fetch orders');
+      const orders = await ordersResponse.json();
+      
+      // Find the highest order_id
+      const lastOrderId = orders.length > 0 
+        ? Math.max(...orders.map(order => order.order_id))
+        : 0;
+      const newOrderId = lastOrderId + 1;
+
+      // Step 2: Get current date and time
+      const now = new Date();
+      const orderDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+      const orderTime = now.toTimeString().split(' ')[0]; // HH:MM:SS
+
+      // Step 3: Create the order
+      const orderData = {
+        order_id: newOrderId,
+        order_date: orderDate,
+        order_time: orderTime,
+        employee_id: 0, // Kiosk orders use employee_id 0
+        payment_type: 'Card'
+      };
+
+      const createOrderResponse = await fetch(ORDERS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData)
+      });
+
+      if (!createOrderResponse.ok) throw new Error('Failed to create order');
+
+      // Step 4: Group cart items by menu_item_id and sum quantities
+      const itemQuantities = {};
+      cart.forEach(item => {
+        if (itemQuantities[item.menu_item_id]) {
+          itemQuantities[item.menu_item_id] += 1;
+        } else {
+          itemQuantities[item.menu_item_id] = 1;
+        }
+      });
+
+      // Step 5: Create order_items entries
+      const orderItemsPromises = Object.entries(itemQuantities).map(([menuItemId, quantity]) => {
+        const orderItemData = {
+          order_id: newOrderId,
+          menu_item_id: parseInt(menuItemId),
+          quantity: quantity
+        };
+
+        return fetch(ORDER_ITEMS_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(orderItemData)
+        });
+      });
+
+      await Promise.all(orderItemsPromises);
+
+      // Step 6: Clear cart and show success
+      setCart([]);
+      alert(`Order #${newOrderId} placed successfully! Total: ${getTotalPrice()}`);
+      setCurrentView('welcome');
+      
+    } catch (err) {
+      console.error('Payment processing error:', err);
+      alert('Failed to process payment. Please try again.');
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
   const toggleTopping = (topping) => {
     const isSelected = selectedAddOns.toppings.some(t => t.id === topping.id);
     if (isSelected) {
@@ -114,6 +200,43 @@ function BobaKiosk() {
         toppings: [...selectedAddOns.toppings, topping]
       });
     }
+  };
+
+  const handleLogout = () => {
+    if (onBack) {
+      onBack();
+    }
+  };
+
+  const LogoutButton = () => {
+    if (currentView === 'welcome') return null;
+    
+    return (
+      <button
+        onClick={handleLogout}
+        style={{
+          position: 'fixed',
+          top: '20px',
+          left: '20px',
+          backgroundColor: '#dc2626',
+          color: 'white',
+          borderRadius: '8px',
+          padding: '12px 20px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          zIndex: 50,
+          fontSize: '16px',
+          fontWeight: 'bold'
+        }}
+      >
+        <LogOut size={20} />
+        Logout
+      </button>
+    );
   };
 
   const CartButton = () => {
@@ -210,6 +333,7 @@ function BobaKiosk() {
         alignItems: 'center',
         justifyContent: 'center'
       }}>
+        <LogoutButton />
         <CartButton />
         <div style={{ maxWidth: '1280px', width: '100%' }}>
           <h2 style={{ fontSize: '48px', fontWeight: 'bold', color: '#78350f', textAlign: 'center', marginBottom: '48px' }}>
@@ -281,6 +405,7 @@ function BobaKiosk() {
         background: 'linear-gradient(to bottom right, #fffbeb, #fed7aa)',
         padding: '32px'
       }}>
+        <LogoutButton />
         <CartButton />
         <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
           <button
@@ -377,6 +502,7 @@ function BobaKiosk() {
         padding: '32px',
         overflowY: 'auto'
       }}>
+        <LogoutButton />
         <CartButton />
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
           <button
@@ -575,6 +701,7 @@ function BobaKiosk() {
         alignItems: 'center',
         justifyContent: 'center'
       }}>
+        <LogoutButton />
         <div style={{ maxWidth: '800px', width: '100%' }}>
           <h2 style={{ fontSize: '48px', fontWeight: 'bold', color: '#78350f', textAlign: 'center', marginBottom: '48px' }}>
             Checkout
@@ -690,19 +817,20 @@ function BobaKiosk() {
                   Add More
                 </button>
                 <button
-                  onClick={() => alert('Payment processing would happen here!')}
+                  onClick={processPayment}
+                  disabled={processingPayment}
                   style={{
-                    backgroundColor: '#16a34a',
+                    backgroundColor: processingPayment ? '#9ca3af' : '#16a34a',
                     color: 'white',
                     fontSize: '20px',
                     fontWeight: 'bold',
                     padding: '16px 40px',
                     borderRadius: '12px',
                     border: 'none',
-                    cursor: 'pointer'
+                    cursor: processingPayment ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  Pay Now
+                  {processingPayment ? 'Processing...' : 'Pay Now'}
                 </button>
               </div>
             </>
