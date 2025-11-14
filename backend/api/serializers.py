@@ -7,22 +7,25 @@ class IngredientsSerializer(serializers.ModelSerializer):
         model = Ingredients
         fields = '__all__'
 
+# Recipe ingredient requirements
 class RecipeItemsSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecipeItems
         fields = '__all__'
 
+# Customization options (ice, sweetness, toppings)
 class AddOnsSerializer(serializers.ModelSerializer):
     class Meta:
         model = AddOns
         fields = '__all__'
 
-# --- ADD THIS NEW SERIALIZER ---
+# Menu item data
 class MenuItemsSerializer(serializers.ModelSerializer):
     class Meta:
         model = MenuItems
         fields = '__all__'
 
+# Order records
 class OrdersSerializer(serializers.ModelSerializer):
     class Meta:
         model = Orders

@@ -16,11 +16,12 @@ class ApiMessage(models.Model):
 # These tables already exist, so we set 'managed = False'
 # to tell Django not to try and change them with 'migrate'.
 
+# Inventory tracking for ingredients used in drinks
 class Ingredients(models.Model):
     ingredient_id = models.CharField(primary_key=True, max_length=50)
     ingredient_name = models.CharField(max_length=100, blank=True, null=True)
     stock_level = models.DecimalField(max_digits=10, decimal_places=2)
-    unit = models.CharField(max_length=20, blank=True, null=True)
+    unit = models.CharField(max_length=20, blank=True, null=True)  # ex. "oz", "lb", "count"
     low_stock_threshold = models.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
@@ -31,10 +32,11 @@ class Ingredients(models.Model):
         return self.ingredient_name
 
 
+# Customization options: ice levels, sweetness, toppings
 class AddOns(models.Model):
     id = models.IntegerField(primary_key=True)
-    category = models.CharField(max_length=50, blank=True, null=True)
-    name = models.CharField(max_length=100, blank=True, null=True)
+    category = models.CharField(max_length=50, blank=True, null=True)  # ex. "Ice Level", "Toppings"
+    name = models.CharField(max_length=100, blank=True, null=True)  # ex. "50% Ice", "Boba"
     price = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     
     # I've converted this from a CharField to a proper ForeignKey
@@ -56,11 +58,12 @@ class AddOns(models.Model):
         return self.name
 
 
+# Employee records for cashiers and managers
 class Employees(models.Model):
     employee_id = models.IntegerField(primary_key=True)
     first_name = models.CharField(max_length=50, blank=True, null=True)
     last_name = models.CharField(max_length=50, blank=True, null=True)
-    position = models.CharField(max_length=50, blank=True, null=True)
+    position = models.CharField(max_length=50, blank=True, null=True)  # ex. "Cashier", "Manager"
     hire_date = models.DateField(blank=True, null=True)
 
     class Meta:
@@ -71,11 +74,12 @@ class Employees(models.Model):
         return f"{self.first_name} {self.last_name}"
 
 
+# Drink menu items available for ordering
 class MenuItems(models.Model):
     menu_item_id = models.IntegerField(primary_key=True)
-    category = models.CharField(max_length=50, blank=True, null=True)
-    name = models.CharField(max_length=100, blank=True, null=True)
-    price = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    category = models.CharField(max_length=50, blank=True, null=True)  # ex. "Milky", "Fruity"
+    name = models.CharField(max_length=100, blank=True, null=True)  # ex. "Brown Sugar Milk Tea"
+    price = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)  # Base price
 
     class Meta:
         managed = False
@@ -85,25 +89,27 @@ class MenuItems(models.Model):
         return self.name
 
 
+# Customer order records with payment info
 class Orders(models.Model):
     order_id = models.IntegerField(primary_key=True)
     order_date = models.DateField(blank=True, null=True)
     order_time = models.TimeField(blank=True, null=True)
     employee = models.ForeignKey(Employees, on_delete=models.DO_NOTHING, blank=True, null=True)
-    payment_type = models.TextField(blank=True, null=True)  # This field type is a guess.
+    payment_type = models.TextField(blank=True, null=True)  # "Cash" or "Card"
 
     class Meta:
         managed = False
         db_table = 'orders'
 
 
+# Line items for each order - links orders to menu items
 class OrderItems(models.Model):
     # inspectdb noted that your composite key (order_id, menu_item_id)
     # is not supported. It made 'order' the primary key as a workaround.
     # This is the standard Django way to handle this.
     order = models.OneToOneField(Orders, on_delete=models.DO_NOTHING, primary_key=True)
     menu_item = models.ForeignKey(MenuItems, on_delete=models.DO_NOTHING)
-    quantity = models.IntegerField(blank=True, null=True)
+    quantity = models.IntegerField(blank=True, null=True)  # Number of this item ordered
 
     class Meta:
         managed = False
@@ -111,11 +117,12 @@ class OrderItems(models.Model):
         unique_together = (('order', 'menu_item'),)
 
 
+# Recipe definitions - ingredients required for each menu item
 class RecipeItems(models.Model):
     # This is another composite key workaround
     menu_item = models.OneToOneField(MenuItems, on_delete=models.DO_NOTHING, primary_key=True)
     ingredient = models.ForeignKey(Ingredients, on_delete=models.DO_NOTHING)
-    quantity = models.DecimalField(max_digits=10, decimal_places=4)
+    quantity = models.DecimalField(max_digits=10, decimal_places=4)  # Amount of ingredient needed
 
     class Meta:
         managed = False
