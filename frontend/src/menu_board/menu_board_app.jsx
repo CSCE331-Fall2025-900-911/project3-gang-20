@@ -1,9 +1,9 @@
 import './menu-board.css';
 import { useEffect, useMemo, useState } from 'react';
+import { LogOut } from 'lucide-react';
 import { CategorySection } from './category_section';
 import { HeaderStrip } from './header_strip';
 import { useMenuData, FALLBACK_DATA } from './use_menu_data';
-import type { MenuBoardAppProps, MenuCategory, MenuItem } from './types';
 
 const MAX_ITEMS_PER_PANEL = 13;
 const DISPLAY_ORDER = [
@@ -16,7 +16,7 @@ const DISPLAY_ORDER = [
   'Seasonal',
 ];
 
-const NAME_SYNONYMS: Record<string, string[]> = {
+const NAME_SYNONYMS = {
   Freshbrew: ['freshbrew', 'freshbrewed', 'freshbrewcoffee', 'coffee'],
   Fruity: ['fruity', 'fruittea'],
   'Ice-Blended': ['iceblended', 'iceblend', 'blended', 'iceblendedsmoothie'],
@@ -26,7 +26,7 @@ const NAME_SYNONYMS: Record<string, string[]> = {
   Seasonal: ['seasonal', 'limited', 'specials'],
 };
 
-const PLACEHOLDER_CATEGORIES: Record<string, MenuCategory> = {
+const PLACEHOLDER_CATEGORIES = {
   Freshbrew: {
     name: 'Freshbrew',
     items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
@@ -93,7 +93,7 @@ const PLACEHOLDER_CATEGORIES: Record<string, MenuCategory> = {
   },
 };
 
-const TOPPINGS_PANEL: MenuCategory = {
+const TOPPINGS_PANEL = {
   name: 'Toppings',
   items: [
     { id: 't1', name: 'Classic Boba', prices: { regular: 0.75 } },
@@ -112,11 +112,11 @@ const TOPPINGS_PANEL: MenuCategory = {
   ],
 };
 
-function trimItems(items: MenuItem[]): MenuItem[] {
+function trimItems(items) {
   return items.slice(0, MAX_ITEMS_PER_PANEL);
 }
 
-function normaliseName(name: string): string {
+function normaliseName(name) {
   return name.toLowerCase().replace(/[^a-z]/g, '');
 }
 
@@ -124,14 +124,15 @@ export default function MenuBoardApp({
   pollMs,
   showClock = true,
   showWeather = false,
-}: MenuBoardAppProps) {
+  onBack,
+}) {
   const { data, isLoading, error } = useMenuData(pollMs);
 
   const categories = data.categories.length ? data.categories : FALLBACK_DATA.categories;
   const promos = data.promos.length ? data.promos : FALLBACK_DATA.promos;
 
   const panels = useMemo(() => {
-    const categoryMap = new Map<string, MenuCategory>();
+    const categoryMap = new Map();
 
     categories.forEach((category) => {
       const trimmed = {
@@ -141,9 +142,9 @@ export default function MenuBoardApp({
       categoryMap.set(normaliseName(category.name), trimmed);
     });
 
-    const resolved: MenuCategory[] = DISPLAY_ORDER.map((displayName) => {
+    const resolved = DISPLAY_ORDER.map((displayName) => {
       const variants = NAME_SYNONYMS[displayName] || [displayName.toLowerCase()];
-      let match: MenuCategory | undefined;
+      let match;
       for (const variant of variants) {
         match = categoryMap.get(normaliseName(variant));
         if (match) break;
@@ -158,6 +159,12 @@ export default function MenuBoardApp({
   const [now, setNow] = useState(() => new Date());
   const [promoIndex, setPromoIndex] = useState(0);
 
+  const handleLogout = () => {
+    if (onBack) {
+      onBack();
+    }
+  };
+
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1_000);
     return () => clearInterval(timer);
@@ -171,6 +178,16 @@ export default function MenuBoardApp({
 
   return (
     <div className="menu-board-root">
+      {onBack && (
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700"
+          style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 1000 }}
+        >
+          <LogOut size={20} />
+          Logout
+        </button>
+      )}
       <div className="menu-board-frame">
         <HeaderStrip categories={panels} showClock={showClock} showWeather={showWeather} currentTime={now} />
 

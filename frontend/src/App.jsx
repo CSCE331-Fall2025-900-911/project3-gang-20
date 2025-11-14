@@ -20,7 +20,7 @@ function App() {
   }
 
   if (currentPage === 'menu-board') {
-    return <MenuBoardApp />;
+    return <MenuBoardApp onBack={() => setCurrentPage('home')} />;
   }
 
   return (

@@ -1,14 +1,6 @@
 import { useMemo } from 'react';
-import type { MenuCategory } from './types';
 
-interface HeaderStripProps {
-  categories: MenuCategory[];
-  showClock?: boolean;
-  showWeather?: boolean;
-  currentTime: Date;
-}
-
-export function HeaderStrip({ categories, showClock = true, showWeather = false, currentTime }: HeaderStripProps) {
+export function HeaderStrip({ categories, showClock = true, showWeather = false, currentTime }) {
   const chips = useMemo(() => categories.map((cat) => cat.name), [categories]);
 
   return (

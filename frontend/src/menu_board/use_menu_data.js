@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MenuBoardData, MenuCategory, MenuItem, MenuItemPriceMap, PromoMessage } from './types';
 
 const MENU_ENDPOINT = 'https://project3-gang-20.onrender.com/api/menu-items/';
 const POLL_DEFAULT = 30_000;
 
-export const FALLBACK_DATA: MenuBoardData = {
+export const FALLBACK_DATA = {
   categories: [
     {
       name: 'Signature Milk Tea',
@@ -88,7 +87,7 @@ export const FALLBACK_DATA: MenuBoardData = {
   updatedAt: null,
 };
 
-function normalisePrice(value: unknown): number | undefined {
+function normalisePrice(value) {
   if (value == null) return undefined;
   if (typeof value === 'number') return value;
   if (typeof value === 'string') {
@@ -98,32 +97,32 @@ function normalisePrice(value: unknown): number | undefined {
   return undefined;
 }
 
-function mapMenu(items: Array<Record<string, unknown>>): MenuCategory[] {
-  const bucket = new Map<string, MenuItem[]>();
+function mapMenu(items) {
+  const bucket = new Map();
 
   items.forEach((raw) => {
-    const menu_item_id = raw.menu_item_id as number | undefined;
-    const name = (raw.name as string | undefined)?.trim();
+    const menu_item_id = raw.menu_item_id;
+    const name = raw.name?.trim();
     if (menu_item_id == null || !name) return;
 
-    const categoryName = ((raw.category as string | undefined)?.trim() ?? 'Specialty') || 'Specialty';
+    const categoryName = (raw.category?.trim() ?? 'Specialty') || 'Specialty';
     if (!bucket.has(categoryName)) {
       bucket.set(categoryName, []);
     }
 
-    const basePrices: MenuItemPriceMap = {};
+    const basePrices = {};
     const price = normalisePrice(raw.price);
     if (typeof price === 'number') {
       basePrices.regular = price;
     }
 
-    bucket.get(categoryName)!.push({
+    bucket.get(categoryName).push({
       id: menu_item_id,
       name,
-      desc: (raw.description as string | undefined) || undefined,
+      desc: raw.description || undefined,
       prices: basePrices,
-      badges: (raw.is_featured as boolean | undefined) ? ['Featured'] : undefined,
-      soldOut: (raw.is_available as boolean | undefined) === false,
+      badges: raw.is_featured ? ['Featured'] : undefined,
+      soldOut: raw.is_available === false,
     });
   });
 
@@ -136,10 +135,10 @@ function mapMenu(items: Array<Record<string, unknown>>): MenuCategory[] {
 }
 
 export function useMenuData(pollMs = POLL_DEFAULT) {
-  const [data, setData] = useState<MenuBoardData>(FALLBACK_DATA);
+  const [data, setData] = useState(FALLBACK_DATA);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const controllerRef = useRef<AbortController | null>(null);
+  const [error, setError] = useState(null);
+  const controllerRef = useRef(null);
 
   const fetchData = useCallback(async () => {
     controllerRef.current?.abort();
@@ -151,15 +150,15 @@ export function useMenuData(pollMs = POLL_DEFAULT) {
       if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);
       }
-      const payload = (await response.json()) as Array<Record<string, unknown>>;
+      const payload = await response.json();
       const categories = mapMenu(payload);
       if (categories.length) {
-        const promos: PromoMessage[] = data.promos.length ? data.promos : FALLBACK_DATA.promos;
+        const promos = data.promos.length ? data.promos : FALLBACK_DATA.promos;
         setData({ categories, promos, updatedAt: new Date() });
         setError(null);
       }
     } catch (err) {
-      if ((err as Error).name === 'AbortError') {
+      if (err.name === 'AbortError') {
         return;
       }
       console.error('Menu board data error:', err);

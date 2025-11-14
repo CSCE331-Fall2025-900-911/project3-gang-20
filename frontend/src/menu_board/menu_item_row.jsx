@@ -1,18 +1,11 @@
-import type { MenuItem } from './types';
-import { theme } from './theme';
-
-interface MenuItemRowProps {
-  item: MenuItem;
-}
-
-function formatPrice(value: number | undefined): string {
+function formatPrice(value) {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return `$${value.toFixed(2)}`;
   }
   return '—';
 }
 
-export function MenuItemRow({ item }: MenuItemRowProps) {
+export function MenuItemRow({ item }) {
   const prices = Object.values(item.prices ?? {});
   return (
     <li className={`menu-board-item${item.soldOut ? ' is-sold-out' : ''}`}>
