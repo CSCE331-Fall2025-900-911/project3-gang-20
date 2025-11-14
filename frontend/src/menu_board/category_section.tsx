@@ -1,6 +1,6 @@
 import type { MenuCategory } from './types';
 import { theme } from './theme';
-import { MenuItemRow } from './MenuItemRow';
+import { MenuItemRow } from './menu_item_row';
 
 interface CategorySectionProps {
   category: MenuCategory;

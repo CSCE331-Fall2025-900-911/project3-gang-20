@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import BobaKiosk from './BobaKiosk';
-import BobaManager from './BobaManager';
-import BobaCashier from './BobaCashier';
-import MenuBoardApp from './menu-board/MenuBoardApp';
+import BobaKiosk from './boba_kiosk';
+import BobaManager from './boba_manager';
+import BobaCashier from './boba_cashier';
+import MenuBoardApp from './menu_board/menu_board_app';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');

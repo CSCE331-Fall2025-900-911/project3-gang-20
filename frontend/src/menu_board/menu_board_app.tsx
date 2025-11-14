@@ -1,8 +1,8 @@
 import './menu-board.css';
 import { useEffect, useMemo, useState } from 'react';
-import { CategorySection } from './CategorySection';
-import { HeaderStrip } from './HeaderStrip';
-import { useMenuData, FALLBACK_DATA } from './useMenuData';
+import { CategorySection } from './category_section';
+import { HeaderStrip } from './header_strip';
+import { useMenuData, FALLBACK_DATA } from './use_menu_data';
 import type { MenuBoardAppProps, MenuCategory, MenuItem } from './types';
 
 const MAX_ITEMS_PER_PANEL = 13;
