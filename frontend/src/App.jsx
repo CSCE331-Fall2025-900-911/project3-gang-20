@@ -24,7 +24,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-200 flex items-center justify-center p-8">
+    <div className="min-h-screen bg-linear-to-br from-amber-50 to-orange-200 flex items-center justify-center p-8">
       <div className="max-w-4xl w-full">
         <div className="text-center mb-12">
           <h1 className="text-6xl font-bold text-amber-900 mb-4">
