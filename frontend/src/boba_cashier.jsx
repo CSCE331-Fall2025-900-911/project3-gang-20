@@ -1,19 +1,39 @@
+/**
+ * BobaCashier.js
+ * This file defines the main React component for the cashier-facing point-of-sale (POS) system.
+ * It manages the menu, cart, customizations, payment processing, and order submission
+ * for a cashier-operated terminal.
+ */
+
 import { useState, useEffect } from 'react';
 import { Trash2, LogOut } from 'lucide-react';
 
+// API Endpoints
 const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
 const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
 const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
 const ORDER_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/order-items/';
-const TAX_RATE = 0.0825;
-const SERVICE_CHARGE_RATE = 0.025;
 
+// Business logic constants
+const TAX_RATE = 0.0825; // 8.25% sales tax
+const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
+
+/**
+ * The main component for the cashier POS interface.
+ * @param {object} props - Component props.
+ * @param {function} props.onBack - Callback function to return to the previous view (e.g., employee login).
+ */
 function BobaCashier({ onBack }) {
+  // State for storing data fetched from the API
   const [menuItems, setMenuItems] = useState([]);
   const [addOns, setAddOns] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('Milky');
+
+  // State for UI and selection
+  const [selectedCategory, setSelectedCategory] = useState('Milky'); // Default category
   const [cart, setCart] = useState([]);
   const [selectedPaymentType, setSelectedPaymentType] = useState(null);
+  
+  // State for the customization modal
   const [customizationModal, setCustomizationModal] = useState(false);
   const [selectedDrink, setSelectedDrink] = useState(null);
   const [selectedAddOns, setSelectedAddOns] = useState({
@@ -21,17 +41,26 @@ function BobaCashier({ onBack }) {
     sweetnessLevel: null,
     toppings: []
   });
+
+  // State for loading and transaction status
   const [loading, setLoading] = useState(true);
-  const [orderNumber, setOrderNumber] = useState(0);
+  const [orderNumber, setOrderNumber] = useState(0); // Stores the ID for the *next* order
   const [transactionMessage, setTransactionMessage] = useState('');
+
+  // State for external API data (Weather)
   const [temperature, setTemperature] = useState(null);
   const [description, setDescription] = useState("");
 
+  // On component mount, fetch menu data and the next available order ID
   useEffect(() => {
     fetchData();
     fetchNextOrderId();
   }, []);
 
+  /**
+   * Fetches all menu items and add-ons from the API in parallel.
+   * Updates the component state with the fetched data.
+   */
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -52,6 +81,10 @@ function BobaCashier({ onBack }) {
     }
   };
 
+  /**
+   * Fetches all existing orders to determine the next available order ID.
+   * Sets the `orderNumber` state to the highest existing ID + 1.
+   */
   const fetchNextOrderId = async () => {
     try {
       const response = await fetch(ORDERS_URL);
@@ -67,19 +100,32 @@ function BobaCashier({ onBack }) {
       }
     } catch (err) {
       console.error("Error fetching order ID:", err);
-      setOrderNumber(1);
+      setOrderNumber(1); // Default to 1 on failure
     }
   };
 
+  // Memoized derived state:
+  // Get a unique list of categories from the menu items
   const categories = [...new Set(menuItems.map(item => item.category))];
+  // Filter the menu items based on the currently selected category
   const filteredDrinks = menuItems.filter(item => item.category === selectedCategory);
 
+  /**
+   * Filters the master add-ons list to find add-ons for a specific category.
+   * @param {string} category - The category to filter by (e.g., 'Ice Level', 'Toppings').
+   * @returns {Array<object>} - An array of add-on items matching the category.
+   */
   const getAddOnsByCategory = (category) => {
     return addOns.filter(addon => addon.category === category);
   };
 
+  /**
+   * Opens the customization modal for a specific drink.
+   * @param {object} drink - The drink item to be customized.
+   */
   const openCustomization = (drink) => {
     setSelectedDrink(drink);
+    // Reset add-ons for the new drink
     setSelectedAddOns({
       iceLevel: null,
       sweetnessLevel: null,
@@ -88,6 +134,10 @@ function BobaCashier({ onBack }) {
     setCustomizationModal(true);
   };
 
+  /**
+   * Calculates the total price of all currently selected add-ons in the modal.
+   * @returns {number} - The total price of customizations.
+   */
   const calculateCustomizationPrice = () => {
     let total = 0;
     if (selectedAddOns.iceLevel) total += parseFloat(selectedAddOns.iceLevel.price);
@@ -98,18 +148,23 @@ function BobaCashier({ onBack }) {
     return total;
   };
 
+  /**
+   * Adds the currently customized drink from the modal to the cart.
+   * Resets modal state and closes the modal.
+   */
   const addToCart = () => {
     const customizationPrice = calculateCustomizationPrice();
     const totalPrice = parseFloat(selectedDrink.price) + customizationPrice;
     
     setCart([...cart, {
       ...selectedDrink,
-      cartId: Date.now(),
+      cartId: Date.now(), // Unique ID for cart item removal
       customizations: { ...selectedAddOns },
       customizationPrice,
       totalPrice: totalPrice.toFixed(2)
     }]);
     
+    // Reset and close modal
     setCustomizationModal(false);
     setSelectedDrink(null);
     setSelectedAddOns({
@@ -119,21 +174,37 @@ function BobaCashier({ onBack }) {
     });
   };
 
+  /**
+   * Removes an item from the cart.
+   * @param {number} cartId - The unique ID of the cart item to remove.
+   */
   const removeFromCart = (cartId) => {
     setCart(cart.filter(item => item.cartId !== cartId));
   };
 
+  /**
+   * Clears all items from the cart and resets payment selection.
+   */
   const clearCart = () => {
     setCart([]);
     setSelectedPaymentType(null);
     setTransactionMessage('');
   };
 
-  // Helper calculation methods matching Java controller
+  // --- Cart Total Calculation Functions ---
+
+  /**
+   * Calculates the subtotal of all items in the cart.
+   * @returns {number} - The cart subtotal.
+   */
   const getSubtotal = () => {
     return cart.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
   };
 
+  /**
+   * Calculates the service charge. Only applied if payment type is 'Card'.
+   * @returns {number} - The calculated service charge.
+   */
   const getServiceCharge = () => {
     if (selectedPaymentType === 'Card') {
       return getSubtotal() * SERVICE_CHARGE_RATE;
@@ -141,26 +212,49 @@ function BobaCashier({ onBack }) {
     return 0.0;
   };
 
+  /**
+   * Calculates the tax based on subtotal and service charge.
+   * @returns {number} - The calculated tax.
+   */
   const getTax = () => {
     // Tax is calculated on subtotal + service charge
     return (getSubtotal() + getServiceCharge()) * TAX_RATE;
   };
 
+  /**
+   * Calculates the final total (subtotal + service charge + tax).
+   * @returns {number} - The final total.
+   */
   const getTotal = () => {
     return getSubtotal() + getServiceCharge() + getTax();
   };
 
-  // Payment method selection handlers
+  // --- Payment and Transaction Functions ---
+
+  /**
+   * Sets the payment type to 'Cash'.
+   */
   const handleCashPayment = () => {
     setSelectedPaymentType('Cash');
     setTransactionMessage('');
   };
 
+  /**
+   * Sets the payment type to 'Card'.
+   */
   const handleCardPayment = () => {
     setSelectedPaymentType('Card');
     setTransactionMessage('');
   };
 
+  /**
+   * Handles the final transaction submission.
+   * 1. Validates the cart and payment type.
+   * 2. Creates a new order in the 'orders' table.
+   * 3. Groups cart items and creates entries in the 'order_items' table.
+   * 4. Clears the cart and displays a success message.
+   * 5. Fetches the next order ID for the next transaction.
+   */
   const completeTransaction = async () => {
     // Validation checks
     if (cart.length === 0) {
@@ -174,18 +268,19 @@ function BobaCashier({ onBack }) {
     }
 
     try {
-      // Create order
+      // Create order object
       const now = new Date();
       const orderData = {
         order_id: orderNumber,
         order_date: now.toISOString().split('T')[0],
         order_time: now.toTimeString().split(' ')[0],
-        employee: 101,
+        employee: 101, // Hardcoded employee ID for cashier
         payment_type: selectedPaymentType
       };
 
       console.log('Creating order:', orderData);
 
+      // POST the new order
       const orderResponse = await fetch(ORDERS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -210,16 +305,17 @@ function BobaCashier({ onBack }) {
         }
       });
 
-      // Create order items with quantities
+      // Create order item entries for each grouped item
       for (const [menuItemId, quantity] of Object.entries(itemQuantities)) {
         const orderItemData = {
-          order: order.order_id, // Changed from order_id to order
-          menu_item: parseInt(menuItemId), // Changed from menu_item_id to menu_item
+          order: order.order_id, // API expects 'order'
+          menu_item: parseInt(menuItemId), // API expects 'menu_item'
           quantity: quantity
         };
 
         console.log('Creating order item:', orderItemData);
 
+        // POST the new order item
         const orderItemResponse = await fetch(ORDER_ITEMS_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -235,34 +331,41 @@ function BobaCashier({ onBack }) {
         console.log('Order item created successfully');
       }
 
+      // On success: show message, clear cart, and prepare for next order
       const finalTotal = getTotal();
       setTransactionMessage(`Transaction Complete - Order #${order.order_id} - Total: $${finalTotal.toFixed(2)}`);
       
-      // Clear cart and reset payment type
       setCart([]);
       setSelectedPaymentType(null);
 
-      // Fetch the next order ID and reset UI after 3 seconds
+      // After 3 seconds, clear the message and fetch the next order ID
       setTimeout(() => {
         fetchNextOrderId();
         setTransactionMessage('');
       }, 3000);
 
     } catch (err) {
+      // Handle any errors during the transaction
       console.error('Error completing transaction:', err);
       setTransactionMessage(`Transaction Failed: ${err.message}`);
       setSelectedPaymentType(null);
     }
   };
 
+  /**
+   * Toggles the selection of a topping in the customization modal.
+   * @param {object} topping - The topping object to add or remove.
+   */
   const toggleTopping = (topping) => {
     const isSelected = selectedAddOns.toppings.some(t => t.id === topping.id);
     if (isSelected) {
+      // Remove the topping
       setSelectedAddOns({
         ...selectedAddOns,
         toppings: selectedAddOns.toppings.filter(t => t.id !== topping.id)
       });
     } else {
+      // Add the topping
       setSelectedAddOns({
         ...selectedAddOns,
         toppings: [...selectedAddOns.toppings, topping]
@@ -270,14 +373,21 @@ function BobaCashier({ onBack }) {
     }
   };
 
+  /**
+   * Calls the onBack prop to exit the cashier view.
+   */
   const handleLogout = () => {
     if (onBack) {
       onBack();
     }
   };
 
+  // --- Weather API Effect and Helper ---
+
+  // Fetches weather data on component mount
    useEffect(() => {
     fetch( 
+      // Fetches weather for College Station, TX
       "https://api.openweathermap.org/data/2.5/weather?lat=30.621703&lon=-96.340494&appid=" + import.meta.env.VITE_WEATHER_API + "&units=imperial"
     )
       .then((response) => response.json())
@@ -285,9 +395,14 @@ function BobaCashier({ onBack }) {
         setTemperature(data.main.temp);
         setDescription(data.weather[0].description);
       })
-      .catch((error) => console.error("Error:", error));
+      .catch((error) => console.error("Error fetching weather:", error));
   }, []);
 
+  /**
+   * Converts a weather description string into an emoji.
+   * @param {string} desc - The weather description (e.g., "clear sky").
+   * @returns {string} - A corresponding emoji.
+   */
   const getWeatherEmoji = (desc) => {
     if (desc === "clear sky") return "☀️";
     if (desc === "few clouds") return "⛅";
@@ -297,11 +412,12 @@ function BobaCashier({ onBack }) {
     if (desc === "rain") return "🌧️";
     if (desc === "thunderstorm") return "⛈️";
     if (desc === "snow") return "❄️";
-    return ""
+    return "" // Default
   };
 
   const weatherEmoji = getWeatherEmoji(description);
 
+  // Loading screen
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-200 flex items-center justify-center">
@@ -310,19 +426,21 @@ function BobaCashier({ onBack }) {
     );
   }
 
+  // Main component render
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-200 p-4">
-      {/* Header */}
+      {/* Header Bar */}
       <div className="bg-white rounded-lg shadow-lg p-4 mb-4 flex justify-between items-center">
         <h1 className="text-3xl font-bold text-amber-900">Cashier</h1>
 
         <div className="flex items-center gap-6">
-          {/* Weather placeholder */}
+          {/* Weather Widget */}
           <div className="flex items-center gap-2 text-lg font-semibold text-amber-800">
             <span>{temperature}°F</span>
             <span>{weatherEmoji}</span>
           </div>
 
+          {/* Logout Button */}
           <button 
             onClick={handleLogout}
             className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700"
@@ -333,9 +451,10 @@ function BobaCashier({ onBack }) {
         </div>
       </div>
 
-
+      {/* Main 3-Column Layout */}
       <div className="grid grid-cols-12 gap-4 h-[calc(100vh-120px)]">
-        {/* Categories Sidebar */}
+        
+        {/* Column 1: Categories Sidebar */}
         <div className="col-span-2 bg-white rounded-lg shadow-lg p-4 overflow-y-auto">
           <h2 className="text-xl font-bold text-amber-900 mb-4">Categories</h2>
           <div className="space-y-2">
@@ -355,7 +474,7 @@ function BobaCashier({ onBack }) {
           </div>
         </div>
 
-        {/* Menu Items */}
+        {/* Column 2: Menu Items Grid */}
         <div className="col-span-6 bg-white rounded-lg shadow-lg p-4 overflow-y-auto">
           <h2 className="text-2xl font-bold text-amber-900 mb-4">
             Items: {selectedCategory}
@@ -381,13 +500,14 @@ function BobaCashier({ onBack }) {
           </div>
         </div>
 
-        {/* Cart */}
+        {/* Column 3: Cart and Payment */}
         <div className="col-span-4 bg-white rounded-lg shadow-lg p-4 flex flex-col">
           <div className="mb-4">
             <h2 className="text-2xl font-bold text-amber-900">Order #{orderNumber}</h2>
             <h3 className="text-xl font-semibold text-gray-700 mt-2">Cart</h3>
           </div>
 
+          {/* Cart Items List */}
           <div className="flex-1 overflow-y-auto mb-4">
             {cart.length === 0 ? (
               <div className="text-center text-gray-500 py-8">
@@ -417,6 +537,7 @@ function BobaCashier({ onBack }) {
                         </button>
                       </div>
                     </div>
+                    {/* Display customizations */}
                     <div className="text-xs text-gray-600 space-y-1">
                       {item.customizations.iceLevel && (
                         <div>• Ice: {item.customizations.iceLevel.name}</div>
@@ -434,6 +555,7 @@ function BobaCashier({ onBack }) {
             )}
           </div>
 
+          {/* Clear Cart Button */}
           <button
             onClick={clearCart}
             className="w-full bg-pink-400 text-white py-3 rounded-lg font-bold mb-4 hover:bg-pink-500"
@@ -441,6 +563,7 @@ function BobaCashier({ onBack }) {
             Clear All
           </button>
 
+          {/* Totals Section */}
           <div className="border-t pt-4 space-y-2">
             <div className="flex justify-between text-lg">
               <span>Subtotal:</span>
@@ -462,6 +585,7 @@ function BobaCashier({ onBack }) {
             </div>
           </div>
 
+          {/* Transaction Message Area */}
           {transactionMessage && (
             <div className={`mt-4 p-3 rounded-lg text-center font-bold ${
               transactionMessage.includes('Complete') 
@@ -472,6 +596,7 @@ function BobaCashier({ onBack }) {
             </div>
           )}
 
+          {/* Payment Type Selection */}
           <div className="grid grid-cols-2 gap-2 mt-4">
             <button
               onClick={handleCashPayment}
@@ -495,6 +620,7 @@ function BobaCashier({ onBack }) {
             </button>
           </div>
 
+          {/* Complete Transaction Button */}
           <button
             onClick={completeTransaction}
             disabled={cart.length === 0}
@@ -509,11 +635,13 @@ function BobaCashier({ onBack }) {
       {customizationModal && selectedDrink && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
             <div className="bg-amber-600 text-white p-6">
               <h2 className="text-2xl font-bold">Customize: {selectedDrink.name}</h2>
               <p className="text-lg mt-1">Base Price: ${parseFloat(selectedDrink.price).toFixed(2)}</p>
             </div>
 
+            {/* Modal Body */}
             <div className="p-6 space-y-6">
               {/* Ice Level */}
               <div>
@@ -579,7 +707,7 @@ function BobaCashier({ onBack }) {
                 </div>
               </div>
 
-              {/* Total and Actions */}
+              {/* Modal Footer (Total and Actions) */}
               <div className="border-t pt-4">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-2xl font-bold text-amber-900">Total:</span>
@@ -588,12 +716,14 @@ function BobaCashier({ onBack }) {
                   </span>
                 </div>
 
+                {/* Validation Message */}
                 {(!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel) && (
                   <p className="text-red-600 text-center mb-3 font-semibold">
                     * Please select ice level and sweetness level
                   </p>
                 )}
 
+                {/* Action Buttons */}
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => setCustomizationModal(false)}

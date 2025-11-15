@@ -1,35 +1,59 @@
+/**
+ * BobaKiosk.js
+ * This file defines the main React component for the self-service boba kiosk.
+ * It manages all application state, API data fetching, and UI rendering for 
+ * the entire order flow, from the welcome screen to payment processing.
+ */
+
 import { useState, useEffect } from 'react';
 import { ShoppingCart, LogOut } from 'lucide-react';
 
+// API Endpoints
 const MENU_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
 const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
 const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
 const ORDER_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/order-items/';
 
-// const MENU_ITEMS_URL = 'http://127.0.0.1:8000/api/menu-items/';
-// const ADDONS_URL = 'http://127.0.0.1:8000/api/add-ons/';
-
-
+/**
+ * The main component for the boba ordering kiosk interface.
+ * @param {object} props - Component props.
+ * @param {function} props.onBack - Callback function to return to the previous view (e.g., employee login).
+ */
 function BobaKiosk({ onBack }) {
+  // State for managing the current UI view (e.g., 'welcome', 'categories')
   const [currentView, setCurrentView] = useState('welcome');
+  
+  // State for storing data fetched from the API
   const [menuItems, setMenuItems] = useState([]);
   const [addOns, setAddOns] = useState([]);
+  
+  // State for tracking the user's selection flow
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedDrink, setSelectedDrink] = useState(null);
+  
+  // State for the item currently being customized
   const [selectedAddOns, setSelectedAddOns] = useState({
     iceLevel: null,
     sweetnessLevel: null,
     toppings: []
   });
+  
+  // State for the shopping cart
   const [cart, setCart] = useState([]);
+  
+  // State for API data fetching status
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // State to prevent double-submission during payment
   const [processingPayment, setProcessingPayment] = useState(false);
 
+  // Fetches all menu items and add-ons from the API on component mount
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        // Fetch menu items and add-ons in parallel
         const [menuResponse, addOnsResponse] = await Promise.all([
           fetch(MENU_ITEMS_URL),
           fetch(ADDONS_URL)
@@ -46,25 +70,38 @@ function BobaKiosk({ onBack }) {
         setAddOns(addOnsData);
         setError(null);
       } catch (err) {
+        // Handle network or parsing errors
         console.error("Error fetching data:", err);
         setError(err.message);
         setMenuItems([]);
         setAddOns([]);
       } finally {
+        // Ensure loading is set to false regardless of success or failure
         setLoading(false);
       }
     };
     fetchData();
   }, []);
 
+  // Derives a unique list of categories from the menu items
   const categories = [...new Set(menuItems.map(item => item.category))];
 
+  /**
+   * Filters the master add-ons list to find add-ons for a specific category.
+   * @param {string} category - The category to filter by (e.g., 'Ice Level', 'Toppings').
+   * @returns {Array<object>} - An array of add-on items matching the category.
+   */
   const getAddOnsByCategory = (category) => {
     return addOns.filter(addon => addon.category === category);
   };
 
+  /**
+   * Calculates the total price of all currently selected add-ons.
+   * @returns {number} - The total price of customizations.
+   */
   const calculateCustomizationPrice = () => {
     let total = 0;
+    // Sum the price of the selected ice level, sweetness, and all toppings
     if (selectedAddOns.iceLevel) {
       total += parseFloat(selectedAddOns.iceLevel.price);
     }
@@ -77,62 +114,83 @@ function BobaKiosk({ onBack }) {
     return total;
   };
 
+  /**
+   * Adds the currently selected and customized drink to the cart.
+   * Calculates the final price and resets the customization state.
+   */
   const addToCart = () => {
     const customizationPrice = calculateCustomizationPrice();
     const totalPrice = parseFloat(selectedDrink.price) + customizationPrice;
     
+    // Create a new cart item with a unique ID and all customization details
     setCart([...cart, {
       ...selectedDrink,
-      cartId: Date.now(),
+      cartId: Date.now(), // Use a timestamp as a unique ID for cart removal
       customizations: { ...selectedAddOns },
       customizationPrice,
       totalPrice: totalPrice.toFixed(2)
     }]);
     
-    // Reset customization
+    // Reset customization state for the next drink
     setSelectedAddOns({
       iceLevel: null,
       sweetnessLevel: null,
       toppings: []
     });
     setSelectedDrink(null);
+    // Navigate back to the drink selection screen
     setCurrentView('drinks');
   };
 
+  /**
+   * Removes an item from the cart based on its unique cartId.
+   * @param {number} cartId - The unique identifier (timestamp) of the cart item to remove.
+   */
   const removeFromCart = (cartId) => {
     setCart(cart.filter(item => item.cartId !== cartId));
   };
 
+  /**
+   * Calculates the total price of all items currently in the cart.
+   * @returns {string} - The total price formatted as a string with two decimal places.
+   */
   const getTotalPrice = () => {
     return cart.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0).toFixed(2);
   };
 
+  /**
+   * Handles the entire checkout process:
+   * 1. Fetches the last order_id to determine the new order_id.
+   * 2. Creates a new order entry in the 'orders' table.
+   * 3. Groups cart items and creates entries in the 'order_items' table.
+   * 4. Clears the cart and shows a success message.
+   */
   const processPayment = async () => {
     setProcessingPayment(true);
     try {
-      // Step 1: Get the last order_id
+      // Step 1: Get the last order_id to determine the next one
       const ordersResponse = await fetch(ORDERS_URL);
       if (!ordersResponse.ok) throw new Error('Failed to fetch orders');
       const orders = await ordersResponse.json();
       
-      // Find the highest order_id
+      // Find the highest existing order_id
       const lastOrderId = orders.length > 0 
         ? Math.max(...orders.map(order => order.order_id))
         : 0;
       const newOrderId = lastOrderId + 1;
 
-      // Step 2: Get current date and time
+      // Step 2: Get current date and time for the order record
       const now = new Date();
       const orderDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
       const orderTime = now.toTimeString().split(' ')[0]; // HH:MM:SS
 
-      // Step 3: Create the order
+      // Step 3: Create the new order record
       const orderData = {
         order_id: newOrderId,
         order_date: orderDate,
         order_time: orderTime,
-        employee_id: 0, // Kiosk orders use employee_id 0
-        payment_type: 'Card'
+        employee_id: 0, // Kiosk orders are hardcoded to employee_id 0
+        payment_type: 'Card' // Kiosk payment is assumed to be 'Card'
       };
 
       const createOrderResponse = await fetch(ORDERS_URL, {
@@ -145,7 +203,8 @@ function BobaKiosk({ onBack }) {
 
       if (!createOrderResponse.ok) throw new Error('Failed to create order');
 
-      // Step 4: Group cart items by menu_item_id and sum quantities
+      // Step 4: Group cart items by menu_item_id and sum their quantities
+      // This is necessary because order_items stores quantity, but the cart stores individual items
       const itemQuantities = {};
       cart.forEach(item => {
         if (itemQuantities[item.menu_item_id]) {
@@ -155,7 +214,7 @@ function BobaKiosk({ onBack }) {
         }
       });
 
-      // Step 5: Create order_items entries
+      // Step 5: Create a promise for each 'order_items' entry to be posted
       const orderItemsPromises = Object.entries(itemQuantities).map(([menuItemId, quantity]) => {
         const orderItemData = {
           order_id: newOrderId,
@@ -172,14 +231,17 @@ function BobaKiosk({ onBack }) {
         });
       });
 
+      // Step 6: Execute all order_items POST requests
       await Promise.all(orderItemsPromises);
 
-      // Step 6: Clear cart and show success
+      // Step 7: Clear cart, notify user, and return to welcome screen on success
+      const finalTotal = getTotalPrice(); // Get total before clearing cart
       setCart([]);
-      alert(`Order #${newOrderId} placed successfully! Total: ${getTotalPrice()}`);
+      alert(`Order #${newOrderId} placed successfully! Total: $${finalTotal}`);
       setCurrentView('welcome');
       
     } catch (err) {
+      // Handle any failure during the multi-step payment process
       console.error('Payment processing error:', err);
       alert('Failed to process payment. Please try again.');
     } finally {
@@ -187,14 +249,21 @@ function BobaKiosk({ onBack }) {
     }
   };
 
+  /**
+   * Adds or removes a topping from the 'selectedAddOns' state.
+   * @param {object} topping - The topping object to add or remove.
+   */
   const toggleTopping = (topping) => {
+    // Check if the topping is already selected
     const isSelected = selectedAddOns.toppings.some(t => t.id === topping.id);
     if (isSelected) {
+      // Remove the topping
       setSelectedAddOns({
         ...selectedAddOns,
         toppings: selectedAddOns.toppings.filter(t => t.id !== topping.id)
       });
     } else {
+      // Add the topping
       setSelectedAddOns({
         ...selectedAddOns,
         toppings: [...selectedAddOns.toppings, topping]
@@ -202,12 +271,20 @@ function BobaKiosk({ onBack }) {
     }
   };
 
+  /**
+   * Calls the onBack prop to exit the kiosk view.
+   */
   const handleLogout = () => {
     if (onBack) {
       onBack();
     }
   };
 
+  /**
+   * A floating button to exit the kiosk view.
+   * Only renders if not on the 'welcome' screen.
+   * @returns {React.ReactNode} - The logout button component or null.
+   */
   const LogoutButton = () => {
     if (currentView === 'welcome') return null;
     
@@ -239,6 +316,11 @@ function BobaKiosk({ onBack }) {
     );
   };
 
+  /**
+   * A floating button that displays the cart icon and item count.
+   * Navigates to the 'checkout' view on click.
+   * @returns {React.ReactNode} - The cart button component or null.
+   */
   const CartButton = () => {
     if (currentView === 'welcome' || currentView === 'checkout') return null;
     
@@ -285,6 +367,8 @@ function BobaKiosk({ onBack }) {
     );
   };
 
+  // --- View: Welcome Screen ---
+  // The initial screen that prompts the user to start an order.
   if (currentView === 'welcome') {
     return (
       <div style={{
@@ -323,6 +407,8 @@ function BobaKiosk({ onBack }) {
     );
   }
 
+  // --- View: Category Selection Screen ---
+  // Displays all available drink categories.
   if (currentView === 'categories') {
     return (
       <div style={{
@@ -396,6 +482,8 @@ function BobaKiosk({ onBack }) {
     );
   }
 
+  // --- View: Drink Selection Screen ---
+  // Displays all drinks within the selected category.
   if (currentView === 'drinks') {
     const filteredDrinks = menuItems.filter(item => item.category === selectedCategory);
     
@@ -488,10 +576,15 @@ function BobaKiosk({ onBack }) {
     );
   }
 
+  // --- View: Drink Customization Screen ---
+  // Allows the user to select ice level, sweetness, and toppings for the selected drink.
   if (currentView === 'customize') {
+    // Get the available customization options from the fetched add-ons data
     const iceLevels = getAddOnsByCategory('Ice Level');
     const sweetnessLevels = getAddOnsByCategory('Sweetness Level');
     const toppings = getAddOnsByCategory('Toppings');
+    
+    // Calculate the price in real-time as user selects options
     const customizationPrice = calculateCustomizationPrice();
     const totalPrice = parseFloat(selectedDrink.price) + customizationPrice;
 
@@ -507,6 +600,7 @@ function BobaKiosk({ onBack }) {
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
           <button
             onClick={() => {
+              // Clear selections when going back
               setSelectedDrink(null);
               setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
               setCurrentView('drinks');
@@ -526,6 +620,7 @@ function BobaKiosk({ onBack }) {
             ← Previous
           </button>
 
+          {/* Drink Header */}
           <div style={{
             backgroundColor: 'white',
             borderRadius: '16px',
@@ -541,7 +636,7 @@ function BobaKiosk({ onBack }) {
             </p>
           </div>
 
-          {/* Ice Level */}
+          {/* Ice Level Selection */}
           <div style={{
             backgroundColor: 'white',
             borderRadius: '16px',
@@ -575,7 +670,7 @@ function BobaKiosk({ onBack }) {
             </div>
           </div>
 
-          {/* Sweetness Level */}
+          {/* Sweetness Level Selection */}
           <div style={{
             backgroundColor: 'white',
             borderRadius: '16px',
@@ -609,7 +704,7 @@ function BobaKiosk({ onBack }) {
             </div>
           </div>
 
-          {/* Toppings */}
+          {/* Toppings Selection */}
           <div style={{
             backgroundColor: 'white',
             borderRadius: '16px',
@@ -633,6 +728,7 @@ function BobaKiosk({ onBack }) {
                       padding: '12px 16px',
                       borderRadius: '8px',
                       border: 'none',
+      
                       cursor: 'pointer',
                       fontSize: '15px',
                       fontWeight: '600',
@@ -650,7 +746,7 @@ function BobaKiosk({ onBack }) {
             </div>
           </div>
 
-          {/* Summary and Add to Cart */}
+          {/* Summary and Add to Cart Button */}
           <div style={{
             backgroundColor: 'white',
             borderRadius: '16px',
@@ -665,6 +761,7 @@ function BobaKiosk({ onBack }) {
             </div>
             <button
               onClick={addToCart}
+              // Disable button until required options are selected
               disabled={!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel}
               style={{
                 backgroundColor: (!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel) ? '#9ca3af' : '#16a34a',
@@ -691,6 +788,8 @@ function BobaKiosk({ onBack }) {
     );
   }
 
+  // --- View: Checkout Screen ---
+  // Displays the cart, total price, and payment options.
   if (currentView === 'checkout') {
     return (
       <div style={{
@@ -708,6 +807,7 @@ function BobaKiosk({ onBack }) {
           </h2>
           
           {cart.length === 0 ? (
+            // Display if cart is empty
             <div style={{ textAlign: 'center' }}>
               <p style={{ fontSize: '24px', color: '#92400e', marginBottom: '32px' }}>
                 Your cart is empty
@@ -729,6 +829,7 @@ function BobaKiosk({ onBack }) {
               </button>
             </div>
           ) : (
+            // Display if cart has items
             <>
               <div style={{
                 backgroundColor: 'white',
@@ -737,6 +838,7 @@ function BobaKiosk({ onBack }) {
                 boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                 marginBottom: '32px'
               }}>
+                {/* List all cart items */}
                 {cart.map((item) => (
                   <div key={item.cartId} style={{
                     padding: '16px 0',
@@ -771,6 +873,7 @@ function BobaKiosk({ onBack }) {
                         </button>
                       </div>
                     </div>
+                    {/* Display customizations */}
                     <div style={{ fontSize: '14px', color: '#6b7280', marginLeft: '8px' }}>
                       {item.customizations.iceLevel && (
                         <div>• Ice: {item.customizations.iceLevel.name}</div>
@@ -784,6 +887,7 @@ function BobaKiosk({ onBack }) {
                     </div>
                   </div>
                 ))}
+                {/* Cart Total */}
                 <div style={{
                   marginTop: '24px',
                   paddingTop: '24px',
@@ -800,6 +904,7 @@ function BobaKiosk({ onBack }) {
                 </div>
               </div>
 
+              {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
                 <button
                   onClick={() => setCurrentView('categories')}
@@ -840,6 +945,7 @@ function BobaKiosk({ onBack }) {
     );
   }
 
+  // Fallback, should not be reached
   return null;
 }
 
