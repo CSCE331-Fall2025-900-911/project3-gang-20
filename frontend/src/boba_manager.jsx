@@ -3,11 +3,20 @@ import {
   Plus, Edit2, Trash2, X, Check, Search, FileText, Calendar, TrendingUp, Package, Users, ArrowUp, ArrowDown, LogOut
 } from 'lucide-react';
 
+// Global constants for API endpoint and financial calculations
 const API_BASE = 'https://project3-gang-20.onrender.com/api';
 const TAX_RATE = 0.0825;
 const SERVICE_CHARGE_RATE = 0.025;
 
-// ===== BUTTON COMPONENTS =====
+/**
+ * A reusable primary button component with a distinct visual style.
+ * @param {object} props - Component props.
+ * @param {function} props.onClick - The click event handler.
+ * @param {React.ReactNode} props.children - The content to display inside the button.
+ * @param {React.ComponentType} props.icon - An optional icon component (e.g., from lucide-react).
+ * @param {boolean} [props.disabled=false] - Whether the button is disabled.
+ * @param {string} [props.className=''] - Additional CSS classes.
+ */
 function PrimaryButton({ onClick, children, icon: Icon, disabled = false, className = '' }) {
   return (
     <button
@@ -22,6 +31,16 @@ function PrimaryButton({ onClick, children, icon: Icon, disabled = false, classN
   );
 }
 
+/**
+ * A reusable secondary button component with multiple color variants.
+ * @param {object} props - Component props.
+ * @param {function} props.onClick - The click event handler.
+ * @param {React.ReactNode} props.children - The content to display inside the button.
+ * @param {React.ComponentType} props.icon - An optional icon component.
+ * @param {boolean} [props.disabled=false] - Whether the button is disabled.
+ * @param {string} [props.className=''] - Additional CSS classes.
+ * @param {string} [props.variant='default'] - The color variant ('default', 'danger', 'warning', 'info', 'muted').
+ */
 function SecondaryButton({ onClick, children, icon: Icon, disabled = false, className = '', variant = 'default' }) {
   const variants = {
     default: 'bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700',
@@ -44,6 +63,15 @@ function SecondaryButton({ onClick, children, icon: Icon, disabled = false, clas
   );
 }
 
+/**
+ * A compact button component that only displays an icon.
+ * @param {object} props - Component props.
+ * @param {function} props.onClick - The click event handler.
+ * @param {React.ComponentType} props.icon - The icon component to display.
+ * @param {boolean} [props.disabled=false] - Whether the button is disabled.
+ * @param {string} [props.className=''] - Additional CSS classes.
+ * @param {string} [props.variant='default'] - The color variant.
+ */
 function IconButton({ onClick, icon: Icon, disabled = false, className = '', variant = 'default' }) {
   const variants = {
     default: 'bg-blue-500 hover:bg-blue-600 text-white',
@@ -64,16 +92,21 @@ function IconButton({ onClick, icon: Icon, disabled = false, className = '', var
   );
 }
 
-// ===== FLOATING MODAL (For Orders Page) =====
+/**
+ * A floating modal overlay, used for displaying order details.
+ * @param {object} props - Component props.
+ * @param {boolean} props.isOpen - Controls the visibility of the modal.
+ * @param {function} props.onClose - Function to call when the modal should close.
+ * @param {React.ReactNode} props.children - Content to display inside the modal body.
+ * @param {string} props.title - The title displayed in the modal header.
+ * @param {React.ComponentType} props.icon - An optional icon for the modal header.
+ */
 function ModalOverlay({ isOpen, onClose, children, title, icon: Icon }) {
   if (!isOpen) return null;
 
   return (
-    // This is the floating container, with NO background dimming
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
-      {/* This is the modal card with the black border */}
       <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto animate-slideUp border-4 border-black">
-        {/* Header */}
         <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white p-6 flex justify-between items-center sticky top-0 z-10 rounded-t-xl border-b-4 border-amber-800">
           <div className="flex items-center gap-3">
             {Icon && <Icon size={28} />}
@@ -87,8 +120,6 @@ function ModalOverlay({ isOpen, onClose, children, title, icon: Icon }) {
             <X size={24} />
           </button>
         </div>
-
-        {/* Content */}
         <div className="p-8">
           {children}
         </div>
@@ -97,14 +128,20 @@ function ModalOverlay({ isOpen, onClose, children, title, icon: Icon }) {
   );
 }
 
-// ===== INLINE FORM CARD (For Data Tabs) =====
+/**
+ * An inline card component used for forms and reports in the sidebar.
+ * @param {object} props - Component props.
+ * @param {boolean} props.isOpen - Controls the visibility of the card.
+ * @param {function} props.onClose - Function to call when the card should close.
+ * @param {React.ReactNode} props.children - Content to display inside the card body.
+ * @param {string} props.title - The title displayed in the card header.
+ * @param {React.ComponentType} props.icon - An optional icon for the card header.
+ */
 function InlineFormCard({ isOpen, onClose, children, title, icon: Icon }) {
   if (!isOpen) return null;
 
   return (
-    // This is the card, with the black border
     <div className="bg-white rounded-2xl shadow-2xl w-full max-h-[90vh] overflow-y-auto animate-fadeIn border-4 border-black">
-      {/* Header */}
       <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white p-6 flex justify-between items-center sticky top-0 z-10 rounded-t-xl border-b-4 border-amber-800">
         <div className="flex items-center gap-3">
           {Icon && <Icon size={28} />}
@@ -118,8 +155,6 @@ function InlineFormCard({ isOpen, onClose, children, title, icon: Icon }) {
           <X size={24} />
         </button>
       </div>
-
-      {/* Content */}
       <div className="p-8">
         {children}
       </div>
@@ -128,27 +163,51 @@ function InlineFormCard({ isOpen, onClose, children, title, icon: Icon }) {
 }
 
 
-// ===== MAIN COMPONENT =====
+/**
+ * The main component for the Manager Dashboard.
+ * Manages application state and data fetching for all manager-related tasks.
+ * @param {object} props - Component props.
+ * @param {function} props.onBack - Function to return to the main portal selection screen.
+ */
 function BobaManager({ onBack }) {
+  // State for the currently selected data tab (e.g., 'menu-items')
   const [activeTab, setActiveTab] = useState('menu-items');
+  // State for the data displayed in the main table, corresponding to the activeTab
   const [data, setData] = useState([]);
+  // State for ingredients, used in forms
   const [ingredients, setIngredients] = useState([]);
+  // State for menu items, used in forms and order details
   const [menuItems, setMenuItems] = useState([]);
+  // State for employees, used in forms and order details
   const [employees, setEmployees] = useState([]);
+  // State for recipe items, connecting menu items to ingredients
   const [recipeItems, setRecipeItems] = useState([]);
+  // State to show a loading indicator during data fetching
   const [loading, setLoading] = useState(false);
+  // State to control the visibility of the add/edit modal
   const [modalOpen, setModalOpen] = useState(false);
+  // State to determine if the modal is in 'add' or 'edit' mode
   const [modalMode, setModalMode] = useState('add');
+  // State to hold the item currently being edited
   const [currentItem, setCurrentItem] = useState(null);
+  // State to control the visibility of the report modal
   const [reportModalOpen, setReportModalOpen] = useState(false);
+  // State to determine which report is currently selected
   const [reportType, setReportType] = useState(null);
+  // State to track the last time the Z-Report was run
   const [zReportLastRunDate, setZReportLastRunDate] = useState(null);
+  // State for the date filters on the Orders tab
   const [orderFilters, setOrderFilters] = useState({ startDate: '', endDate: '' });
+  // State for the orders displayed in the Orders tab (after filtering)
   const [filteredOrders, setFilteredOrders] = useState([]);
+  // State holding all fetched orders (before filtering)
   const [orders, setOrders] = useState([]);
+  // State for all order items, used to build order details
   const [orderItems, setOrderItems] = useState([]);
+  // State to manage table column sorting
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
 
+  // Effect to re-fetch data when the active tab changes
   useEffect(() => {
     fetchData();
     fetchIngredients();
@@ -161,6 +220,7 @@ function BobaManager({ onBack }) {
     }
   }, [activeTab]);
 
+  // Fetches data for the currently active tab
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -175,6 +235,7 @@ function BobaManager({ onBack }) {
     setLoading(false);
   };
 
+  // Fetches all ingredients
   const fetchIngredients = async () => {
     try {
       const res = await fetch(`${API_BASE}/ingredients/`);
@@ -186,6 +247,7 @@ function BobaManager({ onBack }) {
     }
   };
 
+  // Fetches all menu items
   const fetchMenuItems = async () => {
     try {
       const res = await fetch(`${API_BASE}/menu-items/`);
@@ -197,6 +259,7 @@ function BobaManager({ onBack }) {
     }
   };
 
+  // Fetches all employees
   const fetchEmployees = async () => {
     try {
       const res = await fetch(`${API_BASE}/employees/`);
@@ -208,6 +271,7 @@ function BobaManager({ onBack }) {
     }
   };
 
+  // Fetches all recipe items
   const fetchRecipeItems = async () => {
     try {
       const res = await fetch(`${API_BASE}/recipe-items/`);
@@ -219,6 +283,7 @@ function BobaManager({ onBack }) {
     }
   };
 
+  // Fetches all orders
   const fetchOrders = async () => {
     try {
       const res = await fetch(`${API_BASE}/orders/`);
@@ -233,6 +298,7 @@ function BobaManager({ onBack }) {
     }
   };
 
+  // Fetches all order items
   const fetchOrderItems = async () => {
     try {
       const res = await fetch(`${API_BASE}/order-items/`);
@@ -244,6 +310,7 @@ function BobaManager({ onBack }) {
     }
   };
 
+  // Filters the displayed orders based on the date range
   const filterOrders = () => {
     let filtered = [...orders];
     if (orderFilters.startDate) {
@@ -255,15 +322,17 @@ function BobaManager({ onBack }) {
     setFilteredOrders(filtered);
   };
 
+  // Handles the deletion of an item
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this item?')) return;
     try {
+      // Re-assigns orders if an employee is deleted
       if (activeTab === 'employees') {
         const firstEmployee = employees.find(e => e.employee_id !== id);
         if (firstEmployee) {
           const ordersRes = await fetch(`${API_BASE}/orders/`);
-          const orders = await ordersRes.json();
-          const employeeOrders = orders.filter(o => o.employee === id);
+          const ordersData = await ordersRes.json();
+          const employeeOrders = ordersData.filter(o => o.employee === id);
           for (const order of employeeOrders) {
             await fetch(`${API_BASE}/orders/${order.order_id}/`, {
               method: 'PUT',
@@ -273,19 +342,25 @@ function BobaManager({ onBack }) {
           }
         }
       } else if (activeTab === 'menu-items') {
+        // Deletes associated recipe items when a menu item is deleted
         const recipes = recipeItems.filter(r => r.menu_item === id);
         for (const recipe of recipes) {
           await fetch(`${API_BASE}/recipe-items/${recipe.menu_item}/`, { method: 'DELETE' });
         }
       } else if (activeTab === 'ingredients') {
+        // Prevents deletion if ingredient is used in a recipe
         const usedInRecipes = recipeItems.some(r => r.ingredient === id);
         if (usedInRecipes) {
           alert('Cannot delete ingredient: it is used in menu item recipes. Remove it from recipes first.');
           return;
         }
       }
+      
+      // Performs the actual delete operation
       await fetch(`${API_BASE}/${activeTab}/${id}/`, { method: 'DELETE' });
-      fetchData();
+      fetchData(); // Refreshes the main data table
+      
+      // Refreshes dependent data
       if (activeTab === 'employees') fetchEmployees();
       if (activeTab === 'menu-items') fetchRecipeItems();
     } catch (err) {
@@ -293,6 +368,7 @@ function BobaManager({ onBack }) {
     }
   };
 
+  // Handles saving a new or edited item
   const handleSave = async (formData) => {
     try {
       const getIdField = () => {
@@ -322,6 +398,7 @@ function BobaManager({ onBack }) {
         throw new Error(JSON.stringify(errorBody));
       }
       
+      // Resets state and refreshes data on success
       setModalOpen(false);
       setCurrentItem(null);
       fetchData();
@@ -336,6 +413,7 @@ function BobaManager({ onBack }) {
     }
   };
 
+  // Opens the add/edit modal
   const openModal = (mode, item = null) => {
     setReportModalOpen(false); 
     setModalMode(mode);
@@ -343,18 +421,20 @@ function BobaManager({ onBack }) {
     setModalOpen(true);
   };
 
+  // Opens the report modal
   const openReportModal = (type) => {
     setModalOpen(false); 
     setReportType(type);
     setReportModalOpen(true);
   };
 
+  // Closes all open modals
   const closeAllPopups = () => {
     setModalOpen(false);
     setReportModalOpen(false);
   }
 
-  // --- ADDED: Sorting handler ---
+  // Updates the sortConfig state when a table header is clicked
   const handleSort = (key) => {
     let direction = 'ascending';
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -363,7 +443,7 @@ function BobaManager({ onBack }) {
     setSortConfig({ key, direction });
   };
 
-  // --- ADDED: Memoized sorted data ---
+  // Memoized hook to sort the data only when data or sortConfig changes
   const sortedData = useMemo(() => {
     if (!Array.isArray(data) || data.length === 0) {
       return [];
@@ -396,6 +476,7 @@ function BobaManager({ onBack }) {
     return sortableData;
   }, [data, sortConfig]);
 
+  // Configuration for the main navigation tabs
   const tabs = [
     { id: 'menu-items', label: 'Menu Items', icon: FileText },
     { id: 'ingredients', label: 'Inventory', icon: Package },
@@ -406,9 +487,7 @@ function BobaManager({ onBack }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100">
-      {/* Header - Removed max-w-7xl */}
       <div className="bg-gradient-to-r from-amber-900 via-amber-800 to-orange-900 text-white p-8 shadow-2xl border-b-4 border-amber-950">
-        {/* Added px-8 to align with content padding */}
         <div className="px-8 flex justify-between items-center">
           <h1 className="text-4xl font-bold">Manager Dashboard</h1>
           <button 
@@ -421,9 +500,7 @@ function BobaManager({ onBack }) {
         </div>
       </div>
 
-      {/* Tab Navigation - Removed max-w-7xl */}
       <div className="bg-white shadow-lg border-b-4 border-amber-600">
-        {/* Added px-8 to align with content padding */}
         <div className="flex overflow-x-auto px-8">
           {tabs.map(tab => {
             const Icon = tab.icon;
@@ -436,7 +513,6 @@ function BobaManager({ onBack }) {
                   closeAllPopups(); 
                 }}
                 type="button"
-                // --- MODIFIED: Made tabs bigger ---
                 className={`px-8 py-5 text-lg font-semibold whitespace-nowrap transition-all duration-300 flex items-center gap-2 mr-1 ${
                   isActive
                     ? 'bg-gradient-to-b from-amber-600 to-amber-700 text-white border-b-4 border-amber-900 shadow-lg'
@@ -451,7 +527,6 @@ function BobaManager({ onBack }) {
         </div>
       </div>
 
-      {/* Main Content - Removed max-w-7xl, p-8 provides the spacing */}
       <div className="p-8">
         {activeTab === 'orders' ? (
           <OrdersView
@@ -466,8 +541,6 @@ function BobaManager({ onBack }) {
           />
         ) : (
           <div className="flex flex-col-reverse lg:flex-row gap-8">
-            
-            {/* Data Table - Left Side */}
             <div className="flex-1 min-w-0">
               {loading ? (
                 <div className="bg-white rounded-xl shadow-lg p-12 text-center border-4 border-gray-200">
@@ -477,23 +550,19 @@ function BobaManager({ onBack }) {
               ) : (
                 <DataTable 
                   activeTab={activeTab}
-                  data={sortedData} /* --- MODIFIED: Pass sortedData --- */
+                  data={sortedData}
                   onEdit={(item) => openModal('edit', item)}
                   onDelete={handleDelete}
-                  onSort={handleSort} /* --- MODIFIED: Pass sort handler --- */
-                  sortConfig={sortConfig} /* --- MODIFIED: Pass sort config --- */
+                  onSort={handleSort}
+                  sortConfig={sortConfig}
                 />
               )}
             </div>
 
-            {/* Right Column (Actions + Inline Forms) */}
             <div className="lg:w-[32rem] flex-shrink-0">
               <div className="space-y-8 sticky top-8">
-                
-                {/* Quick Actions Card */}
                 <div className="bg-white rounded-xl shadow-lg p-6 border-4 border-amber-200">
                   <h3 className="text-xl font-bold text-amber-900 mb-6 pb-3 border-b-2 border-amber-200">Quick Actions</h3>
-                  
                   <div className="space-y-4">
                     <PrimaryButton
                       onClick={() => openModal('add')}
@@ -502,7 +571,6 @@ function BobaManager({ onBack }) {
                     >
                       Add New Item
                     </PrimaryButton>
-
                     <div className="border-t-4 border-amber-100 pt-5 mt-5">
                       <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wide">Reports & Tools</h4>
                       <div className="space-y-4"> 
@@ -514,7 +582,6 @@ function BobaManager({ onBack }) {
                         >
                           Sales Report
                         </SecondaryButton>
-
                         <SecondaryButton
                           onClick={() => openReportModal('product-usage')}
                           icon={Package}
@@ -523,7 +590,6 @@ function BobaManager({ onBack }) {
                         >
                           Product Usage
                         </SecondaryButton>
-
                         <SecondaryButton
                           onClick={() => openReportModal('low-stock')}
                           icon={Package}
@@ -532,7 +598,6 @@ function BobaManager({ onBack }) {
                         >
                           Low Stock Alert
                         </SecondaryButton>
-
                         <SecondaryButton
                           onClick={() => openReportModal('x-report')}
                           icon={FileText}
@@ -541,7 +606,6 @@ function BobaManager({ onBack }) {
                         >
                           X-Report
                         </SecondaryButton>
-
                         <SecondaryButton
                           onClick={() => openReportModal('z-report')}
                           icon={FileText}
@@ -550,7 +614,6 @@ function BobaManager({ onBack }) {
                         >
                           Z-Report
                         </SecondaryButton>
-
                         <SecondaryButton
                           onClick={() => openReportModal('void-order')}
                           icon={X}
@@ -563,8 +626,6 @@ function BobaManager({ onBack }) {
                     </div>
                   </div>
                 </div>
-
-                {/* --- INLINE FORM AREA --- */}
                 
                 <InlineFormCard
                   isOpen={modalOpen}
@@ -609,6 +670,11 @@ function BobaManager({ onBack }) {
   );
 }
 
+/**
+ * A helper function to get a display-friendly title for a report type.
+ * @param {string} type - The report type key (e.g., 'sales', 'low-stock').
+ * @returns {string} The human-readable report title.
+ */
 function getReportTitle(type) {
   const titles = {
     sales: 'Sales Report',
@@ -621,11 +687,20 @@ function getReportTitle(type) {
   return titles[type] || 'Report';
 }
 
-// ===== ORDERS VIEW =====
-function OrdersView({ orders, orderItems, menuItems, employees, orderFilters, setOrderFilters, filterOrders }) {
+/**
+ * Component to display the list of orders and filtering options.
+ */
+function OrdersView({ orders, orderItems, menuItems, employees, orderFilters, setOrderFilters, filterOrders, onClose }) {
+  // State for the currently selected order to view details
   const [selectedOrder, setSelectedOrder] = useState(null);
+  // State to control the visibility of the order details modal
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
 
+  /**
+   * Aggregates all necessary details for a single order.
+   * @param {string} orderId - The ID of the order to detail.
+   * @returns {object | null} A detailed order object or null if not found.
+   */
   const getOrderDetails = (orderId) => {
     const order = orders.find(o => o.order_id === orderId);
     if (!order) return null;
@@ -656,6 +731,7 @@ function OrdersView({ orders, orderItems, menuItems, employees, orderFilters, se
     };
   };
 
+  // Fetches details for an order and opens the details modal
   const viewOrderDetails = (orderId) => {
     const details = getOrderDetails(orderId);
     if (details) {
@@ -668,7 +744,6 @@ function OrdersView({ orders, orderItems, menuItems, employees, orderFilters, se
 
   return (
     <div>
-      {/* Filter Section */}
       <div className="bg-white rounded-xl shadow-lg p-8 mb-8 border-4 border-blue-200">
         <h3 className="text-xl font-bold text-amber-900 mb-6 pb-3 border-b-2 border-blue-200">Filter Orders</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
@@ -702,7 +777,6 @@ function OrdersView({ orders, orderItems, menuItems, employees, orderFilters, se
         </div>
       </div>
 
-      {/* Orders Table */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden border-4 border-amber-200">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -746,7 +820,6 @@ function OrdersView({ orders, orderItems, menuItems, employees, orderFilters, se
         </div>
       </div>
 
-      {/* Order Details Modal (Uses the FLOATING ModalOverlay) */}
       <ModalOverlay
         isOpen={orderDetailsOpen && !!selectedOrder}
         onClose={() => setOrderDetailsOpen(false)}
@@ -822,9 +895,12 @@ function OrdersView({ orders, orderItems, menuItems, employees, orderFilters, se
   );
 }
 
-// ===== DATA TABLE =====
-// --- MODIFIED: Added onSort and sortConfig props ---
+/**
+ * Component to display the main data table for the active tab.
+ * Supports sorting, editing, and deleting items.
+ */
 function DataTable({ activeTab, data, onEdit, onDelete, onSort, sortConfig }) {
+  // Gets the correct ID field name based on the active tab
   const getIdField = () => {
     const idFields = {
       'menu-items': 'menu_item_id',
@@ -846,8 +922,10 @@ function DataTable({ activeTab, data, onEdit, onDelete, onSort, sortConfig }) {
     );
   }
 
+  // Gets all column names except the ID field
   const columns = Object.keys(data[0] || {}).filter(key => key !== idField);
 
+  // Formats cell values for display (e.g., snake_case to Title Case)
   const formatValue = (col, value) => {
     if (activeTab === 'ingredients' && col === 'ingredient_name' && typeof value === 'string') {
       return value
@@ -861,10 +939,10 @@ function DataTable({ activeTab, data, onEdit, onDelete, onSort, sortConfig }) {
     return String(value ?? '');
   };
 
-  // --- ADDED: Helper to render sort icon ---
+  // Determines which sort icon (up, down, or none) to display
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) {
-      return null; // Or a default "unsorted" icon
+      return null;
     }
     if (sortConfig.direction === 'ascending') {
       return <ArrowUp size={16} className="text-white" />;
@@ -878,7 +956,6 @@ function DataTable({ activeTab, data, onEdit, onDelete, onSort, sortConfig }) {
         <table className="w-full">
           <thead className="bg-gradient-to-r from-amber-600 to-orange-600 text-white sticky top-0 border-b-4 border-amber-800">
             <tr>
-              {/* --- MODIFIED: Make ID header sortable --- */}
               <th
                 className="px-6 py-4 text-left font-bold cursor-pointer hover:bg-amber-700 transition-colors"
                 onClick={() => onSort(idField)}
@@ -889,7 +966,6 @@ function DataTable({ activeTab, data, onEdit, onDelete, onSort, sortConfig }) {
                 </div>
               </th>
               
-              {/* --- MODIFIED: Make other headers sortable --- */}
               {columns.map(col => (
                 <th
                   key={col}
@@ -937,34 +1013,45 @@ function DataTable({ activeTab, data, onEdit, onDelete, onSort, sortConfig }) {
   );
 }
 
-// ===== MODAL COMPONENT (The Form) =====
+/**
+ * Component for the Add/Edit form, displayed within an InlineFormCard.
+ */
 function Modal({ activeTab, mode, item, onClose, onSave, ingredients, menuItems, employees, recipeItems, data }) {
+  // State for the form's data
   const [formData, setFormData] = useState(item || {});
+  // State for the ingredients associated with a menu item recipe
   const [selectedIngredients, setSelectedIngredients] = useState([]);
 
+  // Effect to populate the form when the item or mode changes
   useEffect(() => {
     setFormData(item || {});
     if (activeTab === 'menu-items' && item && mode === 'edit') {
+      // Populates existing ingredients for a menu item
       const recipes = recipeItems.filter(r => r.menu_item === item.menu_item_id);
       setSelectedIngredients(recipes.map(r => ({
         ingredient_id: r.ingredient,
         quantity: r.quantity
       })));
     } else if (activeTab === 'menu-items' && mode === 'add') {
+      // Sets up a new menu item with the next available ID
       setSelectedIngredients([]);
       const maxId = menuItems.length > 0 ? Math.max(...menuItems.map(m => m.menu_item_id)) : 0;
       setFormData({ menu_item_id: maxId + 1 });
     } else if (activeTab === 'add-ons' && mode === 'add') {
+      // Sets up a new add-on with the next available ID
       const maxId = data && data.length > 0 ? Math.max(...data.map(a => a.id || 0)) : 0;
       setFormData({ id: maxId + 1 });
     } else if (activeTab === 'employees' && mode === 'add') {
+      // Sets up a new employee with the next available ID
       const maxId = employees.length > 0 ? Math.max(...employees.map(e => e.employee_id)) : 0;
       setFormData({ employee_id: maxId + 1 });
     } else if (activeTab === 'ingredients' && mode === 'add') {
+      // Resets the ingredient form
       setFormData({ ingredient_id: '', ingredient_name: '' });
     }
   }, [item, mode, activeTab, menuItems, recipeItems, employees, data]);
 
+  // Gets the form field configuration based on the active tab
   const getFields = () => {
     const fields = {
       'menu-items': [
@@ -998,6 +1085,7 @@ function Modal({ activeTab, mode, item, onClose, onSave, ingredients, menuItems,
     return fields[activeTab] || [];
   };
 
+  // Handles changes to form inputs
   const handleFormChange = (e) => {
     const { name, value, type } = e.target;
     setFormData(prevData => ({
@@ -1006,23 +1094,28 @@ function Modal({ activeTab, mode, item, onClose, onSave, ingredients, menuItems,
     }));
   };
 
+  // Adds a new, empty ingredient slot to the recipe form
   const addIngredient = () => {
     setSelectedIngredients([...selectedIngredients, { ingredient_id: '', quantity: '' }]);
   };
 
+  // Updates a specific ingredient in the recipe form
   const updateIngredient = (index, field, value) => {
     const updated = [...selectedIngredients];
     updated[index][field] = value;
     setSelectedIngredients(updated);
   };
 
+  // Removes an ingredient from the recipe form
   const removeIngredient = (index) => {
     setSelectedIngredients(selectedIngredients.filter((_, i) => i !== index));
   };
 
+  // Handles the submission of the form
   const handleSubmit = async () => {
     if (activeTab === 'ingredients') {
       if (mode === 'add') {
+        // Converts ingredient name to snake_case for the ID
         const snakeCaseName = formData.ingredient_name
           .toLowerCase()
           .replace(/\s+/g, '_')
@@ -1041,8 +1134,10 @@ function Modal({ activeTab, mode, item, onClose, onSave, ingredients, menuItems,
     }
 
     if (activeTab === 'menu-items') {
+      // Saves the main menu item data
       await onSave(formData);
 
+      // Deletes all existing recipe items before saving new ones
       if (mode === 'edit') {
         const existingRecipes = recipeItems.filter(r => r.menu_item === formData.menu_item_id);
         for (const recipe of existingRecipes) {
@@ -1054,6 +1149,7 @@ function Modal({ activeTab, mode, item, onClose, onSave, ingredients, menuItems,
         }
       }
 
+      // Adds all recipe items from the form
       for (const ing of selectedIngredients) {
         if (ing.ingredient_id && ing.quantity) {
           try {
@@ -1072,6 +1168,7 @@ function Modal({ activeTab, mode, item, onClose, onSave, ingredients, menuItems,
         }
       }
     } else {
+      // Handles save for all other tab types
       onSave(formData);
     }
   };
@@ -1082,7 +1179,7 @@ function Modal({ activeTab, mode, item, onClose, onSave, ingredients, menuItems,
         {activeTab === 'ingredients' && (
           <div className="bg-blue-50 border-4 border-blue-300 rounded-lg p-5">
             <p className="text-sm text-blue-800 leading-relaxed">
-              <strong>📝 Note:</strong> When adding, the ingredient name will be converted to snake_case and used as the ID.
+              <strong>Note:</strong> When adding, the ingredient name will be converted to snake_case and used as the ID.
               For example: "Brown Sugar" → "brown_sugar". This ID cannot be changed.
             </p>
           </div>
@@ -1207,20 +1304,28 @@ function Modal({ activeTab, mode, item, onClose, onSave, ingredients, menuItems,
   );
 }
 
-// ===== REPORT MODAL (The Form) =====
+/**
+ * Component for the Report Generation form.
+ */
 function ReportModal({ type, onClose, zReportLastRunDate, setZReportLastRunDate }) {
+  // State for date-based report inputs
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // State for void order input
   const [orderId, setOrderId] = useState('');
+  // State for the generated report data
   const [reportData, setReportData] = useState(null);
+  // State for loading indicator
   const [loading, setLoading] = useState(false);
 
+  // Effect to auto-generate reports that don't need parameters
   useEffect(() => {
     if (type === 'low-stock' || type === 'x-report' || type === 'z-report') {
       generateReport();
     }
   }, [type]);
 
+  // Fetches and generates the appropriate report
   const generateReport = async () => {
     setLoading(true);
     setReportData(null);
@@ -1232,8 +1337,8 @@ function ReportModal({ type, onClose, zReportLastRunDate, setZReportLastRunDate 
       } else if (type === 'low-stock') {
         const res = await fetch(`${API_BASE}/ingredients/`);
         if (!res.ok) throw new Error('Failed to fetch ingredients');
-        const ingredients = await res.json();
-        const lowStock = ingredients.filter(i => i.stock_level <= i.low_stock_threshold);
+        const ingredientsData = await res.json();
+        const lowStock = ingredientsData.filter(i => i.stock_level <= i.low_stock_threshold);
         setReportData(lowStock);
       } else if (type === 'x-report') {
         const today = new Date().toISOString().split('T')[0];
@@ -1316,7 +1421,7 @@ function ReportModal({ type, onClose, zReportLastRunDate, setZReportLastRunDate 
 
       {reportData && type === 'low-stock' && (
         <div className="mt-6">
-          <h3 className="text-xl font-bold text-amber-900 mb-6">⚠️ Low Stock Items</h3>
+          <h3 className="text-xl font-bold text-amber-900 mb-6">Low Stock Items</h3>
           {reportData.length > 0 ? (
             <div className="overflow-x-auto border-4 border-orange-200 rounded-lg">
               <table className="w-full">
@@ -1342,7 +1447,7 @@ function ReportModal({ type, onClose, zReportLastRunDate, setZReportLastRunDate 
             </div>
           ) : (
             <div className="bg-green-50 border-4 border-green-300 rounded-lg p-6">
-              <p className="text-green-800 font-bold text-lg">✅ All items are in stock!</p>
+              <p className="text-green-800 font-bold text-lg">All items are in stock!</p>
             </div>
           )}
         </div>
