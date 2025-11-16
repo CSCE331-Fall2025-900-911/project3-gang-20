@@ -1,11 +1,3 @@
-/**
- * App.js
- * This file is the main entry point for the Boba Restaurant application.
- * It acts as a top-level router, allowing the user to navigate between
- * the different portals (Kiosk, Manager, Cashier, Menu Board) from a
- * central home screen.
- */
-
 import { useState } from 'react';
 // Import the different portal components
 import BobaKiosk from './boba_kiosk';
