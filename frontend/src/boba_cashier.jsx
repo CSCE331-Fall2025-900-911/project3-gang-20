@@ -1,10 +1,3 @@
-/**
- * BobaCashier.js
- * This file defines the main React component for the cashier-facing point-of-sale (POS) system.
- * It manages the menu, cart, customizations, payment processing, and order submission
- * for a cashier-operated terminal.
- */
-
 import { useState, useEffect } from 'react';
 import { Trash2, LogOut } from 'lucide-react';
 

@@ -1,10 +1,3 @@
-/**
- * BobaKiosk.js
- * This file defines the main React component for the self-service boba kiosk.
- * It manages all application state, API data fetching, and UI rendering for 
- * the entire order flow, from the welcome screen to payment processing.
- */
-
 import { useState, useEffect } from 'react';
 import { ShoppingCart, LogOut } from 'lucide-react';
 
