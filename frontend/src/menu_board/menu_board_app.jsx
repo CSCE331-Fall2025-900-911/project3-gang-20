@@ -5,7 +5,13 @@ import { CategorySection } from './category_section';
 import { HeaderStrip } from './header_strip';
 import { useMenuData, FALLBACK_DATA } from './use_menu_data';
 
+/** The maximum number of items to display in a single category panel before truncating. */
 const MAX_ITEMS_PER_PANEL = 13;
+
+/**
+ * Defines the static display order of categories on the menu board.
+ * This ensures "Freshbrew" always appears before "Fruity", regardless of API order.
+ */
 const DISPLAY_ORDER = [
   'Freshbrew',
   'Fruity',
@@ -16,6 +22,10 @@ const DISPLAY_ORDER = [
   'Seasonal',
 ];
 
+/**
+ * A mapping to normalize variant category names from the API to a standard display name.
+ * This allows "milky", "milktea", etc., to all be grouped under the "Milky" panel.
+ */
 const NAME_SYNONYMS = {
   Freshbrew: ['freshbrew', 'freshbrewed', 'freshbrewcoffee', 'coffee'],
   Fruity: ['fruity', 'fruittea'],
@@ -26,6 +36,11 @@ const NAME_SYNONYMS = {
   Seasonal: ['seasonal', 'limited', 'specials'],
 };
 
+/**
+ * Placeholder data for categories defined in DISPLAY_ORDER.
+ * This is used if a category is expected (per DISPLAY_ORDER) but is not
+ * found in the API response, ensuring the grid layout remains stable.
+ */
 const PLACEHOLDER_CATEGORIES = {
   Freshbrew: {
     name: 'Freshbrew',
@@ -93,6 +108,7 @@ const PLACEHOLDER_CATEGORIES = {
   },
 };
 
+/** A static panel for toppings, appended after all dynamic categories. */
 const TOPPINGS_PANEL = {
   name: 'Toppings',
   items: [
@@ -112,28 +128,52 @@ const TOPPINGS_PANEL = {
   ],
 };
 
+/** Utility function to truncate an item list based on MAX_ITEMS_PER_PANEL. */
 function trimItems(items) {
   return items.slice(0, MAX_ITEMS_PER_PANEL);
 }
 
+/** Utility function to normalize a string for map lookups (lowercase, no symbols). */
 function normaliseName(name) {
   return name.toLowerCase().replace(/[^a-z]/g, '');
 }
 
+/**
+ * The main application component for the Menu Board.
+ *
+ * This component orchestrates data fetching, state management (clock, promo ticker),
+ * and renders the complete menu board layout, including the header, category panels,
+ * and footer.
+ *
+ * @param {object} props - Component properties.
+ * @param {number} props.pollMs - The interval (in ms) to poll the API for updates.
+ * @param {boolean} [props.showClock=true] - Whether to display the clock in the header.
+ * @param {boolean} [props.showWeather=false] - Whether to display weather (prop passed but not used).
+ * @param {function} props.onBack - A callback function to trigger a "back" or "logout" action.
+ */
 export default function MenuBoardApp({
   pollMs,
   showClock = true,
   showWeather = false,
   onBack,
 }) {
+  // Fetch menu data using the custom hook
   const { data, isLoading, error } = useMenuData(pollMs);
 
+  // Use fetched data, but fall back to a default structure if the API returns empty arrays
   const categories = data.categories.length ? data.categories : FALLBACK_DATA.categories;
   const promos = data.promos.length ? data.promos : FALLBACK_DATA.promos;
 
+  /**
+   * Memoized logic to build the final array of panels to be displayed.
+   * This logic maps API categories to the fixed DISPLAY_ORDER,
+   * normalizes names using NAME_SYNONYMS, and inserts
+   * PLACEHOLDER_CATEGORIES for any missing data to maintain the layout.
+   */
   const panels = useMemo(() => {
     const categoryMap = new Map();
 
+    // 1. Create a map of all available categories from the API for fast lookup
     categories.forEach((category) => {
       const trimmed = {
         ...category,
@@ -142,34 +182,45 @@ export default function MenuBoardApp({
       categoryMap.set(normaliseName(category.name), trimmed);
     });
 
+    // 2. Build the display panels based on the static DISPLAY_ORDER
     const resolved = DISPLAY_ORDER.map((displayName) => {
       const variants = NAME_SYNONYMS[displayName] || [displayName.toLowerCase()];
       let match;
+      // Check all synonyms for a matching category in the map
       for (const variant of variants) {
         match = categoryMap.get(normaliseName(variant));
         if (match) break;
       }
+      // Use the matched category or fall back to the placeholder
       return match ?? PLACEHOLDER_CATEGORIES[displayName];
     });
 
+    // 3. Append the static Toppings panel at the end
     resolved.push(TOPPINGS_PANEL);
     return resolved;
-  }, [categories]);
+  }, [categories]); // Only re-run this logic if the `categories` data changes
 
+  // State for the live clock
   const [now, setNow] = useState(() => new Date());
+  // State for the cycling promo ticker
   const [promoIndex, setPromoIndex] = useState(0);
 
+  /**
+   * Handles the click event for the "Logout" button.
+   */
   const handleLogout = () => {
     if (onBack) {
       onBack();
     }
   };
 
+  // Effect to update the clock every second
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1_000);
     return () => clearInterval(timer);
   }, []);
 
+  // Effect to cycle through promos on the ticker
   useEffect(() => {
     if (!promos.length) return undefined;
     const ticker = setInterval(() => setPromoIndex((prev) => (prev + 1) % promos.length), 7_000);
@@ -178,6 +229,7 @@ export default function MenuBoardApp({
 
   return (
     <div className="menu-board-root">
+      {/* Conditionally render a logout button if onBack is provided */}
       {onBack && (
         <button
           onClick={handleLogout}
@@ -191,12 +243,14 @@ export default function MenuBoardApp({
       <div className="menu-board-frame">
         <HeaderStrip categories={panels} showClock={showClock} showWeather={showWeather} currentTime={now} />
 
+        {/* Display an error message if data fetching fails */}
         {error ? <div className="menu-board-alert">{error}</div> : null}
 
         <div className="menu-board-body">
           {isLoading ? (
             <div className="menu-board-loading">Loading menu…</div>
           ) : (
+            // Render the grid of category panels
             <div className="menu-board-panels static-grid">
               {panels.map((category) => (
                 <CategorySection key={category.name} category={{ ...category, items: trimItems(category.items) }} />
@@ -207,6 +261,7 @@ export default function MenuBoardApp({
 
         <footer className="menu-board-footer">
           <div className="menu-board-ticker">
+            {/* Display the currently active promo message */}
             <span>{promos[promoIndex % promos.length].text ?? promos[promoIndex % promos.length]}</span>
           </div>
         </footer>
