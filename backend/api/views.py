@@ -1,38 +1,60 @@
-from .models import *
-from .serializers import *
-from rest_framework.views import APIView
-from rest_framework.response import Response
+# In your_app/views.py
 from rest_framework import viewsets
+from django_filters.rest_framework import DjangoFilterBackend
+from .models import (
+    Customer, Employee, Ingredient, CustomizationCategory,
+    CustomizationOption, MenuItem, Order, OrderItem, MenuCategory, Unit
+)
+from .serializers import (
+    CustomerSerializer, EmployeeSerializer, IngredientSerializer,
+    CustomizationCategorySerializer, CustomizationOptionSerializer,
+    MenuItemSerializer, OrderSerializer, OrderItemSerializer, MenuCategorySerializer, UnitSerializer
+)
+from .filters import OrderFilter # Import our new filter
 
-# api endpoints (only for viewing right now)
-class IngredientsViewSet(viewsets.ModelViewSet):
-    queryset = Ingredients.objects.all().order_by('ingredient_id')
-    serializer_class = IngredientsSerializer
 
-# Recipe management - ingredients needed for each drink
-class RecipeItemsViewSet(viewsets.ModelViewSet):
-    queryset = RecipeItems.objects.all().order_by('menu_item')
-    serializer_class = RecipeItemsSerializer
-
-# Customization options (ice level, sweetness, toppings)
-class AddOnsViewSet(viewsets.ModelViewSet):
-    queryset = AddOns.objects.all()
-    serializer_class = AddOnsSerializer
-
-class MenuItemsViewSet(viewsets.ModelViewSet):
-    queryset = MenuItems.objects.all().order_by('category', 'name')
-    serializer_class = MenuItemsSerializer
-
-# Customer order records
 class OrdersViewSet(viewsets.ModelViewSet):
-    queryset = Orders.objects.all()
-    serializer_class = OrdersSerializer
+    """
+    A ViewSet for Orders that uses our new filter.
+    """
+    queryset = Order.objects.all().order_by('-order_date_time')
+    serializer_class = OrderSerializer
+    
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = OrderFilter
 
-# Individual items within each order
-class OrderItemsViewSet(viewsets.ModelViewSet):
-    queryset = OrderItems.objects.all()
-    serializer_class = OrderItemsSerializer
+class CustomerViewSet(viewsets.ModelViewSet):
+    queryset = Customer.objects.all()
+    serializer_class = CustomerSerializer
 
-class EmployeesViewSet(viewsets.ModelViewSet):
-    queryset = Employees.objects.all().order_by('last_name')
-    serializer_class = EmployeesSerializer
+class EmployeeViewSet(viewsets.ModelViewSet):
+    queryset = Employee.objects.all()
+    serializer_class = EmployeeSerializer
+
+class IngredientViewSet(viewsets.ModelViewSet):
+    queryset = Ingredient.objects.all()
+    serializer_class = IngredientSerializer
+
+class UnitViewSet(viewsets.ModelViewSet):
+    queryset = Unit.objects.all()
+    serializer_class = UnitSerializer
+
+class CustomizationCategoryViewSet(viewsets.ModelViewSet):
+    queryset = CustomizationCategory.objects.all()
+    serializer_class = CustomizationCategorySerializer
+
+class CustomizationOptionViewSet(viewsets.ModelViewSet):
+    queryset = CustomizationOption.objects.all()
+    serializer_class = CustomizationOptionSerializer
+
+class MenuCategoryViewSet(viewsets.ModelViewSet):
+    queryset = MenuCategory.objects.all()
+    serializer_class = MenuCategorySerializer
+
+class MenuItemViewSet(viewsets.ModelViewSet):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+
+class OrderItemViewSet(viewsets.ModelViewSet):
+    queryset = OrderItem.objects.all()
+    serializer_class = OrderItemSerializer

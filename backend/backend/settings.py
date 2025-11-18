@@ -29,9 +29,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'api.apps.ApiConfig',
-
+    'django_filters',
     'rest_framework',
     'corsheaders',
+
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
@@ -47,7 +49,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'project3.urls'
+ROOT_URLCONF = 'backend.urls'
 
 TEMPLATES = [
     {
@@ -65,7 +67,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'project3.wsgi.application'
+WSGI_APPLICATION = 'backend.wsgi.application'
 
 
 # Database

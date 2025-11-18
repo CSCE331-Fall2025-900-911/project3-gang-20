@@ -1,42 +1,100 @@
+# In your_app/serializers.py
 from rest_framework import serializers
-from .models import *
+from .models import (
+    Customer, Employee, Ingredient, CustomizationCategory,
+    CustomizationOption, MenuItem, RecipeItem, Order, OrderItem, MenuCategory, Unit
+)
 
-# This is your existing Ingredient serializer
-class IngredientsSerializer(serializers.ModelSerializer):
+class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Ingredients
+        model = Customer
         fields = '__all__'
 
-# Recipe ingredient requirements
-class RecipeItemsSerializer(serializers.ModelSerializer):
+class EmployeeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = RecipeItems
+        model = Employee
         fields = '__all__'
 
-# Customization options (ice, sweetness, toppings)
-class AddOnsSerializer(serializers.ModelSerializer):
+class UnitSerializer(serializers.ModelSerializer):
     class Meta:
-        model = AddOns
+        model = Unit
+        fields = ['id', 'name', 'abbreviation']
+
+class IngredientSerializer(serializers.ModelSerializer):
+    unit = serializers.StringRelatedField()
+    class Meta:
+        model = Ingredient
         fields = '__all__'
 
-# Menu item data
-class MenuItemsSerializer(serializers.ModelSerializer):
+class CustomizationCategorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = MenuItems
+        model = CustomizationCategory
         fields = '__all__'
 
-# Order records
-class OrdersSerializer(serializers.ModelSerializer):
+class CustomizationOptionSerializer(serializers.ModelSerializer):
+    # Show the category name instead of just its ID
+    category = serializers.StringRelatedField() 
+    
     class Meta:
-        model = Orders
-        fields = '__all__'
+        model = CustomizationOption
+        fields = ['id', 'name', 'price', 'category', 'ingredient']
 
-class OrderItemsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OrderItems
-        fields = '__all__'
+# --- Complex Serializers with Nesting ---
 
-class EmployeesSerializer(serializers.ModelSerializer):
+class RecipeItemSerializer(serializers.ModelSerializer):
+    """
+    A nested serializer to show ingredients *inside* a MenuItem.
+    """
+    # Show the ingredient's name instead of its ID
+    ingredient = serializers.StringRelatedField()
+
     class Meta:
-        model = Employees
-        fields ='__all__'
+        model = RecipeItem
+        fields = ['ingredient', 'quantity']
+
+class MenuCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MenuCategory
+        fields = ['id', 'name', 'description']
+
+class MenuItemSerializer(serializers.ModelSerializer):
+    """
+    The serializer for a MenuItem, which shows its recipe.
+    """
+    recipe = RecipeItemSerializer(source='recipeitem_set', many=True, read_only=True)
+    available_customizations = serializers.StringRelatedField(many=True, read_only=True)
+    category = serializers.StringRelatedField()
+    
+    class Meta:
+        model = MenuItem
+        fields = [
+            'id', 'name', 'category', 'base_price', 
+            'recipe', 'available_customizations'
+        ]
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    """
+    A nested serializer to show line items *inside* an Order.
+    """
+    menu_item = serializers.StringRelatedField()
+    customizations = serializers.StringRelatedField(many=True)
+
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'menu_item', 'quantity', 'customizations']
+
+class OrderSerializer(serializers.ModelSerializer):
+    """
+    The main Order serializer. It shows all its line items.
+    """
+    # 'items' is the related_name from the OrderItem model
+    items = OrderItemSerializer(many=True, read_only=True)
+    customer = serializers.StringRelatedField()
+    employee = serializers.StringRelatedField()
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'order_date_time', 'payment_type', 
+            'customer', 'employee', 'items'
+        ]

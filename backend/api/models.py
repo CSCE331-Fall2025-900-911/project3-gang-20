@@ -1,130 +1,167 @@
 from django.db import models
 
-class ApiMessage(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    text = models.CharField(max_length=200)
-
-    # We remove the 'Meta' class so Django manages this table.
-    # class Meta:
-    #     managed = False  <-- REMOVED
-    #     db_table = 'api_message' <-- REMOVED (Django knows this)
-
-
-# -----------------------------------------------------------------
-# 2. YOUR PRE-EXISTING DATABASE MODELS
-# -----------------------------------------------------------------
-# These tables already exist, so we set 'managed = False'
-# to tell Django not to try and change them with 'migrate'.
-
-# Inventory tracking for ingredients used in drinks
-class Ingredients(models.Model):
-    ingredient_id = models.CharField(primary_key=True, max_length=50)
-    ingredient_name = models.CharField(max_length=100, blank=True, null=True)
-    stock_level = models.DecimalField(max_digits=10, decimal_places=2)
-    unit = models.CharField(max_length=20, blank=True, null=True)  # ex. "oz", "lb", "count"
-    low_stock_threshold = models.DecimalField(max_digits=10, decimal_places=2)
-
-    class Meta:
-        managed = False
-        db_table = 'ingredients'
-    
-    def __str__(self):
-        return self.ingredient_name
-
-
-# Customization options: ice levels, sweetness, toppings
-class AddOns(models.Model):
-    id = models.IntegerField(primary_key=True)
-    category = models.CharField(max_length=50, blank=True, null=True)  # ex. "Ice Level", "Toppings"
-    name = models.CharField(max_length=100, blank=True, null=True)  # ex. "50% Ice", "Boba"
-    price = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
-    
-    # I've converted this from a CharField to a proper ForeignKey
-    # to link it to your Ingredients table.
-    ingredient = models.ForeignKey(
-        Ingredients, 
-        on_delete=models.DO_NOTHING, 
-        db_column='ingredient_id',  # This tells Django which column to use
-        blank=True, 
-        null=True
-    )
-    quantity = models.DecimalField(max_digits=5, decimal_places=3, blank=True, null=True)
-
-    class Meta:
-        managed = False
-        db_table = 'add_ons'
-
-    def __str__(self):
-        return self.name
-
-
-# Employee records for cashiers and managers
-class Employees(models.Model):
-    employee_id = models.IntegerField(primary_key=True)
-    first_name = models.CharField(max_length=50, blank=True, null=True)
-    last_name = models.CharField(max_length=50, blank=True, null=True)
-    position = models.CharField(max_length=50, blank=True, null=True)  # ex. "Cashier", "Manager"
-    hire_date = models.DateField(blank=True, null=True)
-
-    class Meta:
-        managed = False
-        db_table = 'employees'
+class Customer(models.Model):
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100, blank=True, null=True)
+    email = models.EmailField(unique=True, blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    joined_date = models.DateField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
+class Employee(models.Model):
+    legacy_employee_id = models.IntegerField(unique=True, null=True, blank=True)
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
+    position = models.CharField(max_length=50, blank=True)
+    hire_date = models.DateField(blank=True, null=True)
+    
+    legacy_employee_id = models.IntegerField(unique=True, blank=True, null=True)
 
-# Drink menu items available for ordering
-class MenuItems(models.Model):
-    menu_item_id = models.IntegerField(primary_key=True)
-    category = models.CharField(max_length=50, blank=True, null=True)  # ex. "Milky", "Fruity"
-    name = models.CharField(max_length=100, blank=True, null=True)  # ex. "Brown Sugar Milk Tea"
-    price = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)  # Base price
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
 
-    class Meta:
-        managed = False
-        db_table = 'menu_items'
+class Unit(models.Model):
+    """
+    Stores units of measurement (e.g., "Ounce", "Pound", "Count")
+    """
+    name = models.CharField(max_length=50, unique=True)
+    abbreviation = models.CharField(max_length=10, unique=True)
+
+    def __str__(self):
+        return self.abbreviation
+
+class Ingredient(models.Model):
+    legacy_ingredient_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
+    name = models.CharField(max_length=100, unique=True)
+    stock_level = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    unit = models.ForeignKey(
+        Unit, 
+        on_delete=models.PROTECT, # Don't delete a unit if ingredients use it
+        blank=True, 
+        null=True
+    )
+    
+    low_stock_threshold = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
         return self.name
 
+class CustomizationCategory(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    
+    def __str__(self):
+        return self.name
 
-# Customer order records with payment info
-class Orders(models.Model):
-    order_id = models.IntegerField(primary_key=True)
-    order_date = models.DateField(blank=True, null=True)
-    order_time = models.TimeField(blank=True, null=True)
-    employee = models.ForeignKey(Employees, on_delete=models.DO_NOTHING, blank=True, null=True)
-    payment_type = models.TextField(blank=True, null=True)  # "Cash" or "Card"
+class CustomizationOption(models.Model):
+    legacy_addon_id = models.IntegerField(unique=True, null=True, blank=True)
+    name = models.CharField(max_length=100)
+    price = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    
+    # Link the option to its category (e.g., "Boba" -> "Toppings")
+    category = models.ForeignKey(CustomizationCategory, on_delete=models.CASCADE)
+    
+    # Optionally, link to an ingredient for inventory tracking
+    ingredient = models.ForeignKey(
+        Ingredient, 
+        on_delete=models.SET_NULL, # Don't delete option if ingredient is deleted
+        blank=True, 
+        null=True
+    )
 
-    class Meta:
-        managed = False
-        db_table = 'orders'
+    def __str__(self):
+        return f"{self.category.name}: {self.name} (+${self.price})"
 
-
-# Line items for each order - links orders to menu items
-class OrderItems(models.Model):
-    # inspectdb noted that your composite key (order_id, menu_item_id)
-    # is not supported. It made 'order' the primary key as a workaround.
-    # This is the standard Django way to handle this.
-    order = models.OneToOneField(Orders, on_delete=models.DO_NOTHING, primary_key=True)
-    menu_item = models.ForeignKey(MenuItems, on_delete=models.DO_NOTHING)
-    quantity = models.IntegerField(blank=True, null=True)  # Number of this item ordered
-
-    class Meta:
-        managed = False
-        db_table = 'order_items'
-        unique_together = (('order', 'menu_item'),)
-
-
-# Recipe definitions - ingredients required for each menu item
-class RecipeItems(models.Model):
-    # This is another composite key workaround
-    menu_item = models.OneToOneField(MenuItems, on_delete=models.DO_NOTHING, primary_key=True)
-    ingredient = models.ForeignKey(Ingredients, on_delete=models.DO_NOTHING)
-    quantity = models.DecimalField(max_digits=10, decimal_places=4)  # Amount of ingredient needed
+class MenuCategory(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
 
     class Meta:
-        managed = False
-        db_table = 'recipe_items'
+        verbose_name_plural = "Menu Categories"
+
+    def __str__(self):
+        return self.name
+
+class MenuItem(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    
+    legacy_menu_item_id = models.IntegerField(unique=True, null=True, blank=True)
+    category = models.ForeignKey(
+        MenuCategory, 
+        on_delete=models.SET_NULL, # Don't delete drinks if category is deleted
+        blank=True, 
+        null=True
+    )
+    
+    base_price = models.DecimalField(max_digits=5, decimal_places=2)
+
+    ingredients = models.ManyToManyField(
+        Ingredient,
+        through='RecipeItem', 
+        related_name='menu_items'
+    )
+    
+    available_customizations = models.ManyToManyField(
+        CustomizationCategory,
+        blank=True
+    )
+
+    def __str__(self):
+        return self.name
+
+class RecipeItem(models.Model):
+    menu_item = models.ForeignKey(MenuItem, on_delete=models.CASCADE)
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
+    quantity = models.DecimalField(max_digits=10, decimal_places=4)
+
+    class Meta:
         unique_together = (('menu_item', 'ingredient'),)
+    
+    def __str__(self):
+        return f"{self.menu_item.name} uses {self.quantity} {self.ingredient.unit} of {self.ingredient.name}"
+
+
+class Order(models.Model):
+    order_date_time = models.DateTimeField(auto_now_add=True)
+    payment_type = models.CharField(max_length=20) # "Cash", "Card"
+    
+    customer = models.ForeignKey(
+        Customer, 
+        on_delete=models.SET_NULL, # Keep order even if customer is deleted
+        blank=True, 
+        null=True
+    )
+    
+    employee = models.ForeignKey(
+        Employee, 
+        on_delete=models.SET_NULL, # Keep order even if employee is fired
+        blank=True, 
+        null=True
+    )
+    
+    # add method later
+    # total_price = models.DecimalField(...)
+
+    def __str__(self):
+        return f"Order #{self.id} on {self.order_date_time.strftime('%Y-%m-%d')}"
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(
+        Order, 
+        on_delete=models.CASCADE, 
+        related_name='items' # Allows us to do order.items.all()
+    )
+    
+    menu_item = models.ForeignKey(MenuItem, on_delete=models.PROTECT) # Don't delete item if orders exist
+    quantity = models.PositiveIntegerField(default=1)
+    
+    # (e.g., "Boba", "50% Ice")
+    customizations = models.ManyToManyField(
+        CustomizationOption,
+        blank=True # Can be blank if no customizations
+    )
+    
+    def __str__(self):
+        return f"{self.quantity}x {self.menu_item.name} for Order # {self.order.id}"
