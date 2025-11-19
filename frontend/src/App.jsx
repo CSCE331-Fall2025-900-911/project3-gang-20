@@ -11,6 +11,7 @@ import MenuBoardApp from './menu_board/menu_board_app';
  * @returns {React.ReactNode} The rendered component based on the current page state.
  */
 function App() {
+
   // State to manage which portal is currently active. 'home' is the default.
   const [currentPage, setCurrentPage] = useState('home');
 
@@ -33,6 +34,8 @@ function App() {
   if (currentPage === 'menu-board') {
     return <MenuBoardApp onBack={() => setCurrentPage('home')} />;
   }
+
+  
 
   // --- Home Screen Rendering ---
   // This is the default view, rendered when `currentPage` is 'home'.

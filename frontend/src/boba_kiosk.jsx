@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { ShoppingCart, LogOut } from 'lucide-react';
 
 // API Endpoints
-const MENU_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
-const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
-const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
-const ORDER_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/order-items/';
+const MENU_ITEMS_URL = 'http://127.0.0.1:8000//api/menu-items/';
+const ADDONS_ITEMS_URL = 'http://127.0.0.1:8000/api/customization-options/';
+const ORDERS_URL = 'http://127.0.0.1:8000//api/orders/';
+const ORDER_ITEMS_URL = 'http://127.0.0.1:8000/api/order-items/';
 
 /**
  * The main component for the boba ordering kiosk interface.
@@ -13,6 +13,22 @@ const ORDER_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/order-items/'
  * @param {function} props.onBack - Callback function to return to the previous view (e.g., employee login).
  */
 function BobaKiosk({ onBack }) {
+
+  // Google Translate Setup function
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+    script.async = true;
+    document.body.appendChild(script);
+
+    window.googleTranslateElementInit = () => {
+      new window.google.translate.TranslateElement(
+        { pageLanguage: 'en', layout: window.google.translate.TranslateElement.InlineLayout.VERTICAL },
+        'google_translate_element'
+      );
+    };
+  }, []);
+
   // State for managing the current UI view (e.g., 'welcome', 'categories')
   const [currentView, setCurrentView] = useState('welcome');
   
@@ -49,7 +65,7 @@ function BobaKiosk({ onBack }) {
         // Fetch menu items and add-ons in parallel
         const [menuResponse, addOnsResponse] = await Promise.all([
           fetch(MENU_ITEMS_URL),
-          fetch(ADDONS_URL)
+          fetch(ADDONS_ITEMS_URL)
         ]);
         
         if (!menuResponse.ok || !addOnsResponse.ok) {
@@ -113,7 +129,7 @@ function BobaKiosk({ onBack }) {
    */
   const addToCart = () => {
     const customizationPrice = calculateCustomizationPrice();
-    const totalPrice = parseFloat(selectedDrink.price) + customizationPrice;
+    const totalPrice = parseFloat(selectedDrink.base_price) + customizationPrice;
     
     // Create a new cart item with a unique ID and all customization details
     setCart([...cart, {
@@ -151,92 +167,78 @@ function BobaKiosk({ onBack }) {
     return cart.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0).toFixed(2);
   };
 
+
+  // Helper to extract just the IDs of the selected options
+  // Returns an array of integers: e.g., [1, 5, 12]
+  const getCustomizationIDs = (cartItem) => {
+    const ids = [];
+
+    // 1. Ice Level ID
+    if (cartItem.customizations.iceLevel) {
+        ids.push(cartItem.customizations.iceLevel.id);
+    }
+    
+    // 2. Sweetness Level ID
+    if (cartItem.customizations.sweetnessLevel) {
+        ids.push(cartItem.customizations.sweetnessLevel.id);
+    }
+
+    // 3. Topping IDs
+    cartItem.customizations.toppings.forEach(topping => {
+        ids.push(topping.id);
+    });
+
+    return ids; 
+  };
+
   /**
-   * Handles the entire checkout process:
-   * 1. Fetches the last order_id to determine the new order_id.
-   * 2. Creates a new order entry in the 'orders' table.
-   * 3. Groups cart items and creates entries in the 'order_items' table.
-   * 4. Clears the cart and shows a success message.
+   * Handles the checkout process using the "Single POST" method.
+   * Matches the 'OrderWriteSerializer' structure in Django.
    */
   const processPayment = async () => {
     setProcessingPayment(true);
     try {
-      // Step 1: Get the last order_id to determine the next one
-      const ordersResponse = await fetch(ORDERS_URL);
-      if (!ordersResponse.ok) throw new Error('Failed to fetch orders');
-      const orders = await ordersResponse.json();
-      
-      // Find the highest existing order_id
-      const lastOrderId = orders.length > 0 
-        ? Math.max(...orders.map(order => order.order_id))
-        : 0;
-      const newOrderId = lastOrderId + 1;
+      // Step 1: Format the items exactly how OrderItemWriteSerializer expects them
+      const itemsPayload = cart.map((cartItem) => ({
+        menu_item: cartItem.id, // Send the ID (e.g., 4)
+        quantity: 1,
+        customizations: getCustomizationIDs(cartItem) // Send Array of IDs (e.g., [1, 5])
+      }));
 
-      // Step 2: Get current date and time for the order record
-      const now = new Date();
-      const orderDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
-      const orderTime = now.toTimeString().split(' ')[0]; // HH:MM:SS
-
-      // Step 3: Create the new order record
+      // Step 2: Construct the main Order payload
       const orderData = {
-        order_id: newOrderId,
-        order_date: orderDate,
-        order_time: orderTime,
-        employee_id: 0, // Kiosk orders are hardcoded to employee_id 0
-        payment_type: 'Card' // Kiosk payment is assumed to be 'Card'
+        payment_type: 'Card',
+        // IMPORTANT: Ensure your backend Employee/Customer serializers allow nulls
+        // If they don't, you might need to send a valid ID here (e.g., a generic 'Kiosk' employee ID)
+        customer: null, 
+        employee: null, 
+        items: itemsPayload // This nested list triggers the nested write in Django
       };
 
-      const createOrderResponse = await fetch(ORDERS_URL, {
+      // Step 3: Send ONE request to the Orders endpoint
+      const response = await fetch(ORDERS_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)
       });
 
-      if (!createOrderResponse.ok) throw new Error('Failed to create order');
+      if (!response.ok) {
+        // Capture the specific error from Django (e.g., "Employee field may not be null")
+        const errorText = await response.text();
+        throw new Error(`Server Error: ${errorText}`);
+      }
+      
+      const newOrder = await response.json();
 
-      // Step 4: Group cart items by menu_item_id and sum their quantities
-      // This is necessary because order_items stores quantity, but the cart stores individual items
-      const itemQuantities = {};
-      cart.forEach(item => {
-        if (itemQuantities[item.menu_item_id]) {
-          itemQuantities[item.menu_item_id] += 1;
-        } else {
-          itemQuantities[item.menu_item_id] = 1;
-        }
-      });
-
-      // Step 5: Create a promise for each 'order_items' entry to be posted
-      const orderItemsPromises = Object.entries(itemQuantities).map(([menuItemId, quantity]) => {
-        const orderItemData = {
-          order_id: newOrderId,
-          menu_item_id: parseInt(menuItemId),
-          quantity: quantity
-        };
-
-        return fetch(ORDER_ITEMS_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(orderItemData)
-        });
-      });
-
-      // Step 6: Execute all order_items POST requests
-      await Promise.all(orderItemsPromises);
-
-      // Step 7: Clear cart, notify user, and return to welcome screen on success
-      const finalTotal = getTotalPrice(); // Get total before clearing cart
+      // Step 4: Success
+      const finalTotal = getTotalPrice(); 
       setCart([]);
-      alert(`Order #${newOrderId} placed successfully! Total: $${finalTotal}`);
+      alert(`Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal}`);
       setCurrentView('welcome');
       
     } catch (err) {
-      // Handle any failure during the multi-step payment process
       console.error('Payment processing error:', err);
-      alert('Failed to process payment. Please try again.');
+      alert(`Order Failed: ${err.message}`);
     } finally {
       setProcessingPayment(false);
     }
@@ -360,10 +362,13 @@ function BobaKiosk({ onBack }) {
     );
   };
 
+  // Definig all views into a variable to allow for google translate div placement
+  let viewContent = null;
+
   // --- View: Welcome Screen ---
   // The initial screen that prompts the user to start an order.
   if (currentView === 'welcome') {
-    return (
+    viewContent = (
       <div style={{
         minHeight: '100vh',
         background: 'linear-gradient(to bottom right, #fffbeb, #fed7aa)',
@@ -403,7 +408,7 @@ function BobaKiosk({ onBack }) {
   // --- View: Category Selection Screen ---
   // Displays all available drink categories.
   if (currentView === 'categories') {
-    return (
+    viewContent = (
       <div style={{
         minHeight: '100vh',
         background: 'linear-gradient(to bottom right, #fffbeb, #fed7aa)',
@@ -412,8 +417,6 @@ function BobaKiosk({ onBack }) {
         alignItems: 'center',
         justifyContent: 'center'
       }}>
-        <LogoutButton />
-        <CartButton />
         <div style={{ maxWidth: '1280px', width: '100%' }}>
           <h2 style={{ fontSize: '48px', fontWeight: 'bold', color: '#78350f', textAlign: 'center', marginBottom: '48px' }}>
             Select a Category
@@ -480,14 +483,12 @@ function BobaKiosk({ onBack }) {
   if (currentView === 'drinks') {
     const filteredDrinks = menuItems.filter(item => item.category === selectedCategory);
     
-    return (
+    viewContent = (
       <div style={{
         minHeight: '100vh',
         background: 'linear-gradient(to bottom right, #fffbeb, #fed7aa)',
         padding: '32px'
       }}>
-        <LogoutButton />
-        <CartButton />
         <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
           <button
             onClick={() => setCurrentView('categories')}
@@ -559,7 +560,7 @@ function BobaKiosk({ onBack }) {
                   {drink.category}
                 </p>
                 <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#16a34a' }}>
-                  ${parseFloat(drink.price).toFixed(2)}
+                  ${parseFloat(drink.base_price).toFixed(2)}
                 </p>
               </button>
             ))}
@@ -579,17 +580,16 @@ function BobaKiosk({ onBack }) {
     
     // Calculate the price in real-time as user selects options
     const customizationPrice = calculateCustomizationPrice();
-    const totalPrice = parseFloat(selectedDrink.price) + customizationPrice;
+    const totalPrice = parseFloat(selectedDrink.base_price) + customizationPrice;
 
-    return (
+    viewContent = (
       <div style={{
         minHeight: '100vh',
         background: 'linear-gradient(to bottom right, #fffbeb, #fed7aa)',
         padding: '32px',
         overflowY: 'auto'
       }}>
-        <LogoutButton />
-        <CartButton />
+
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
           <button
             onClick={() => {
@@ -625,7 +625,7 @@ function BobaKiosk({ onBack }) {
               {selectedDrink.name}
             </h2>
             <p style={{ fontSize: '18px', color: '#d97706', marginBottom: '16px' }}>
-              Base Price: ${parseFloat(selectedDrink.price).toFixed(2)}
+              Base Price: ${parseFloat(selectedDrink.base_price).toFixed(2)}
             </p>
           </div>
 
@@ -784,7 +784,7 @@ function BobaKiosk({ onBack }) {
   // --- View: Checkout Screen ---
   // Displays the cart, total price, and payment options.
   if (currentView === 'checkout') {
-    return (
+    viewContent = (
       <div style={{
         minHeight: '100vh',
         background: 'linear-gradient(to bottom right, #fffbeb, #fed7aa)',
@@ -793,7 +793,6 @@ function BobaKiosk({ onBack }) {
         alignItems: 'center',
         justifyContent: 'center'
       }}>
-        <LogoutButton />
         <div style={{ maxWidth: '800px', width: '100%' }}>
           <h2 style={{ fontSize: '48px', fontWeight: 'bold', color: '#78350f', textAlign: 'center', marginBottom: '48px' }}>
             Checkout
@@ -880,6 +879,7 @@ function BobaKiosk({ onBack }) {
                     </div>
                   </div>
                 ))}
+              </div>
                 {/* Cart Total */}
                 <div style={{
                   marginTop: '24px',
@@ -895,8 +895,6 @@ function BobaKiosk({ onBack }) {
                     </span>
                   </div>
                 </div>
-              </div>
-
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
                 <button
@@ -938,8 +936,30 @@ function BobaKiosk({ onBack }) {
     );
   }
 
-  // Fallback, should not be reached
-  return null;
+  return (
+    <>
+      {/* 🛑 PLACE THE GOOGLE TRANSLATE DIV HERE 🛑 */}
+      {/* We use position: fixed to keep it locked to the corner */}
+      <div 
+        id="google_translate_element" 
+        style={{ 
+          position: 'fixed', 
+          top: '90px', 
+          right: '20px', 
+          zIndex: 1000,
+          backgroundColor: '#fffbeb', /* Added background for visibility */
+          padding: '8px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        }} 
+      />
+      
+      <LogoutButton />
+      <CartButton />
+      {/* Render the selected view content */}
+      {viewContent}
+    </>
+  );
 }
 
 export default BobaKiosk;
