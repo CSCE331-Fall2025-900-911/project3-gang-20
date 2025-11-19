@@ -6,9 +6,10 @@ from .models import (
     CustomizationOption, MenuItem, Order, OrderItem, MenuCategory, Unit
 )
 from .serializers import (
-    CustomerSerializer, EmployeeSerializer, IngredientSerializer,
+    CustomerSerializer, EmployeeSerializer, UnitSerializer, IngredientSerializer,
     CustomizationCategorySerializer, CustomizationOptionSerializer,
-    MenuItemSerializer, OrderSerializer, OrderItemSerializer, MenuCategorySerializer, UnitSerializer
+    MenuCategorySerializer, MenuItemSerializer, OrderItemSerializer,
+    OrderReadSerializer, OrderWriteSerializer 
 )
 from .filters import OrderFilter # Import our new filter
 
@@ -18,10 +19,14 @@ class OrdersViewSet(viewsets.ModelViewSet):
     A ViewSet for Orders that uses our new filter.
     """
     queryset = Order.objects.all().order_by('-order_date_time')
-    serializer_class = OrderSerializer
+    # serializer_class = OrderSerializer
     
     filter_backends = [DjangoFilterBackend]
     filterset_class = OrderFilter
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return OrderWriteSerializer
+        return OrderReadSerializer
 
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
