@@ -1,10 +1,11 @@
-# In your_app/serializers.py
 from rest_framework import serializers
 from django.db import transaction
 from .models import (
     Customer, Employee, Ingredient, CustomizationCategory,
     CustomizationOption, MenuItem, RecipeItem, Order, OrderItem, MenuCategory, Unit
 )
+
+# --- Simple Serializers ---
 
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
@@ -19,7 +20,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
 class UnitSerializer(serializers.ModelSerializer):
     class Meta:
         model = Unit
-        fields = ['id', 'name', 'abbreviation']
+        fields = '__all__'
 
 class IngredientSerializer(serializers.ModelSerializer):
     unit = serializers.StringRelatedField()
@@ -33,12 +34,15 @@ class CustomizationCategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CustomizationOptionSerializer(serializers.ModelSerializer):
-    # Show the category name instead of just its ID
     category = serializers.StringRelatedField() 
-    
     class Meta:
         model = CustomizationOption
-        fields = ['id', 'name', 'price', 'category', 'ingredient']
+        fields = '__all__'
+
+class MenuCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MenuCategory
+        fields = '__all__'
 
 # --- Complex Serializers with Nesting ---
 
@@ -46,23 +50,22 @@ class RecipeItemSerializer(serializers.ModelSerializer):
     """
     A nested serializer to show ingredients *inside* a MenuItem.
     """
-    # Show the ingredient's name instead of its ID
     ingredient = serializers.StringRelatedField()
+    unit = serializers.StringRelatedField(source='ingredient.unit') # Show the unit
 
     class Meta:
         model = RecipeItem
-        fields = ['ingredient', 'quantity']
-
-class MenuCategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MenuCategory
-        fields = ['id', 'name', 'description']
+        fields = ['ingredient', 'quantity', 'unit']
 
 class MenuItemSerializer(serializers.ModelSerializer):
     """
-    The serializer for a MenuItem, which shows its recipe.
+    The serializer for a MenuItem, which shows its recipe
+    and available customization categories.
     """
+    # Use 'recipeitem_set' (default reverse name) to get recipe
     recipe = RecipeItemSerializer(source='recipeitem_set', many=True, read_only=True)
+    
+    # Show categories like "Toppings", "Ice Level"
     available_customizations = serializers.StringRelatedField(many=True, read_only=True)
     category = serializers.StringRelatedField()
     
@@ -73,9 +76,11 @@ class MenuItemSerializer(serializers.ModelSerializer):
             'recipe', 'available_customizations'
         ]
 
+# --- Order Serializers (Read vs. Write) ---
+
 class OrderItemSerializer(serializers.ModelSerializer):
     """
-    A nested serializer to show line items *inside* an Order.
+    A nested serializer to READ line items *inside* an Order.
     """
     menu_item = serializers.StringRelatedField()
     customizations = serializers.StringRelatedField(many=True, read_only=True)
@@ -85,6 +90,9 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'menu_item', 'quantity', 'customizations']
 
 class OrderItemWriteSerializer(serializers.ModelSerializer):
+    """
+    A nested serializer to WRITE line items *inside* an Order.
+    """
     menu_item = serializers.PrimaryKeyRelatedField(queryset=MenuItem.objects.all())
     customizations = serializers.PrimaryKeyRelatedField(
         queryset=CustomizationOption.objects.all(),
@@ -97,10 +105,15 @@ class OrderItemWriteSerializer(serializers.ModelSerializer):
         fields = ['menu_item', 'quantity', 'customizations']
 
 class OrderReadSerializer(serializers.ModelSerializer):
-    # This field is for reading the items, it's perfect
-    items = OrderItemSerializer(source='orderitem_set', many=True, read_only=True)
+    """
+    Used for GET requests. Shows full, readable, nested data.
+    """
     
-    # These StringRelatedFields are great for reading
+    # THIS IS THE FIX:
+    # We removed source='items' because the field name 'items'
+    # automatically matches the 'related_name' from your model.
+    items = OrderItemSerializer(many=True, read_only=True)
+    
     customer = serializers.StringRelatedField()
     employee = serializers.StringRelatedField()
     
@@ -110,19 +123,22 @@ class OrderReadSerializer(serializers.ModelSerializer):
             'id', 'order_date_time', 'payment_type', 
             'customer', 'employee', 'items'
         ]
-        
+
 class OrderWriteSerializer(serializers.ModelSerializer):
-    # Accept IDs for the foreign keys
+    """
+    Used for POST requests. Accepts IDs for relations and nested items.
+    """
     customer = serializers.PrimaryKeyRelatedField(
         queryset=Customer.objects.all(), 
         allow_null=True, 
         required=False
     )
     employee = serializers.PrimaryKeyRelatedField(
-        queryset=Employee.objects.all()
+        queryset=Employee.objects.all(),
+        allow_null=True, 
+        required=False
     )
     
-    # Use our new 'OrderItemWriteSerializer' for the nested items
     items = OrderItemWriteSerializer(many=True)
 
     class Meta:
@@ -132,24 +148,20 @@ class OrderWriteSerializer(serializers.ModelSerializer):
             'customer', 'employee', 'items'
         ]
 
-    # This is the magic!
-    @transaction.atomic  # Ensures all or nothing is saved
+    @transaction.atomic
     def create(self, validated_data):
-        # 1. Pop the nested 'items' data off
+        """
+        Custom create method to handle the nested OrderItems.
+        """
         items_data = validated_data.pop('items')
         
-        # 2. Create the main Order object
+        # Create the main Order object
         order = Order.objects.create(**validated_data)
         
-        # 3. Loop through the items data
+        # Loop through the items data and create each OrderItem
         for item_data in items_data:
-            # 4. Pop the nested 'customizations' data off
             customizations_data = item_data.pop('customizations', [])
-            
-            # 5. Create the OrderItem, linking it to the Order
             order_item = OrderItem.objects.create(order=order, **item_data)
-            
-            # 6. Set the ManyToMany customizations
             order_item.customizations.set(customizations_data)
                 
         return order
