@@ -11,6 +11,7 @@ class Customer(models.Model):
         return f"{self.first_name} {self.last_name}"
 
 class Employee(models.Model):
+    # add section for employement status - so we don't have to set to null if fired...
     legacy_employee_id = models.IntegerField(unique=True, null=True, blank=True)
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)

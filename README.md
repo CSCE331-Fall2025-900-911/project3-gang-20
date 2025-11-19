@@ -3,6 +3,9 @@
 ## Deployed Website
 https://project3-gang-20-frontend.onrender.com/
 
+**PSQL**
+psql -h csce-315-db.engr.tamu.edu -U  gang_20 -d gang_20_db
+
 ## dependencies
 
 ### root (project3-gang-20)
