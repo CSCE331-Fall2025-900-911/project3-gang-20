@@ -1,0 +1,337 @@
+/*
+ * ========================================
+ * ROOT & FRAME
+ * ========================================
+ */
+
+/* Root container: Centers the menu board and provides a background gradient */
+.menu-board-root {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 4vw, 48px);
+  background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+  font-family: 'Inter', sans-serif;
+  color: #78350f; /* Base text color */
+}
+
+/* The main "screen" frame: Enforces 16:9 aspect ratio */
+.menu-board-frame {
+  /*
+   * Use min() to ensure the frame fits vertically or horizontally,
+   * respecting the 16:9 aspect ratio.
+   * `96vw` = 96% of viewport width
+   * `calc(96vh * (16 / 9))` = 96% of viewport height, scaled to a 16:9 width
+   */
+  width: min(96vw, calc(96vh * (16 / 9)));
+  aspect-ratio: 16 / 9;
+  
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.88) 100%);
+  border: 1px solid #fbd38d;
+  border-radius: 32px;
+  box-shadow: 0 50px 120px -60px rgba(217, 119, 6, 0.55);
+  overflow: hidden; /* Clips content to the rounded corners */
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * ========================================
+ * HEADER & CLOCK
+ * ========================================
+ */
+.menu-board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 40px 18px;
+  gap: 24px;
+}
+
+.menu-board-header__chips {
+  display: flex;
+  flex-wrap: wrap; /* Allow chips to wrap on smaller screens */
+  align-items: center;
+  gap: 8px;
+  max-width: 70%;
+}
+
+/* Individual category chip */
+.menu-board-header__chips span {
+  background: #fff3dc;
+  color: #b45309cc;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.35em;
+  box-shadow: 0 12px 24px -18px rgba(184, 94, 14, 0.6);
+}
+
+.menu-board-clock {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: #b45309cc;
+}
+
+.menu-board-clock__time {
+  font-size: 2.4rem;
+  font-weight: 600;
+  color: #78350f;
+  letter-spacing: 0.06em;
+}
+
+.menu-board-clock__date {
+  font-size: 0.85rem;
+}
+
+/*
+ * ========================================
+ * ALERT & BODY
+ * ========================================
+ */
+
+/* Alert bar for errors */
+.menu-board-alert {
+  margin: 0 48px 16px;
+  padding: 12px 20px;
+  border: 1px solid #f9731644;
+  border-radius: 18px;
+  background: #f973161a;
+  color: #b45309;
+  font-size: 0.95rem;
+}
+
+/* Main content area containing the panels */
+.menu-board-body {
+  flex: 1; /* Grow to fill available space */
+  overflow: hidden; /* Prevent panels from overflowing */
+  display: flex;
+  padding: 0 36px 24px;
+}
+
+/*
+ * ========================================
+ * PANELS & COLUMNS
+ * ========================================
+ */
+.menu-board-panels {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+}
+
+/* Static grid layout: 4 columns, 2 rows */
+.menu-board-panels.static-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+/* A single category column */
+.menu-board-column {
+  border: 1px solid #fbd38d;
+  border-radius: 14px;
+  padding: 12px 18px;
+  background: #ffffff;
+  box-shadow: 0 18px 28px -26px rgba(217, 119, 6, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 100%;
+  overflow: hidden; /* Clip the list content */
+}
+
+/* Header within a category column */
+.menu-board-column__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #fbd38d55;
+  padding-bottom: 8px;
+}
+
+.menu-board-column__header h2 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: #b45309;
+}
+
+/* Item count (e.g., "13 items") */
+.menu-board-column__header span {
+  font-size: 0.5rem;
+  letter-spacing: 0.3em;
+  color: #b4530999;
+}
+
+/* List of menu items */
+.menu-board-column__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto; /* Allow scrolling if items overflow */
+  flex: 1; /* Grow to fill the column's space */
+}
+
+/*
+ * ========================================
+ * MENU ITEM
+ * ========================================
+ */
+.menu-board-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  border-bottom: 1px solid #fbd38d33;
+  padding-bottom: 4px;
+}
+
+/* Remove border from the last item */
+.menu-board-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.menu-board-item h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+.menu-board-item p {
+  margin: 2px 0 0;
+  font-size: 0.58rem;
+  color: #b45309cc;
+  line-height: 1.15;
+}
+
+/* Modifier class for sold-out items */
+.menu-board-item.is-sold-out h3 {
+  color: #b4530999;
+  text-decoration: line-through;
+}
+
+/* Container for badges (e.g., "New", "Limited") */
+.menu-board-column__badges {
+  display: flex;
+  gap: 4px;
+  margin-top: 3px;
+}
+
+.menu-board-column__badges span {
+  padding: 2px 5px;
+  font-size: 0.45rem;
+  letter-spacing: 0.26em;
+}
+
+/* Price column on the right */
+.menu-board-column__price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.75rem;
+  gap: 2px;
+}
+
+/* "Sold Out" text */
+.menu-board-column__price small {
+  font-size: 0.42rem;
+  letter-spacing: 0.24em;
+}
+
+/*
+ * ========================================
+ * FOOTER & TICKER
+ * ========================================
+ */
+.menu-board-footer {
+  border-top: 1px solid #fbd38d;
+  padding: 8px 36px;
+  background: #fff3dc;
+  box-shadow: 0 -24px 36px -36px rgba(217, 119, 6, 0.5);
+}
+
+.menu-board-ticker {
+  overflow: hidden;
+  text-align: center;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.35em;
+  color: #d97706;
+}
+
+/* The text span that fades in */
+.menu-board-ticker span {
+  display: inline-block;
+  animation: ticker-fade 600ms ease;
+}
+
+@keyframes ticker-fade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * ========================================
+ * LOADING & SKELETON
+ * ========================================
+ */
+.menu-board-loading {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1rem;
+  color: #b45309;
+}
+
+/* Fallback for a single-panel layout (not used in main grid) */
+.menu-board-panels__single {
+  width: min(540px, 100%);
+  margin: 0 auto;
+}
+
+/* Base style for a skeleton loader block */
+.skeleton-block {
+  background: linear-gradient(120deg, rgba(245, 158, 11, 0.14) 0%, rgba(249, 115, 22, 0.2) 50%, rgba(245, 158, 11, 0.14) 100%);
+  border-radius: 12px;
+}
+
+/* Shimmer effect container */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+/* The shimmer pseudo-element that animates */
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(120deg, transparent 0%, rgba(249, 115, 22, 0.15) 50%, transparent 100%);
+  animation: shimmer 1.2s ease-out infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}

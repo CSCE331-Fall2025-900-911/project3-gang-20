@@ -1,0 +1,40 @@
+menu_item_id,category,name,price
+0,Milky,Classic Pearl Milk Tea,5.8
+1,Milky,Honey Pearl Milk Tea,6.0
+2,Milky,Coffee Creama,6.5
+3,Milky,Coffee Milk Tea w/ Coffee Jelly,6.25
+4,Milky,Hokkaido Pearl Milk Tea,6.25
+5,Milky,Thai Pearl Milk Tea,6.25
+6,Milky,Taro Pearl Milk Tea,6.25
+7,Milky,Mango Green Milk Tea,6.5
+8,Milky,Golden Retreiver,6.75
+9,Milky,Coconut Pearl Milk Tea,6.75
+10,Fresh Brew,Classic Tea,4.65
+11,Fresh Brew,Honey Tea,4.85
+12,Fruity,Mango Green Tea,5.8
+13,Fruity,Passion Chess,6.25
+14,Fruity,Berry Lychee Burst,6.25
+15,Fruity,Peach Tea w/ Honey Jelly,6.25
+16,Fruity,Mango & Passion Fruit Tea,6.25
+17,Fruity,Honey Lemonade,5.2
+18,Non-Caffeinated,Tiger Boba,6.5
+19,Non-Caffeinated,Strawberry Coconut,6.5
+20,Non-Caffeinated,Strawberry Coconut Ice Blended,6.5
+21,Non-Caffeinated,Halo Halo,6.95
+22,Non-Caffeinated,Halo Halo Ice Blended,6.95
+23,Non-Caffeinated,Wintermelon Lemonade,5.8
+24,Non-Caffeinated,Wintermelon Lemonade Ice Blended,6.5
+25,Non-Caffeinated,Wintermelon w/ Fresh Milk,5.2
+26,Matcha,Matcha Pearl Milk Tea,6.5
+27,Matcha,Matcha Fresh Milk,6.25
+28,Matcha,Strawberry Matcha Fresh Milk,6.5
+29,Matcha,Mango Matcha Fresh Milk,6.5
+30,Matcha,Matcha Ice Blended,6.5
+31,Ice-Blended,Oreo w/ Pearl,6.75
+32,Ice-Blended,Taro w/ Pudding,6.75
+33,Ice-Blended,Thai Tea w/ Pearl,6.75
+34,Ice-Blended,Coffee w/ Ice Cream,6.75
+35,Ice-Blended,Mango w/ Ice Cream,6.75
+36,Ice-Blended,Strawberry w/ Lychee Jelly & Ice Cream,6.75
+37,Ice-Blended,Peach Tea w/ Lychee Jelly,6.75
+38,Ice-Blended,Lava Flow,6.95

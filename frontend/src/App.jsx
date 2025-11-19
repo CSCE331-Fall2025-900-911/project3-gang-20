@@ -238,7 +238,13 @@ function CustomSignUp({ onSuccess, onSwitchToSignIn }) {
   );
 }
 
+/**
+ * The main application component.
+ * Renders the home/navigation screen or one of the selected portals.
+ * @returns {React.ReactNode} The rendered component based on the current page state.
+ */
 function App() {
+  // State to manage which portal is currently active. 'home' is the default.
   const [currentPage, setCurrentPage] = useState('home');
   const [authMode, setAuthMode] = useState('signin'); // 'signin' or 'signup'
   const { user, isLoaded } = useUser();
@@ -320,9 +326,11 @@ function App() {
   }
 
   if (currentPage === 'menu-board') {
-    return <MenuBoardApp />;
+    return <MenuBoardApp onBack={() => setCurrentPage('home')} />;
   }
 
+  // --- Home Screen Rendering ---
+  // This is the default view, rendered when `currentPage` is 'home'.
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-200 flex items-center justify-center p-8">
       <SignedIn>
@@ -341,7 +349,10 @@ function App() {
           </p>
         </div>
 
+        {/* Grid of navigation buttons for each portal */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          
+          {/* Kiosk Button */}
           <button
             onClick={() => setCurrentPage('kiosk')}
             className="bg-white rounded-2xl p-12 shadow-2xl hover:scale-105 transition-transform duration-200 border-4 border-transparent hover:border-amber-500"
@@ -355,6 +366,7 @@ function App() {
             </p>
           </button>
 
+          {/* Manager Button */}
           <button
             onClick={() => setCurrentPage('manager')}
             className="bg-white rounded-2xl p-12 shadow-2xl hover:scale-105 transition-transform duration-200 border-4 border-transparent hover:border-amber-500"
@@ -371,6 +383,7 @@ function App() {
             </div>
           </button>
 
+          {/* Cashier Button */}
           <button
             onClick={() => setCurrentPage('cashier')}
             className="bg-white rounded-2xl p-12 shadow-2xl hover:scale-105 transition-transform duration-200 border-4 border-transparent hover:border-amber-500"
@@ -384,6 +397,7 @@ function App() {
             </p>
           </button>
 
+          {/* Menu Board Button */}
           <button
             onClick={() => setCurrentPage('menu-board')}
             className="bg-white rounded-2xl p-12 shadow-2xl hover:scale-105 transition-transform duration-200 border-4 border-transparent hover:border-amber-500 md:col-span-2 lg:col-span-1"
