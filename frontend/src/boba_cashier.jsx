@@ -248,8 +248,8 @@ function BobaCashier({ onBack }) {
    * 4. Clears the cart and displays a success message.
    * 5. Fetches the next order number for the next transaction.
    */
-  const completeTransaction = async () => {
-    // Validation checks
+ const completeTransaction = async () => {
+    // 1. Validation checks
     if (cart.length === 0) {
       setTransactionMessage('Add items to cart');
       return;
@@ -261,30 +261,7 @@ function BobaCashier({ onBack }) {
     }
 
     try {
-      // Create order object - new API uses auto-generated timestamps
-      const orderData = {
-        payment_type: selectedPaymentType,
-        employee: 1, // Employee ID
-        customer: null // Optional customer ID
-      };
-
-      console.log('Creating order:', orderData);
-
-      // POST the new order
-      const orderResponse = await fetch(ORDERS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData)
-      });
-
-      if (!orderResponse.ok) {
-        const errorText = await orderResponse.text();
-        throw new Error(`Order creation failed: ${orderResponse.status} - ${errorText}`);
-      }
-
-      const order = await orderResponse.json();
-      console.log('Order created:', order);
-
+      // 2. PREPARE THE ITEMS DATA FIRST
       // Group cart items by menu item ID to get quantities
       const itemQuantities = {};
       cart.forEach(item => {
@@ -301,9 +278,11 @@ function BobaCashier({ onBack }) {
         }
       });
 
-      // Create order item entries for each grouped item
+      // Format the items array for the API
+      const formattedItems = [];
+      
       for (const [menuItemKey, itemData] of Object.entries(itemQuantities)) {
-        // Collect all customization option IDs
+        // Collect all customization option IDs into a flat array
         const allCustomizationIds = [];
         itemData.customizations.forEach(custom => {
           if (custom.iceLevel) allCustomizationIds.push(custom.iceLevel.id);
@@ -311,32 +290,42 @@ function BobaCashier({ onBack }) {
           custom.toppings.forEach(topping => allCustomizationIds.push(topping.id));
         });
 
-        const orderItemData = {
-          order: order.id, // New API uses 'id' instead of 'order_id'
+        formattedItems.push({
           menu_item: itemData.menuItemId,
           quantity: itemData.quantity,
-          customizations: allCustomizationIds // Array of customization option IDs
-        };
-
-        console.log('Creating order item:', orderItemData);
-
-        // POST the new order item
-        const orderItemResponse = await fetch(ORDER_ITEMS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderItemData)
+          customizations: allCustomizationIds 
         });
-
-        if (!orderItemResponse.ok) {
-          const errorText = await orderItemResponse.text();
-          console.error('Order item creation failed:', errorText);
-          throw new Error(`Order item creation failed: ${orderItemResponse.status}`);
-        }
-
-        console.log('Order item created successfully');
       }
 
-      // On success: show message, clear cart, and prepare for next order
+      // 3. CONSTRUCT THE MAIN ORDER OBJECT
+      // Now we include 'items' inside the main order object
+      const orderData = {
+        payment_type: selectedPaymentType,
+        employee: 1, 
+        customer: null,
+        items: formattedItems // <--- This is the missing field the error complained about
+      };
+
+      console.log('Sending complete order payload:', orderData);
+
+      // 4. SEND SINGLE REQUEST
+      const orderResponse = await fetch(ORDERS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+
+      if (!orderResponse.ok) {
+        const errorText = await orderResponse.text();
+        throw new Error(`Order creation failed: ${orderResponse.status} - ${errorText}`);
+      }
+
+      const order = await orderResponse.json();
+      console.log('Order created successfully:', order);
+
+      // 5. SUCCESS STATE HANDLING
+      // (We no longer need the second loop for ORDER_ITEMS_URL because the backend handled it)
+      
       const finalTotal = getTotal();
       setTransactionMessage(`Transaction Complete - Order #${order.id} - Total: $${finalTotal.toFixed(2)}`);
       
@@ -350,10 +339,9 @@ function BobaCashier({ onBack }) {
       }, 3000);
 
     } catch (err) {
-      // Handle any errors during the transaction
       console.error('Error completing transaction:', err);
       setTransactionMessage(`Transaction Failed: ${err.message}`);
-      setSelectedPaymentType(null);
+      // Do not reset payment type here so user can try again
     }
   };
 
