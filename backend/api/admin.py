@@ -1,10 +1,3 @@
-"""
-Django Admin Configuration for Boba Shop Models.
-
-This file customizes the Django admin interface to make it easier
-to manage the application data.
-"""
-
 from django.contrib import admin
 from .models import (
     Customer, Employee, Unit, Ingredient, CustomizationCategory,

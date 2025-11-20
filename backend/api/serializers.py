@@ -1,16 +1,3 @@
-"""
-Serializers for the Boba Shop API.
-
-This file converts complex data types (like Django models) into native
-Python datatypes that can be easily rendered into JSON. It also handles
-deserialization, converting parsed data back into complex types (models)
-after validating the incoming data.
-
-This file follows a "Read/Write" pattern:
-- "Read" serializers are for GET requests and show human-readable nested data.
-- "Write" serializers are for POST/PUT requests and accept simple, flat IDs.
-"""
-
 from rest_framework import serializers
 from django.db import transaction
 from .models import (

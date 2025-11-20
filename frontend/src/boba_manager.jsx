@@ -5,7 +5,7 @@ import {
 
 // --- CONSTANTS ---
 
-const API_BASE = 'http://127.0.0.1:8000/api'; // <-- Updated this line for you
+const API_BASE = 'https://project3-gang-20.onrender.com/api/';
 const TAX_RATE = 0.0825;
 const SERVICE_CHARGE_RATE = 0.025;
 
@@ -210,7 +210,6 @@ function DataTable({ activeTab, data, onEdit, onDelete }) {
           valB = valB.toLowerCase();
         }
        
-        // --- FIX: This is the correct sorting logic ---
         if (valA < valB) {
           return sortConfig.direction === 'ascending' ? -1 : 1;
         }
@@ -224,10 +223,8 @@ function DataTable({ activeTab, data, onEdit, onDelete }) {
   }, [data, sortConfig]);
 
   const columns = useMemo(() => {
-    // FIX: Add a check for data[0] to prevent a crash if the data is empty or malformed
     if (!Array.isArray(data) || data.length === 0 || !data[0]) return [];
     
-    // This filter is correct and will now include the 'recipe' column
     return Object.keys(data[0]).filter(key => key !== 'id');
   }, [data, idField]);
 
@@ -364,13 +361,11 @@ function GenerateReportModal({ type, onClose, zReportLastRunDate, setZReportLast
   
   // Use a stable function for alerts/confirms
   const showAlert = (message) => {
-    // In a real app, you'd replace this with a modal
     console.log("ALERT:", message);
     alert(message);
   };
   
   const showConfirm = (message) => {
-    // In a real app, you'd replace this with a modal
     console.log("CONFIRM:", message);
     return window.confirm(message);
   };
@@ -533,7 +528,6 @@ function GenerateReportModal({ type, onClose, zReportLastRunDate, setZReportLast
   );
 }
 
-// --- ADDED THIS COMPONENT BACK ---
 /**
  * The component for the Add/Edit modal.
  */
@@ -547,7 +541,6 @@ function AddEditModal({ activeTab, mode, item, onClose, onSave, onSaveRecipe, de
     new Map(ingredients.map(i => [i.name, i.id])) // Use 'id' for ingredients
   , [ingredients]);
 
-  // --- ADDED THESE LOOKUP MAPS ---
   const categoryNameMap = useMemo(() =>
     new Map(customizationCategories.map(c => [c.name, c.id]))
   , [customizationCategories]);
@@ -559,18 +552,13 @@ function AddEditModal({ activeTab, mode, item, onClose, onSave, onSaveRecipe, de
   const unitAbbrMap = useMemo(() =>
     new Map(units.map(u => [u.abbreviation, u.id]))
   , [units]);
-  // --- END OF ADDITION ---
 
   useEffect(() => {
-    // This new logic is much clearer and fixes the bugs.
-    
-    // 1. If mode is 'edit' and we have an item, set the form to that item.
     if (mode === 'edit' && item) {
       
       // Start with the basic item data
       let formDataToSet = { ...item };
 
-      // --- FIX FOR ALL DROPDOWNS ---
       // Look up the correct ID from the string name
       if (activeTab === 'customization-options') {
         formDataToSet.category = categoryNameMap.get(item.category);
@@ -768,7 +756,6 @@ function AddEditModal({ activeTab, mode, item, onClose, onSave, onSaveRecipe, de
             <h3 className="text-lg font-bold text-gray-800 mb-3">Recipe Ingredients</h3>
             <div className="space-y-2">
               {selectedIngredients.map((ing, idx) => {
-                // FIX: Find the 'unit' from the full ingredients list
                 const selectedIng = ingredients.find(i => i.id === ing.ingredient_id);
                 const displayUnit = selectedIng ? selectedIng.unit : 'unit';
                 
@@ -786,7 +773,6 @@ function AddEditModal({ activeTab, mode, item, onClose, onSave, onSaveRecipe, de
                           .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                           .join(' ');
                         
-                        // --- FIX: Show the unit in the dropdown ---
                         const displayUnit = ingredient.unit ? ` (${ingredient.unit})` : '';
 
                         return (
@@ -845,8 +831,6 @@ function AddEditModal({ activeTab, mode, item, onClose, onSave, onSaveRecipe, de
   );
 }
 
-
-// --- ADDED THIS COMPONENT BACK ---
 /**
  * The component for the Orders tab.
  */
@@ -861,7 +845,6 @@ function OrdersView({ orders, orderItems, menuItems, employees, customizationOpt
     new Map(employees.map(e => [e.id, `${e.first_name} ${e.last_name}`]))
   , [employees]);
 
-  // --- REMOVED menuItemMap and customizationMap (no longer needed) ---
 
   // --- This is the new, refactored logic ---
   const processedOrders = useMemo(() => {
@@ -921,7 +904,6 @@ function OrdersView({ orders, orderItems, menuItems, employees, customizationOpt
     });
   }, [orders, employees]); // Removed dependencies that are no longer needed
   
-  // --- This new effect shows today's orders by default ---
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     const todaysOrders = processedOrders.filter(order => order.simpleDate === today);
@@ -931,7 +913,6 @@ function OrdersView({ orders, orderItems, menuItems, employees, customizationOpt
   const handleSearch = () => {
     setLoading(true);
     
-    // Filter the already processed orders
     const filtered = processedOrders.filter(order => {
       const search = searchTerm.toLowerCase();
       return (
@@ -1096,7 +1077,6 @@ function OrdersView({ orders, orderItems, menuItems, employees, customizationOpt
 }
 
 
-// --- MAIN COMPONENT ---
 
 /**
  * The main component for the Manager Dashboard.
@@ -1128,7 +1108,6 @@ function BobaManager({ onBack }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // --- DATA FETCHING (from useBobaApi hook) ---
 
   const fetchActiveTabData = useCallback(async () => {
     if (!activeTab) return;
@@ -1170,7 +1149,6 @@ function BobaManager({ onBack }) {
     fetchDependencies();
   }, [fetchDependencies]);
 
-  // --- API ACTIONS (from useBobaApi hook) ---
 
   const api = {
     deleteItem: async (id) => {
@@ -1178,13 +1156,11 @@ function BobaManager({ onBack }) {
       try {
         await fetch(`${API_BASE}/${activeTab}/${id}/`, { method: 'DELETE' });
       } catch (err) {
-        // Use console.error instead of alert
         console.error('Failed to delete: ' + err.message);
       }
     },
 
     saveItem: async (formData, mode, currentItem) => {
-      // All models now use 'id'
       const id = currentItem ? currentItem.id : null;
       const url = mode === 'add' 
         ? `${API_BASE}/${activeTab}/`
@@ -1239,7 +1215,6 @@ function BobaManager({ onBack }) {
     }
   };
 
-  // --- HANDLERS ---
   
   const handleOpenModal = (mode, item = null) => {
     setReportModalOpen(false); 
@@ -1273,8 +1248,6 @@ function BobaManager({ onBack }) {
       await refreshAllData();
     }
   };
-
-  // --- RENDER ---
   
   if (error) {
     return (
@@ -1290,7 +1263,6 @@ function BobaManager({ onBack }) {
     );
   }
 
-  // Combine dependencies for passing to children
   const dependencies = { ingredients, menuItems, employees, recipeItems, orders, orderItems, data, customizationCategories, customizationOptions, menuCategories, units }; // <-- ADDED
 
   return (
@@ -1445,7 +1417,4 @@ function BobaManager({ onBack }) {
   );
 }
 
-// NOTE: This file was corrupted. The BobaShopManager component (which
-// should be App) is in a separate file. This file should only
-// export the BobaManager component.
 export default BobaManager;

@@ -1,10 +1,3 @@
-"""
-URL Configuration for the Boba Shop API.
-
-This file maps API endpoints (URLs) to their corresponding ViewSets
-using the Django REST Framework's DefaultRouter.
-"""
-
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (

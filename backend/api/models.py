@@ -1,11 +1,3 @@
-"""
-Database Models for the Boba Shop API.
-
-This file defines the data structure for the entire application, including
-customers, employees, inventory, menu items, and orders. Each class
-represents a table in the database.
-"""
-
 from django.db import models
 
 class Customer(models.Model):

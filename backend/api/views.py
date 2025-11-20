@@ -1,12 +1,3 @@
-"""
-Views for the Boba Shop API.
-
-This file defines the API endpoints, specifying what data is returned
-and how it's queried. It connects the Models (data) to the
-Serializers (JSON conversion) and makes them available via URLs.
-
-"""
-
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import (
