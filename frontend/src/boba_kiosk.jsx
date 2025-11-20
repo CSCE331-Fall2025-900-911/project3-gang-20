@@ -29,13 +29,16 @@ const THEMES = {
     primaryText: '#ffff00',
     secondary: '#ffffff',
     secondaryText: '#000000',
-    danger: '#000000', // Red is bad for contrast sometimes, stick to black/white/yellow
+    danger: '#000000',
     success: '#000000',
     border: '4px solid #000000',
     shadow: 'none',
   }
 };
 
+/**
+ * Provider for global accessibility settings (font size, contrast).
+ */
 function AccessibilityProvider({ children }) {
   const [fontSize, setFontSize] = useState(() => {
     return parseFloat(localStorage.getItem('kioskFontSize')) || 1.0;
@@ -81,6 +84,9 @@ function useAccessibility() {
 
 // --- Reusable Components ---
 
+/**
+ * Accessible button component with theme support.
+ */
 function KioskButton({ onClick, children, variant = 'primary', style = {}, disabled = false, ...props }) {
   const { theme, highContrast, fontSize } = useAccessibility();
 
@@ -123,13 +129,13 @@ function KioskButton({ onClick, children, variant = 'primary', style = {}, disab
         backgroundColor: bg,
         color: color,
         border: theme.border,
-        padding: `${1 * fontSize}rem ${2 * fontSize}rem`, // Scale padding with font size
+        padding: `${1 * fontSize}rem ${2 * fontSize}rem`,
         borderRadius: highContrast ? '0' : '16px',
-        fontSize: '1em', // Inherit from parent (which is scaled)
+        fontSize: '1em',
         fontWeight: 'bold',
         cursor: disabled ? 'not-allowed' : 'pointer',
         boxShadow: theme.shadow,
-        minWidth: '44px', // WCAG touch target
+        minWidth: '44px',
         minHeight: '44px',
         display: 'flex',
         alignItems: 'center',
@@ -151,6 +157,9 @@ function KioskButton({ onClick, children, variant = 'primary', style = {}, disab
   );
 }
 
+/**
+ * Floating controls for accessibility settings.
+ */
 function AccessibilityControls() {
   const { fontSize, increaseFontSize, decreaseFontSize, toggleContrast, highContrast, theme } = useAccessibility();
 
@@ -188,7 +197,6 @@ function AccessibilityControls() {
 
 // --- Main App Logic ---
 
-// API Endpoints
 const MENU_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
 const ADDONS_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/customization-options/';
 const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
@@ -196,9 +204,8 @@ const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
 function BobaKioskContent({ onBack }) {
   const { theme, highContrast } = useAccessibility();
 
-  // Google Translate Setup
+  // Initialize Google Translate
   useEffect(() => {
-    // Define the callback function first
     window.googleTranslateElementInit = () => {
       if (window.google && window.google.translate) {
         new window.google.translate.TranslateElement(
@@ -208,7 +215,6 @@ function BobaKioskContent({ onBack }) {
       }
     };
 
-    // Check if script is already present
     if (!document.querySelector('#google-translate-script')) {
       const script = document.createElement('script');
       script.id = 'google-translate-script';
@@ -216,29 +222,23 @@ function BobaKioskContent({ onBack }) {
       script.async = true;
       document.body.appendChild(script);
     } else if (window.google && window.google.translate) {
-      // If script is already loaded, manually trigger init
       window.googleTranslateElementInit();
     }
 
-    // Inject custom styles for Google Translate
     const style = document.createElement('style');
     style.innerHTML = `
-      /* Hide the Google Translate top bar */
       .goog-te-banner-frame { display: none !important; }
       body { top: 0px !important; }
 
-      /* Container styling */
       #google_translate_element {
         overflow: hidden;
       }
 
-      /* Hide Google branding */
       .goog-te-gadget-icon { display: none !important; }
       .goog-te-gadget-simple { background-color: transparent !important; border: none !important; padding: 0 !important; }
-      .goog-te-gadget span { display: none !important; } /* Hides "Powered by Google" */
+      .goog-te-gadget span { display: none !important; }
       .goog-te-gadget { color: transparent !important; font-size: 0 !important; }
 
-      /* Style the dropdown */
       .goog-te-combo {
         color: #78350f;
         background-color: white;
@@ -249,16 +249,15 @@ function BobaKioskContent({ onBack }) {
         font-weight: bold;
         cursor: pointer;
         outline: none;
-        appearance: none; /* Remove default arrow in some browsers */
+        appearance: none;
         -webkit-appearance: none;
-        padding-right: 30px; /* Space for custom arrow */
+        padding-right: 30px;
         background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23d97706%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2082.2c3.6-3.6%205.4-7.8%205.4-12.8%200-5-1.8-9.3-5.4-12.9z%22%2F%3E%3C%2Fsvg%3E");
         background-repeat: no-repeat;
         background-position: right .7em top 50%;
         background-size: .65em auto;
       }
 
-      /* High Contrast Mode Overrides (applied via parent class if needed, but here we just ensure readability) */
       .goog-te-combo:focus {
         border-color: #2563eb;
         box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
@@ -340,7 +339,6 @@ function BobaKioskContent({ onBack }) {
     setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
     setSelectedDrink(null);
     setCurrentView('drinks');
-    // Simple feedback
     alert("Item added to cart!");
   };
 
@@ -412,8 +410,6 @@ function BobaKioskContent({ onBack }) {
     }
   };
 
-  // --- Views ---
-
   let viewContent = null;
 
   if (currentView === 'welcome') {
@@ -463,8 +459,8 @@ function BobaKioskContent({ onBack }) {
           {!loading && !error && (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', // Larger min width
-              gap: '32px', // Larger gap
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '32px',
               width: '100%',
               margin: '0 auto',
               justifyItems: 'center'
@@ -489,7 +485,7 @@ function BobaKioskContent({ onBack }) {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    minHeight: '200px' // Ensure large target
+                    minHeight: '200px'
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                   onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
@@ -637,7 +633,6 @@ function BobaKioskContent({ onBack }) {
             </p>
           </div>
 
-          {/* Ice Level */}
           <div style={{
             backgroundColor: theme.cardBg,
             borderRadius: highContrast ? '0' : '16px',
@@ -662,7 +657,6 @@ function BobaKioskContent({ onBack }) {
             </div>
           </div>
 
-          {/* Sweetness Level */}
           <div style={{
             backgroundColor: theme.cardBg,
             borderRadius: highContrast ? '0' : '16px',
@@ -687,7 +681,6 @@ function BobaKioskContent({ onBack }) {
             </div>
           </div>
 
-          {/* Toppings */}
           <div style={{
             backgroundColor: theme.cardBg,
             borderRadius: highContrast ? '0' : '16px',
@@ -719,7 +712,6 @@ function BobaKioskContent({ onBack }) {
             </div>
           </div>
 
-          {/* Summary */}
           <div style={{
             backgroundColor: theme.cardBg,
             borderRadius: highContrast ? '0' : '16px',
