@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { ShoppingCart, LogOut } from 'lucide-react';
 
 // API Endpoints
-const MENU_ITEMS_URL = 'http://127.0.0.1:8000//api/menu-items/';
+const MENU_ITEMS_URL = 'http://127.0.0.1:8000/api/menu-items/';
 const ADDONS_ITEMS_URL = 'http://127.0.0.1:8000/api/customization-options/';
-const ORDERS_URL = 'http://127.0.0.1:8000//api/orders/';
+const ORDERS_URL = 'http://127.0.0.1:8000/api/orders/';
 const ORDER_ITEMS_URL = 'http://127.0.0.1:8000/api/order-items/';
 
 /**

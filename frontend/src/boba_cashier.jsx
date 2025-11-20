@@ -2,10 +2,15 @@ import { useState, useEffect } from 'react';
 import { Trash2, LogOut } from 'lucide-react';
 
 // API Endpoints
-const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
-const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
-const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
-const ORDER_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/order-items/';
+// const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
+// const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
+// const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
+// const ORDER_ITEMS_URL = 'http://127.0.0.1:8000/api/order-items/';
+
+const API_URL = 'http://127.0.0.1:8000/api/menu-items/';
+const ADDONS_URL = 'http://127.0.0.1:8000/api/customization-options/';
+const ORDERS_URL = 'http://127.0.0.1:8000/api/orders/';
+const ORDER_ITEMS_URL = 'http://127.0.0.1:8000/api/order-items/';
 
 // Business logic constants
 const TAX_RATE = 0.0825; // 8.25% sales tax
@@ -147,7 +152,7 @@ function BobaCashier({ onBack }) {
    */
   const addToCart = () => {
     const customizationPrice = calculateCustomizationPrice();
-    const totalPrice = parseFloat(selectedDrink.price) + customizationPrice;
+    const totalPrice = parseFloat(selectedDrink.base_price) + customizationPrice;
     
     setCart([...cart, {
       ...selectedDrink,
@@ -485,7 +490,7 @@ function BobaCashier({ onBack }) {
                     {drink.name}
                   </h3>
                   <p className="text-lg font-bold text-amber-700">
-                    ${parseFloat(drink.price).toFixed(2)}
+                    ${parseFloat(drink.base_price).toFixed(2)}
                   </p>
                 </div>
               </button>
@@ -705,7 +710,7 @@ function BobaCashier({ onBack }) {
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-2xl font-bold text-amber-900">Total:</span>
                   <span className="text-3xl font-bold text-green-700">
-                    ${(parseFloat(selectedDrink.price) + calculateCustomizationPrice()).toFixed(2)}
+                    ${(parseFloat(selectedDrink.base_price) + calculateCustomizationPrice()).toFixed(2)}
                   </span>
                 </div>
 
