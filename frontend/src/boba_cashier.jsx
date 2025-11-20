@@ -3,7 +3,7 @@ import { Trash2, LogOut } from 'lucide-react';
 
 // API Endpoints
 const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
-const ADDONS_URL = 'https://project3-gang-20.onrender.com/api/add-ons/';
+const CUSTOMIZATION_OPTIONS_URL = 'https://project3-gang-20.onrender.com/api/customization-options/';
 const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
 const ORDER_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/order-items/';
 
@@ -19,7 +19,7 @@ const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
 function BobaCashier({ onBack }) {
   // State for storing data fetched from the API
   const [menuItems, setMenuItems] = useState([]);
-  const [addOns, setAddOns] = useState([]);
+  const [customizationOptions, setCustomizationOptions] = useState([]);
 
   // State for UI and selection
   const [selectedCategory, setSelectedCategory] = useState('Milky'); // Default category
@@ -29,7 +29,7 @@ function BobaCashier({ onBack }) {
   // State for the customization modal
   const [customizationModal, setCustomizationModal] = useState(false);
   const [selectedDrink, setSelectedDrink] = useState(null);
-  const [selectedAddOns, setSelectedAddOns] = useState({
+  const [selectedCustomizations, setSelectedCustomizations] = useState({
     iceLevel: null,
     sweetnessLevel: null,
     toppings: []
@@ -37,7 +37,7 @@ function BobaCashier({ onBack }) {
 
   // State for loading and transaction status
   const [loading, setLoading] = useState(true);
-  const [orderNumber, setOrderNumber] = useState(0); // Stores the ID for the *next* order
+  const [orderNumber, setOrderNumber] = useState(1); // Display order number
   const [transactionMessage, setTransactionMessage] = useState('');
 
   // State for external API data (Weather)
@@ -47,26 +47,26 @@ function BobaCashier({ onBack }) {
   // On component mount, fetch menu data and the next available order ID
   useEffect(() => {
     fetchData();
-    fetchNextOrderId();
+    fetchNextOrderNumber();
   }, []);
 
   /**
-   * Fetches all menu items and add-ons from the API in parallel.
+   * Fetches all menu items and customization options from the API in parallel.
    * Updates the component state with the fetched data.
    */
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [menuResponse, addOnsResponse] = await Promise.all([
+      const [menuResponse, customizationsResponse] = await Promise.all([
         fetch(API_URL),
-        fetch(ADDONS_URL)
+        fetch(CUSTOMIZATION_OPTIONS_URL)
       ]);
       
       const menuData = await menuResponse.json();
-      const addOnsData = await addOnsResponse.json();
+      const customizationsData = await customizationsResponse.json();
       
       setMenuItems(menuData);
-      setAddOns(addOnsData);
+      setCustomizationOptions(customizationsData);
     } catch (err) {
       console.error("Error fetching data:", err);
     } finally {
@@ -75,24 +75,24 @@ function BobaCashier({ onBack }) {
   };
 
   /**
-   * Fetches all existing orders to determine the next available order ID.
+   * Fetches all existing orders to determine the next display order number.
    * Sets the `orderNumber` state to the highest existing ID + 1.
    */
-  const fetchNextOrderId = async () => {
+  const fetchNextOrderNumber = async () => {
     try {
       const response = await fetch(ORDERS_URL);
       const orders = await response.json();
       
       if (orders.length > 0) {
-        // Find the maximum order_id and add 1
-        const maxOrderId = Math.max(...orders.map(order => order.order_id));
+        // Find the maximum order ID and add 1 for display
+        const maxOrderId = Math.max(...orders.map(order => order.id));
         setOrderNumber(maxOrderId + 1);
       } else {
         // If no orders exist, start from 1
         setOrderNumber(1);
       }
     } catch (err) {
-      console.error("Error fetching order ID:", err);
+      console.error("Error fetching order number:", err);
       setOrderNumber(1); // Default to 1 on failure
     }
   };
@@ -104,12 +104,12 @@ function BobaCashier({ onBack }) {
   const filteredDrinks = menuItems.filter(item => item.category === selectedCategory);
 
   /**
-   * Filters the master add-ons list to find add-ons for a specific category.
+   * Filters the master customization options list to find options for a specific category.
    * @param {string} category - The category to filter by (e.g., 'Ice Level', 'Toppings').
-   * @returns {Array<object>} - An array of add-on items matching the category.
+   * @returns {Array<object>} - An array of customization options matching the category.
    */
-  const getAddOnsByCategory = (category) => {
-    return addOns.filter(addon => addon.category === category);
+  const getCustomizationsByCategory = (category) => {
+    return customizationOptions.filter(option => option.category === category);
   };
 
   /**
@@ -118,8 +118,8 @@ function BobaCashier({ onBack }) {
    */
   const openCustomization = (drink) => {
     setSelectedDrink(drink);
-    // Reset add-ons for the new drink
-    setSelectedAddOns({
+    // Reset customizations for the new drink
+    setSelectedCustomizations({
       iceLevel: null,
       sweetnessLevel: null,
       toppings: []
@@ -128,14 +128,14 @@ function BobaCashier({ onBack }) {
   };
 
   /**
-   * Calculates the total price of all currently selected add-ons in the modal.
+   * Calculates the total price of all currently selected customizations in the modal.
    * @returns {number} - The total price of customizations.
    */
   const calculateCustomizationPrice = () => {
     let total = 0;
-    if (selectedAddOns.iceLevel) total += parseFloat(selectedAddOns.iceLevel.price);
-    if (selectedAddOns.sweetnessLevel) total += parseFloat(selectedAddOns.sweetnessLevel.price);
-    selectedAddOns.toppings.forEach(topping => {
+    if (selectedCustomizations.iceLevel) total += parseFloat(selectedCustomizations.iceLevel.price);
+    if (selectedCustomizations.sweetnessLevel) total += parseFloat(selectedCustomizations.sweetnessLevel.price);
+    selectedCustomizations.toppings.forEach(topping => {
       total += parseFloat(topping.price);
     });
     return total;
@@ -147,12 +147,12 @@ function BobaCashier({ onBack }) {
    */
   const addToCart = () => {
     const customizationPrice = calculateCustomizationPrice();
-    const totalPrice = parseFloat(selectedDrink.price) + customizationPrice;
+    const totalPrice = parseFloat(selectedDrink.base_price) + customizationPrice;
     
     setCart([...cart, {
       ...selectedDrink,
       cartId: Date.now(), // Unique ID for cart item removal
-      customizations: { ...selectedAddOns },
+      customizations: { ...selectedCustomizations },
       customizationPrice,
       totalPrice: totalPrice.toFixed(2)
     }]);
@@ -160,7 +160,7 @@ function BobaCashier({ onBack }) {
     // Reset and close modal
     setCustomizationModal(false);
     setSelectedDrink(null);
-    setSelectedAddOns({
+    setSelectedCustomizations({
       iceLevel: null,
       sweetnessLevel: null,
       toppings: []
@@ -246,10 +246,10 @@ function BobaCashier({ onBack }) {
    * 2. Creates a new order in the 'orders' table.
    * 3. Groups cart items and creates entries in the 'order_items' table.
    * 4. Clears the cart and displays a success message.
-   * 5. Fetches the next order ID for the next transaction.
+   * 5. Fetches the next order number for the next transaction.
    */
-  const completeTransaction = async () => {
-    // Validation checks
+ const completeTransaction = async () => {
+    // 1. Validation checks
     if (cart.length === 0) {
       setTransactionMessage('Add items to cart');
       return;
@@ -261,19 +261,54 @@ function BobaCashier({ onBack }) {
     }
 
     try {
-      // Create order object
-      const now = new Date();
+      // 2. PREPARE THE ITEMS DATA FIRST
+      // Group cart items by menu item ID to get quantities
+      const itemQuantities = {};
+      cart.forEach(item => {
+        if (itemQuantities[item.id]) {
+          itemQuantities[item.id].quantity++;
+          // Collect all customizations for this menu item
+          itemQuantities[item.id].customizations.push(item.customizations);
+        } else {
+          itemQuantities[item.id] = {
+            quantity: 1,
+            menuItemId: item.id,
+            customizations: [item.customizations]
+          };
+        }
+      });
+
+      // Format the items array for the API
+      const formattedItems = [];
+      
+      for (const [menuItemKey, itemData] of Object.entries(itemQuantities)) {
+        // Collect all customization option IDs into a flat array
+        const allCustomizationIds = [];
+        itemData.customizations.forEach(custom => {
+          if (custom.iceLevel) allCustomizationIds.push(custom.iceLevel.id);
+          if (custom.sweetnessLevel) allCustomizationIds.push(custom.sweetnessLevel.id);
+          custom.toppings.forEach(topping => allCustomizationIds.push(topping.id));
+        });
+
+        formattedItems.push({
+          menu_item: itemData.menuItemId,
+          quantity: itemData.quantity,
+          customizations: allCustomizationIds 
+        });
+      }
+
+      // 3. CONSTRUCT THE MAIN ORDER OBJECT
+      // Now we include 'items' inside the main order object
       const orderData = {
-        order_id: orderNumber,
-        order_date: now.toISOString().split('T')[0],
-        order_time: now.toTimeString().split(' ')[0],
-        employee: 101, // Hardcoded employee ID for cashier
-        payment_type: selectedPaymentType
+        payment_type: selectedPaymentType,
+        employee: 1, 
+        customer: null,
+        items: formattedItems // <--- This is the missing field the error complained about
       };
 
-      console.log('Creating order:', orderData);
+      console.log('Sending complete order payload:', orderData);
 
-      // POST the new order
+      // 4. SEND SINGLE REQUEST
       const orderResponse = await fetch(ORDERS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -286,62 +321,27 @@ function BobaCashier({ onBack }) {
       }
 
       const order = await orderResponse.json();
-      console.log('Order created:', order);
+      console.log('Order created successfully:', order);
 
-      // Group cart items by menu_item_id to get quantities
-      const itemQuantities = {};
-      cart.forEach(item => {
-        if (itemQuantities[item.menu_item_id]) {
-          itemQuantities[item.menu_item_id]++;
-        } else {
-          itemQuantities[item.menu_item_id] = 1;
-        }
-      });
-
-      // Create order item entries for each grouped item
-      for (const [menuItemId, quantity] of Object.entries(itemQuantities)) {
-        const orderItemData = {
-          order: order.order_id, // API expects 'order'
-          menu_item: parseInt(menuItemId), // API expects 'menu_item'
-          quantity: quantity
-        };
-
-        console.log('Creating order item:', orderItemData);
-
-        // POST the new order item
-        const orderItemResponse = await fetch(ORDER_ITEMS_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderItemData)
-        });
-
-        if (!orderItemResponse.ok) {
-          const errorText = await orderItemResponse.text();
-          console.error('Order item creation failed:', errorText);
-          throw new Error(`Order item creation failed: ${orderItemResponse.status}`);
-        }
-
-        console.log('Order item created successfully');
-      }
-
-      // On success: show message, clear cart, and prepare for next order
+      // 5. SUCCESS STATE HANDLING
+      // (We no longer need the second loop for ORDER_ITEMS_URL because the backend handled it)
+      
       const finalTotal = getTotal();
-      setTransactionMessage(`Transaction Complete - Order #${order.order_id} - Total: $${finalTotal.toFixed(2)}`);
+      setTransactionMessage(`Transaction Complete - Order #${order.id} - Total: $${finalTotal.toFixed(2)}`);
       
       setCart([]);
       setSelectedPaymentType(null);
 
-      // After 3 seconds, clear the message and fetch the next order ID
+      // After 3 seconds, clear the message and fetch the next order number
       setTimeout(() => {
-        fetchNextOrderId();
+        fetchNextOrderNumber();
         setTransactionMessage('');
       }, 3000);
 
     } catch (err) {
-      // Handle any errors during the transaction
       console.error('Error completing transaction:', err);
       setTransactionMessage(`Transaction Failed: ${err.message}`);
-      setSelectedPaymentType(null);
+      // Do not reset payment type here so user can try again
     }
   };
 
@@ -350,18 +350,18 @@ function BobaCashier({ onBack }) {
    * @param {object} topping - The topping object to add or remove.
    */
   const toggleTopping = (topping) => {
-    const isSelected = selectedAddOns.toppings.some(t => t.id === topping.id);
+    const isSelected = selectedCustomizations.toppings.some(t => t.id === topping.id);
     if (isSelected) {
       // Remove the topping
-      setSelectedAddOns({
-        ...selectedAddOns,
-        toppings: selectedAddOns.toppings.filter(t => t.id !== topping.id)
+      setSelectedCustomizations({
+        ...selectedCustomizations,
+        toppings: selectedCustomizations.toppings.filter(t => t.id !== topping.id)
       });
     } else {
       // Add the topping
-      setSelectedAddOns({
-        ...selectedAddOns,
-        toppings: [...selectedAddOns.toppings, topping]
+      setSelectedCustomizations({
+        ...selectedCustomizations,
+        toppings: [...selectedCustomizations.toppings, topping]
       });
     }
   };
@@ -401,11 +401,12 @@ function BobaCashier({ onBack }) {
     if (desc === "few clouds") return "⛅";
     if (desc === "scattered clouds") return "🌥️";
     if (desc === "broken clouds") return "☁️";
+    if (desc === "overcast clouds") return "☁️";
     if (desc === "shower rain") return "🌦️";
     if (desc === "rain") return "🌧️";
     if (desc === "thunderstorm") return "⛈️";
     if (desc === "snow") return "❄️";
-    return "" // Default
+    return "🌞⛅" // Default
   };
 
   const weatherEmoji = getWeatherEmoji(description);
@@ -475,7 +476,7 @@ function BobaCashier({ onBack }) {
           <div className="grid grid-cols-3 gap-3">
             {filteredDrinks.map((drink) => (
               <button
-                key={drink.menu_item_id}
+                key={drink.id}
                 onClick={() => openCustomization(drink)}
                 className="bg-gray-100 hover:bg-amber-100 rounded-lg p-4 transition-colors border-2 border-gray-300 hover:border-amber-500"
               >
@@ -485,7 +486,7 @@ function BobaCashier({ onBack }) {
                     {drink.name}
                   </h3>
                   <p className="text-lg font-bold text-amber-700">
-                    ${parseFloat(drink.price).toFixed(2)}
+                    ${parseFloat(drink.base_price).toFixed(2)}
                   </p>
                 </div>
               </button>
@@ -631,7 +632,7 @@ function BobaCashier({ onBack }) {
             {/* Modal Header */}
             <div className="bg-amber-600 text-white p-6">
               <h2 className="text-2xl font-bold">Customize: {selectedDrink.name}</h2>
-              <p className="text-lg mt-1">Base Price: ${parseFloat(selectedDrink.price).toFixed(2)}</p>
+              <p className="text-lg mt-1">Base Price: ${parseFloat(selectedDrink.base_price).toFixed(2)}</p>
             </div>
 
             {/* Modal Body */}
@@ -640,12 +641,12 @@ function BobaCashier({ onBack }) {
               <div>
                 <h3 className="text-xl font-bold text-amber-900 mb-3">Ice Level *</h3>
                 <div className="grid grid-cols-4 gap-2">
-                  {getAddOnsByCategory('Ice Level').map((ice) => (
+                  {getCustomizationsByCategory('Ice Level').map((ice) => (
                     <button
                       key={ice.id}
-                      onClick={() => setSelectedAddOns({ ...selectedAddOns, iceLevel: ice })}
+                      onClick={() => setSelectedCustomizations({ ...selectedCustomizations, iceLevel: ice })}
                       className={`px-4 py-3 rounded-lg font-semibold transition-all ${
-                        selectedAddOns.iceLevel?.id === ice.id
+                        selectedCustomizations.iceLevel?.id === ice.id
                           ? 'bg-amber-600 text-white'
                           : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                       }`}
@@ -660,12 +661,12 @@ function BobaCashier({ onBack }) {
               <div>
                 <h3 className="text-xl font-bold text-amber-900 mb-3">Sweetness Level *</h3>
                 <div className="grid grid-cols-4 gap-2">
-                  {getAddOnsByCategory('Sweetness Level').map((sweet) => (
+                  {getCustomizationsByCategory('Sweetness Level').map((sweet) => (
                     <button
                       key={sweet.id}
-                      onClick={() => setSelectedAddOns({ ...selectedAddOns, sweetnessLevel: sweet })}
+                      onClick={() => setSelectedCustomizations({ ...selectedCustomizations, sweetnessLevel: sweet })}
                       className={`px-4 py-3 rounded-lg font-semibold transition-all ${
-                        selectedAddOns.sweetnessLevel?.id === sweet.id
+                        selectedCustomizations.sweetnessLevel?.id === sweet.id
                           ? 'bg-amber-600 text-white'
                           : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                       }`}
@@ -680,8 +681,8 @@ function BobaCashier({ onBack }) {
               <div>
                 <h3 className="text-xl font-bold text-amber-900 mb-3">Toppings (Optional)</h3>
                 <div className="grid grid-cols-2 gap-2">
-                  {getAddOnsByCategory('Toppings').map((topping) => {
-                    const isSelected = selectedAddOns.toppings.some(t => t.id === topping.id);
+                  {getCustomizationsByCategory('Toppings').map((topping) => {
+                    const isSelected = selectedCustomizations.toppings.some(t => t.id === topping.id);
                     return (
                       <button
                         key={topping.id}
@@ -705,12 +706,12 @@ function BobaCashier({ onBack }) {
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-2xl font-bold text-amber-900">Total:</span>
                   <span className="text-3xl font-bold text-green-700">
-                    ${(parseFloat(selectedDrink.price) + calculateCustomizationPrice()).toFixed(2)}
+                    ${(parseFloat(selectedDrink.base_price) + calculateCustomizationPrice()).toFixed(2)}
                   </span>
                 </div>
 
                 {/* Validation Message */}
-                {(!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel) && (
+                {(!selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel) && (
                   <p className="text-red-600 text-center mb-3 font-semibold">
                     * Please select ice level and sweetness level
                   </p>
@@ -726,7 +727,7 @@ function BobaCashier({ onBack }) {
                   </button>
                   <button
                     onClick={addToCart}
-                    disabled={!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel}
+                    disabled={!selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel}
                     className="bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     Add to Cart
