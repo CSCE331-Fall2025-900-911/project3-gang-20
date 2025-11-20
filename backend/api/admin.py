@@ -1,3 +1,10 @@
+"""
+Django Admin Configuration for Boba Shop Models.
+
+This file customizes the Django admin interface to make it easier
+to manage the application data.
+"""
+
 from django.contrib import admin
 from .models import (
     Customer, Employee, Unit, Ingredient, CustomizationCategory,
@@ -10,87 +17,91 @@ from .models import (
 
 class RecipeItemInline(admin.TabularInline):
     """
-    Lets you add ingredients to a menu item.
+    Allows editing RecipeItems directly within the MenuItem admin page.
+    "TabularInline" provides a compact, table-based layout.
     """
     model = RecipeItem
     extra = 1  # Show 1 blank row by default
-    autocomplete_fields = ['ingredient']  # Use a search box
+    autocomplete_fields = ['ingredient']  # Use a search-friendly dropdown
 
-# ⬇️ --- THIS IS THE FIX --- ⬇️
 class OrderItemInline(admin.TabularInline):
     """
-    This "inline" editor will let you ADD items to an Order.
+    Allows editing OrderItems directly within the Order admin page.
     """
     model = OrderItem
     extra = 1  # Show 1 blank "Add Item" row
     
-    # We REMOVED readonly_fields to make it editable
-    
-    # Use a search box for the menu item
+    # Use search boxes and filter widgets for easier data entry
     autocomplete_fields = ['menu_item']
-    
-    # Use a nice dual-select box for customizations
     filter_horizontal = ['customizations']
-# ⬆️ --------------------------------
-
 
 # -----------------------------------------------------------
 # ModelAdmins
 # -----------------------------------------------------------
+# These classes customize the list display, search, and filtering
+# for each model in the admin interface.
 
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin):
+    """Admin view for Ingredients."""
     list_display = ('name', 'stock_level', 'unit', 'low_stock_threshold')
     list_filter = ('unit',)
     search_fields = ('name',)
 
 @admin.register(MenuCategory)
 class MenuCategoryAdmin(admin.ModelAdmin):
+    """Admin view for Menu Categories."""
     search_fields = ('name',)
 
 @admin.register(MenuItem)
 class MenuItemAdmin(admin.ModelAdmin):
+    """Admin view for Menu Items."""
     list_display = ('name', 'category', 'base_price')
     list_filter = ('category',)
     search_fields = ('name',)
-    inlines = [RecipeItemInline]
+    inlines = [RecipeItemInline]  # Nest the recipe editor
     autocomplete_fields = ('category',)
-    filter_horizontal = ('available_customizations',)
+    # filter_horizontal = ('available_customizations',) # Use multi-select widget
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
+    """Admin view for Orders."""
     list_display = ('id', 'order_date_time', 'employee', 'customer', 'payment_type')
     list_filter = ('order_date_time', 'payment_type', 'employee')
-    
-    # This line uses the new, FIXED inline
-    inlines = [OrderItemInline]
-    
+    inlines = [OrderItemInline]  # Nest the order item editor
     autocomplete_fields = ('employee', 'customer')
 
 @admin.register(CustomizationOption)
 class CustomizationOptionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'price')
+    """Admin view for Customization Options."""
+    list_display = ('name', 'category', 'price', 'quantity') # Removed 'unit'
     list_filter = ('category',)
     search_fields = ('name',)
-    autocomplete_fields = ('category', 'ingredient')
+    autocomplete_fields = ('category', 'ingredient') # Removed 'unit'
 
 @admin.register(CustomizationCategory)
 class CustomizationCategoryAdmin(admin.ModelAdmin):
+    """Admin view for Customization Categories."""
     search_fields = ('name',)
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    # Use fields that exist on your Customer model
-    # For example, if you only have 'email'
-    list_display = ('email',) 
-    search_fields = ('email',)
+    """Admin view for Customers."""
+    list_display = ('first_name', 'last_name', 'email', 'phone') 
+    search_fields = ('first_name', 'last_name', 'email', 'phone')
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
+    """Admin view for Employees."""
     list_display = ('first_name', 'last_name', 'position')
     search_fields = ('first_name', 'last_name')
 
+@admin.register(Unit)
+class UnitAdmin(admin.ModelAdmin):
+    """Admin view for Units."""
+    search_fields = ('name', 'abbreviation')
+
 # -----------------------------------------------------------
-# Register remaining models
+# Register remaining simple models
 # -----------------------------------------------------------
-admin.site.register(Unit)
+# admin.site.register(Unit) # This is now handled by the @admin.register decorator above
