@@ -122,7 +122,7 @@ function mapMenu(items) {
   const bucket = new Map();
 
   items.forEach((raw) => {
-    const menu_item_id = raw.menu_item_id;
+    const menu_item_id = raw.id;
     const name = raw.name?.trim();
     if (menu_item_id == null || !name) return; // Skip invalid items
 
@@ -134,7 +134,7 @@ function mapMenu(items) {
 
     // Normalize price data
     const basePrices = {};
-    const price = normalisePrice(raw.price);
+    const price = normalisePrice(raw.base_price);
     if (typeof price === 'number') {
       basePrices.regular = price;
     }
@@ -143,10 +143,10 @@ function mapMenu(items) {
     bucket.get(categoryName).push({
       id: menu_item_id,
       name,
-      desc: raw.description || undefined,
+      desc: undefined, // Description removed from backend
       prices: basePrices,
-      badges: raw.is_featured ? ['Featured'] : undefined,
-      soldOut: raw.is_available === false,
+      badges: undefined, // Featured status removed from backend
+      soldOut: false, // Availability status removed from backend
     });
   });
 
@@ -185,17 +185,33 @@ export function useMenuData(pollMs = POLL_DEFAULT) {
     controllerRef.current = controller;
 
     try {
-      const response = await fetch(MENU_ENDPOINT, { signal: controller.signal });
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`);
+      const [menuResponse, addonsResponse] = await Promise.all([
+        fetch(MENU_ENDPOINT, { signal: controller.signal }),
+        fetch('https://project3-gang-20.onrender.com/api/customization-options/', { signal: controller.signal })
+      ]);
+
+      if (!menuResponse.ok || !addonsResponse.ok) {
+        throw new Error(`Request failed`);
       }
-      const payload = await response.json();
-      const categories = mapMenu(payload);
-      
+
+      const menuPayload = await menuResponse.json();
+      const addonsPayload = await addonsResponse.json();
+
+      const categories = mapMenu(menuPayload);
+
+      // Filter for toppings
+      const toppings = addonsPayload
+        .filter(addon => addon.category === 'Toppings')
+        .map(t => ({
+          id: t.id,
+          name: t.name,
+          prices: { regular: parseFloat(t.price) }
+        }));
+
       if (categories.length) {
         // Preserve existing promos if new data is fetched
         const promos = data.promos.length ? data.promos : FALLBACK_DATA.promos;
-        setData({ categories, promos, updatedAt: new Date() });
+        setData({ categories, toppings, promos, updatedAt: new Date() });
         setError(null);
       }
     } catch (err) {
@@ -214,7 +230,7 @@ export function useMenuData(pollMs = POLL_DEFAULT) {
   useEffect(() => {
     fetchData(); // Initial fetch
     const interval = setInterval(fetchData, pollMs || POLL_DEFAULT);
-    
+
     // Cleanup function
     return () => {
       clearInterval(interval);

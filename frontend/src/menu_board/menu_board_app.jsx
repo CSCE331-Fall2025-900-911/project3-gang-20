@@ -36,97 +36,6 @@ const NAME_SYNONYMS = {
   Seasonal: ['seasonal', 'limited', 'specials'],
 };
 
-/**
- * Placeholder data for categories defined in DISPLAY_ORDER.
- * This is used if a category is expected (per DISPLAY_ORDER) but is not
- * found in the API response, ensuring the grid layout remains stable.
- */
-const PLACEHOLDER_CATEGORIES = {
-  Freshbrew: {
-    name: 'Freshbrew',
-    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
-      id: `fresh-${idx}`,
-      name: `Single-Origin Brew #${idx + 1}`,
-      desc: idx % 2 === 0 ? 'Slow-dripped over ice' : 'Pour-over, served hot',
-      prices: { regular: 4.95 + idx * 0.1 },
-    })),
-  },
-  Fruity: {
-    name: 'Fruity',
-    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
-      id: `fruit-${idx}`,
-      name: `Fruit Tea ${idx + 1}`,
-      desc: idx % 2 === 0 ? 'Refreshing tea with real fruit' : 'Sparkling fruit infusion',
-      prices: { regular: 5.75 + idx * 0.1 },
-    })),
-  },
-  'Ice-Blended': {
-    name: 'Ice-Blended',
-    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
-      id: `blend-${idx}`,
-      name: `Ice-Blended Treat ${idx + 1}`,
-      desc: idx % 2 === 0 ? 'Creamy blended drink' : 'Frosty smoothie',
-      prices: { regular: 6.25 + idx * 0.1 },
-    })),
-  },
-  Matcha: {
-    name: 'Matcha',
-    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
-      id: `matcha-${idx}`,
-      name: `Matcha Creation ${idx + 1}`,
-      desc: idx % 2 === 0 ? 'Ceremonial grade matcha' : 'Matcha with house cream',
-      prices: { regular: 6.45 + idx * 0.12 },
-    })),
-  },
-  Milky: {
-    name: 'Milky',
-    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
-      id: `milky-${idx}`,
-      name: `Milky Favorite ${idx + 1}`,
-      desc: idx % 2 === 0 ? 'Traditional milk tea' : 'Creamy latte style',
-      prices: { regular: 5.95 + idx * 0.1 },
-    })),
-  },
-  'Non-Caffeinated': {
-    name: 'Non-Caffeinated',
-    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
-      id: `noncaf-${idx}`,
-      name: `Caffeine-Free Sip ${idx + 1}`,
-      desc: idx % 2 === 0 ? 'Herbal infusion' : 'Kid-friendly smoothie',
-      prices: { regular: 5.45 + idx * 0.1 },
-    })),
-  },
-  Seasonal: {
-    name: 'Seasonal',
-    items: Array.from({ length: MAX_ITEMS_PER_PANEL }).map((_, idx) => ({
-      id: `seasonal-${idx}`,
-      name: `Seasonal Feature ${idx + 1}`,
-      desc: idx % 2 === 0 ? 'Limited batch flavor' : 'Chef-curated special',
-      prices: { regular: 6.75 + idx * 0.15 },
-      badges: idx % 3 === 0 ? ['Limited'] : undefined,
-    })),
-  },
-};
-
-/** A static panel for toppings, appended after all dynamic categories. */
-const TOPPINGS_PANEL = {
-  name: 'Toppings',
-  items: [
-    { id: 't1', name: 'Classic Boba', prices: { regular: 0.75 } },
-    { id: 't2', name: 'Mini Boba', prices: { regular: 0.75 } },
-    { id: 't3', name: 'Crystal Boba', prices: { regular: 0.75 } },
-    { id: 't4', name: 'Lychee Jelly', prices: { regular: 0.75 } },
-    { id: 't5', name: 'Rainbow Jelly', prices: { regular: 0.75 } },
-    { id: 't6', name: 'Grass Jelly', prices: { regular: 0.75 } },
-    { id: 't7', name: 'Herbal Jelly', prices: { regular: 0.75 } },
-    { id: 't8', name: 'Egg Pudding', prices: { regular: 0.75 } },
-    { id: 't9', name: 'Cheese Foam', prices: { regular: 0.95 } },
-    { id: 't10', name: 'Sea Salt Cream', prices: { regular: 0.95 } },
-    { id: 't11', name: 'Whipped Cream', prices: { regular: 0.75 } },
-    { id: 't12', name: 'Red Bean', prices: { regular: 0.75 } },
-    { id: 't13', name: 'Chia Seeds', prices: { regular: 0.5 } },
-  ],
-};
 
 /** Utility function to truncate an item list based on MAX_ITEMS_PER_PANEL. */
 function trimItems(items) {
@@ -191,14 +100,19 @@ export default function MenuBoardApp({
         match = categoryMap.get(normaliseName(variant));
         if (match) break;
       }
-      // Use the matched category or fall back to the placeholder
-      return match ?? PLACEHOLDER_CATEGORIES[displayName];
-    });
+      // Return the match if found, otherwise null (will be filtered out)
+      return match ?? null;
+    }).filter(Boolean); // Filter out nulls (categories not found in API)
 
-    // 3. Append the static Toppings panel at the end
-    resolved.push(TOPPINGS_PANEL);
+    // 3. Append the Toppings panel (dynamic or fallback)
+    if (data.toppings && data.toppings.length > 0) {
+      resolved.push({
+        name: 'Toppings',
+        items: data.toppings
+      });
+    }
     return resolved;
-  }, [categories]); // Only re-run this logic if the `categories` data changes
+  }, [categories, data.toppings]); // Re-run if categories or toppings change
 
   // State for the live clock
   const [now, setNow] = useState(() => new Date());
@@ -234,7 +148,7 @@ export default function MenuBoardApp({
         <button
           onClick={handleLogout}
           className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700"
-          style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 1000 }}
+          style={{ position: 'absolute', top: '16px', left: '16px', zIndex: 1000 }}
         >
           <LogOut size={20} />
           Logout
