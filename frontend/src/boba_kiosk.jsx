@@ -209,8 +209,31 @@ const getDrinkDescription = (drink) => {
   if (!drink.recipe || drink.recipe.length === 0) {
     return 'A delicious drink made fresh for you.';
   }
-  const ingredients = drink.recipe.map(item => item.ingredient).join(', ');
-  return ingredients;
+
+  const formattedIngredients = drink.recipe
+    .map(item => item.ingredient)
+    .filter(name => {
+      const lower = name.toLowerCase();
+      // Filter out inventory items that aren't edible ingredients
+      return !lower.includes('cup') &&
+        !lower.includes('lid') &&
+        !lower.includes('straw') &&
+        !lower.includes('seal') &&
+        !lower.includes('napkin');
+    })
+    .map(name => {
+      // Replace underscores with spaces and Title Case the words
+      return name.replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    });
+
+  if (formattedIngredients.length === 0) {
+    return 'A delicious drink made fresh for you.';
+  }
+
+  return formattedIngredients.join(', ');
 };
 
 function BobaKioskContent({ onBack }) {
@@ -488,7 +511,7 @@ function BobaKioskContent({ onBack }) {
         minHeight: '100vh',
         background: theme.bg,
         padding: '32px',
-        paddingTop: '100px' // Space for fixed header/buttons
+        paddingTop: '150px' // Increased space for fixed header/buttons
       }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
 
@@ -896,8 +919,8 @@ function BobaKioskContent({ onBack }) {
         id="google_translate_element"
         style={{
           position: 'fixed',
-          top: '90px',
-          right: '20px',
+          bottom: '24px', // Moved to bottom
+          left: '24px',   // Moved to left to balance UI
           zIndex: 1000,
           backgroundColor: theme.cardBg,
           padding: '8px',
