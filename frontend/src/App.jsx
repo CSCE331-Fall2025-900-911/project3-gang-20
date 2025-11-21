@@ -1,45 +1,57 @@
-import { useState } from 'react';
-// Import the different portal components
+import { useState, useEffect } from 'react';
+
 import BobaKiosk from './boba_kiosk';
 import BobaManager from './boba_manager';
 import BobaCashier from './boba_cashier';
 import MenuBoardApp from './menu_board/menu_board_app';
-import LandingPage from './LandingPage';
+import LandingPage from './landing_page';
 
-/**
- * The main application component.
- * Renders the home/navigation screen or one of the selected portals.
- * @returns {React.ReactNode} The rendered component based on the current page state.
- */
 function App() {
+  const [currentPage, setCurrentPage] = useState(null); // <-- start as null
+  const [isLoaded, setIsLoaded] = useState(false); // <-- gate rendering
 
-  // State to manage which portal is currently active. 'home' is the default.
-  const [currentPage, setCurrentPage] = useState('home');
+  // Load saved page on first mount
+  useEffect(() => {
+    const saved = localStorage.getItem('currentPage');
 
-  // --- Portal Rendering ---
-  // Conditionally render the active portal based on the `currentPage` state.
-  // Each portal is passed an `onBack` prop to allow it to return to the 'home' screen.
+    if (saved) {
+      setCurrentPage(saved);
+    } else {
+      setCurrentPage('landing'); // default
+    }
 
+    setIsLoaded(true); // allow rendering
+  }, []);
+
+  // Save currentPage whenever it changes (but only after load)
+  useEffect(() => {
+    if (currentPage) {
+      localStorage.setItem('currentPage', currentPage);
+    }
+  }, [currentPage]);
+
+  // ---------- Prevent rendering until state is ready ----------
+  if (!isLoaded) {
+    return null; // or a loading spinner
+  }
+
+  // ---------- Portal Routing ----------
   if (currentPage === 'kiosk') {
-    return <BobaKiosk onBack={() => setCurrentPage('home')} />;
+    return <BobaKiosk onBack={() => setCurrentPage('landing')} />;
   }
 
   if (currentPage === 'manager') {
-    return <BobaManager onBack={() => setCurrentPage('home')} />;
+    return <BobaManager onBack={() => setCurrentPage('landing')} />;
   }
 
   if (currentPage === 'cashier') {
-    return <BobaCashier onBack={() => setCurrentPage('home')} />;
+    return <BobaCashier onBack={() => setCurrentPage('landing')} />;
   }
 
   if (currentPage === 'menu-board') {
-    return <MenuBoardApp onBack={() => setCurrentPage('home')} />;
+    return <MenuBoardApp onBack={() => setCurrentPage('landing')} />;
   }
 
-
-
-  // --- Home Screen Rendering ---
-  // This is the default view, rendered when `currentPage` is 'home'.
   return <LandingPage onNavigate={setCurrentPage} />;
 }
 

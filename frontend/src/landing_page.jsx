@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Coffee, User, LogIn, ChevronRight, Star, MapPin, Clock, Instagram, Facebook, Twitter } from 'lucide-react';
+import { Coffee, User, LogIn, ChevronRight, Star, MapPin, Clock, X } from 'lucide-react';
 
 function LandingPage({ onNavigate }) {
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    // 'login', 'signup', or null
+    const [authMode, setAuthMode] = useState(null);
 
     // Theme constants matching the app's design
     const theme = {
@@ -12,7 +13,13 @@ function LandingPage({ onNavigate }) {
         text: '#78350f', // amber-900
         textLight: '#92400e', // amber-800
         white: '#ffffff',
+        overlay: 'rgba(120, 53, 15, 0.3)', // dark amber semi-transparent
     };
+
+    const handleCloseModal = () => setAuthMode(null);
+
+    // Prevent click propagation from modal content to overlay
+    const handleModalContentClick = (e) => e.stopPropagation();
 
     return (
         <div style={{
@@ -20,7 +27,8 @@ function LandingPage({ onNavigate }) {
             background: theme.bg,
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: theme.text,
-            overflowX: 'hidden'
+            overflowX: 'hidden',
+            position: 'relative' // Needed for overlay positioning context
         }}>
 
             {/* --- Navigation Bar --- */}
@@ -54,35 +62,38 @@ function LandingPage({ onNavigate }) {
                 <div className="hidden md:flex" style={{ gap: '32px', fontWeight: '600', alignItems: 'center' }}>
                     <button onClick={() => onNavigate('home')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Home</button>
                     <button onClick={() => onNavigate('menu-board')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Menu</button>
-                    <button style={{ background: 'none', border: 'none', color: theme.text, cursor: 'not-allowed', opacity: 0.5, fontSize: '1rem', fontWeight: '600' }}>Locations</button>
                     <button style={{ background: 'none', border: 'none', color: theme.text, cursor: 'not-allowed', opacity: 0.5, fontSize: '1rem', fontWeight: '600' }}>Our Story</button>
                 </div>
 
-                {/* Auth Buttons */}
+                {/* Auth Buttons - Updated to trigger modal */}
                 <div style={{ display: 'flex', gap: '16px' }}>
-                    <button style={{
-                        background: 'transparent',
-                        border: `2px solid ${theme.primary}`,
-                        color: theme.primary,
-                        padding: '8px 20px',
-                        borderRadius: '50px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                    }}>
+                    <button 
+                        onClick={() => setAuthMode('login')}
+                        style={{
+                            background: 'transparent',
+                            border: `2px solid ${theme.primary}`,
+                            color: theme.primary,
+                            padding: '8px 20px',
+                            borderRadius: '50px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                        }}>
                         Log In
                     </button>
-                    <button style={{
-                        background: theme.primary,
-                        border: 'none',
-                        color: 'white',
-                        padding: '10px 24px',
-                        borderRadius: '50px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)',
-                        transition: 'all 0.2s'
-                    }}>
+                    <button 
+                        onClick={() => setAuthMode('signup')}
+                        style={{
+                            background: theme.primary,
+                            border: 'none',
+                            color: 'white',
+                            padding: '10px 24px',
+                            borderRadius: '50px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)',
+                            transition: 'all 0.2s'
+                        }}>
                         Sign Up
                     </button>
                 </div>
@@ -335,18 +346,9 @@ function LandingPage({ onNavigate }) {
                         <ul style={{ listStyle: 'none', padding: 0, color: '#a8a29e', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             <li><a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Home</a></li>
                             <li><a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Menu</a></li>
-                            <li><a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Careers</a></li>
+                            <li><a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Employee Login</a></li>
                             <li><a href="#" style={{ color: 'inherit', textDecoration: 'none' }}>Contact</a></li>
                         </ul>
-                    </div>
-
-                    <div>
-                        <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '24px' }}>Connect With Us</h4>
-                        <div style={{ display: 'flex', gap: '16px' }}>
-                            <a href="#" style={{ color: 'white', background: 'rgba(255,255,255,0.1)', padding: '10px', borderRadius: '50%' }}><Instagram size={20} /></a>
-                            <a href="#" style={{ color: 'white', background: 'rgba(255,255,255,0.1)', padding: '10px', borderRadius: '50%' }}><Facebook size={20} /></a>
-                            <a href="#" style={{ color: 'white', background: 'rgba(255,255,255,0.1)', padding: '10px', borderRadius: '50%' }}><Twitter size={20} /></a>
-                        </div>
                     </div>
                 </div>
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '60px', paddingTop: '32px', textAlign: 'center', color: '#a8a29e' }}>
@@ -354,14 +356,195 @@ function LandingPage({ onNavigate }) {
                 </div>
             </footer>
 
-            {/* CSS Animation for floating elements */}
+            {/* --- Auth Modal --- */}
+            {authMode && (
+                <div 
+                    onClick={handleCloseModal}
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: theme.overlay,
+                        backdropFilter: 'blur(5px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000,
+                        animation: 'fadeIn 0.2s ease-out'
+                    }}
+                >
+                    <div 
+                        onClick={handleModalContentClick}
+                        style={{
+                            background: 'white',
+                            width: '100%',
+                            maxWidth: '420px',
+                            borderRadius: '24px',
+                            padding: '40px',
+                            position: 'relative',
+                            boxShadow: '0 20px 50px rgba(0,0,0,0.1)',
+                            animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                        }}
+                    >
+                        {/* Close Button */}
+                        <button 
+                            onClick={handleCloseModal}
+                            style={{
+                                position: 'absolute',
+                                top: '24px',
+                                right: '24px',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: '#999',
+                                padding: '4px'
+                            }}
+                        >
+                            <X size={24} />
+                        </button>
+
+                        {/* Header */}
+                        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                            <div style={{ 
+                                background: theme.primary, 
+                                width: '48px', 
+                                height: '48px', 
+                                borderRadius: '50%', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                margin: '0 auto 16px',
+                                color: 'white'
+                            }}>
+                                {authMode === 'login' ? <LogIn size={24} /> : <User size={24} />}
+                            </div>
+                            <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: theme.text }}>
+                                {authMode === 'login' ? 'Welcome Back' : 'Join BobaSpot'}
+                            </h2>
+                            <p style={{ color: '#666', marginTop: '8px' }}>
+                                {authMode === 'login' ? 'Please enter your details.' : 'Create an account to start earning points.'}
+                            </p>
+                        </div>
+
+                        {/* Form */}
+                        <form style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {authMode === 'signup' && (
+                                <div>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Full Name" 
+                                        style={{
+                                            width: '100%',
+                                            padding: '16px',
+                                            borderRadius: '12px',
+                                            border: '2px solid #e5e7eb',
+                                            fontSize: '1rem',
+                                            outline: 'none',
+                                            transition: 'border-color 0.2s'
+                                        }}
+                                        onFocus={(e) => e.target.style.borderColor = theme.primary}
+                                        onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                                    />
+                                </div>
+                            )}
+                            
+                            <div>
+                                <input 
+                                    type="email" 
+                                    placeholder="Email Address" 
+                                    style={{
+                                        width: '100%',
+                                        padding: '16px',
+                                        borderRadius: '12px',
+                                        border: '2px solid #e5e7eb',
+                                        fontSize: '1rem',
+                                        outline: 'none',
+                                        transition: 'border-color 0.2s'
+                                    }}
+                                    onFocus={(e) => e.target.style.borderColor = theme.primary}
+                                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                                />
+                            </div>
+
+                            <div>
+                                <input 
+                                    type="password" 
+                                    placeholder="Password" 
+                                    style={{
+                                        width: '100%',
+                                        padding: '16px',
+                                        borderRadius: '12px',
+                                        border: '2px solid #e5e7eb',
+                                        fontSize: '1rem',
+                                        outline: 'none',
+                                        transition: 'border-color 0.2s'
+                                    }}
+                                    onFocus={(e) => e.target.style.borderColor = theme.primary}
+                                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                                />
+                            </div>
+
+                            {authMode === 'login' && (
+                                <div style={{ textAlign: 'right' }}>
+                                    <a href="#" style={{ fontSize: '0.9rem', color: theme.primary, textDecoration: 'none', fontWeight: '600' }}>Forgot Password?</a>
+                                </div>
+                            )}
+
+                            <button type="submit" style={{
+                                background: theme.primary,
+                                color: 'white',
+                                border: 'none',
+                                padding: '16px',
+                                borderRadius: '12px',
+                                fontSize: '1.1rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                marginTop: '8px',
+                                boxShadow: '0 4px 12px rgba(217, 119, 6, 0.2)'
+                            }}>
+                                {authMode === 'login' ? 'Sign In' : 'Create Account'}
+                            </button>
+                        </form>
+
+                        {/* Footer / Switch Mode */}
+                        <div style={{ marginTop: '24px', textAlign: 'center', color: '#666', fontSize: '0.95rem' }}>
+                            {authMode === 'login' ? "Don't have an account? " : "Already have an account? "}
+                            <button 
+                                onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+                                style={{ 
+                                    background: 'none', 
+                                    border: 'none', 
+                                    color: theme.primary, 
+                                    fontWeight: 'bold', 
+                                    cursor: 'pointer',
+                                    fontSize: 'inherit'
+                                }}
+                            >
+                                {authMode === 'login' ? 'Sign up' : 'Log in'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* CSS Animation for floating elements and modal */}
             <style>{`
-        @keyframes float {
-          0% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-20px) rotate(5deg); }
-          100% { transform: translateY(0px) rotate(0deg); }
-        }
-      `}</style>
+                @keyframes float {
+                    0% { transform: translateY(0px) rotate(0deg); }
+                    50% { transform: translateY(-20px) rotate(5deg); }
+                    100% { transform: translateY(0px) rotate(0deg); }
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes slideUp {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
         </div>
     );
 }
