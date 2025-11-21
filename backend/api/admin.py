@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils.html import format_html
 from .models import (
     Customer, Employee, Unit, Ingredient, CustomizationCategory,
     CustomizationOption, MenuCategory, MenuItem, RecipeItem, Order, OrderItem
@@ -49,12 +50,24 @@ class MenuCategoryAdmin(admin.ModelAdmin):
 @admin.register(MenuItem)
 class MenuItemAdmin(admin.ModelAdmin):
     """Admin view for Menu Items."""
-    list_display = ('name', 'category', 'base_price')
+    # Add 'image_tag' to your list_display
+    list_display = ('name', 'category', 'base_price', 'image_tag') 
     list_filter = ('category',)
     search_fields = ('name',)
-    inlines = [RecipeItemInline]  # Nest the recipe editor
+    inlines = [RecipeItemInline]
     autocomplete_fields = ('category',)
-    # filter_horizontal = ('available_customizations',) # Use multi-select widget
+    
+    # Add this to see the image in the admin list view
+    readonly_fields = ('image_tag',) # Also show in detail view
+
+    @admin.display(description='Image')
+    def image_tag(self, obj):
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-height: 50px; max-width: 50px;" />', 
+                obj.image.url
+            )
+        return "No Image"
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
