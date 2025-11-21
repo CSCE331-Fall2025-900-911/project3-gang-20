@@ -79,7 +79,7 @@ class MenuItemReadSerializer(serializers.ModelSerializer):
     category = serializers.StringRelatedField()
     
     # The ImageField will automatically serialize to its full URL
-    
+    recipe = RecipeItemReadSerializer(source='recipeitem_set', many=True, read_only=True)
     class Meta:
         model = MenuItem
         fields = [
