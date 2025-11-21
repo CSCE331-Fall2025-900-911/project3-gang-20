@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'django_extensions',
+    'storages'
 ]
 
 MIDDLEWARE = [
@@ -130,3 +131,27 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
+
+# --- Google Cloud Storage Settings ---
+
+# This is the name of the bucket you created in Step 2
+GS_BUCKET_NAME = 'boba_images_bucket' # <-- CHANGE THIS
+
+# This tells django-storages to use the GCS backend
+DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
+
+# This setting controls the "Cache-Control" header for uploaded files.
+# It's good for performance.
+GS_CACHE_CONTROL = 'max-age=3600' # Cache for 1 hour (in seconds)
+
+# Optional: Make all uploaded files public by default
+# This is simpler for a public menu. For private files, you'd need
+# to generate signed URLs, which is more complex.
+# GS_DEFAULT_ACL = 'publicRead'
+
+# This will be the root URL for your media files
+MEDIA_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/media/'
+MEDIA_ROOT = 'media/' # This is the *prefix* inside the bucket
+
+# --- End Google Cloud Storage Settings ---b

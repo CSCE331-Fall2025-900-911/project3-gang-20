@@ -111,6 +111,12 @@ class MenuItem(models.Model):
         blank=True, 
         null=True
     )
+
+    image = models.ImageField(
+        upload_to='menu_items/',  # Will save to /media/menu_items/filename.jpg
+        blank=True, 
+        null=True
+    )
     
     base_price = models.DecimalField(max_digits=5, decimal_places=2)
 
