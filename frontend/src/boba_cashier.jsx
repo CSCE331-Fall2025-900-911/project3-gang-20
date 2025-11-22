@@ -5,7 +5,6 @@ import { Trash2, LogOut } from 'lucide-react';
 const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
 const CUSTOMIZATION_OPTIONS_URL = 'https://project3-gang-20.onrender.com/api/customization-options/';
 const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
-const ORDER_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/order-items/';
 
 // Business logic constants
 const TAX_RATE = 0.0825; // 8.25% sales tax
