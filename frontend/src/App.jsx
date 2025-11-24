@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+
 import { useState } from 'react';
 import { SignedIn, SignedOut, UserButton, useUser } from '@clerk/clerk-react';
 import { CustomSignIn, CustomSignUp } from './Auth';
@@ -5,13 +7,38 @@ import BobaKiosk from './boba_kiosk';
 import BobaManager from './boba_manager';
 import BobaCashier from './boba_cashier';
 import MenuBoardApp from './menu_board/menu_board_app';
+import LandingPage from './landing_page';
 
-/**
- * The main application component.
- * Renders the home/navigation screen or one of the selected portals.
- * @returns {React.ReactNode} The rendered component based on the current page state.
- */
 function App() {
+  const [currentPage, setCurrentPage] = useState(null); // <-- start as null
+  const [isLoaded, setIsLoaded] = useState(false); // <-- gate rendering
+
+  // Load saved page on first mount
+  useEffect(() => {
+    const saved = localStorage.getItem('currentPage');
+
+    if (saved) {
+      setCurrentPage(saved);
+    } else {
+      setCurrentPage('landing'); // default
+    }
+
+    setIsLoaded(true); // allow rendering
+  }, []);
+
+  // Save currentPage whenever it changes (but only after load)
+  useEffect(() => {
+    if (currentPage) {
+      localStorage.setItem('currentPage', currentPage);
+    }
+  }, [currentPage]);
+
+  // ---------- Prevent rendering until state is ready ----------
+  if (!isLoaded) {
+    return null; // or a loading spinner
+  }
+
+  // ---------- Portal Routing ----------
   // State to manage which portal is currently active. 'home' is the default.
   const [currentPage, setCurrentPage] = useState('home');
   const [authMode, setAuthMode] = useState('signin'); // 'signin' or 'signup'
@@ -86,7 +113,11 @@ function App() {
   }
 
   if (currentPage === 'kiosk') {
-    return <BobaKiosk onBack={() => setCurrentPage('home')} />;
+    return <BobaKiosk onBack={() => setCurrentPage('landing')} />;
+  }
+
+  if (currentPage === 'manager') {
+    return <BobaManager onBack={() => setCurrentPage('landing')} />;
   }
 
   // Protected Cashier Page - requires authentication and cashier or manager org membership
@@ -155,9 +186,14 @@ function App() {
         </SignedIn>
       </>
     );
+    return <BobaCashier onBack={() => setCurrentPage('landing')} />;
   }
 
   if (currentPage === 'menu-board') {
+    return <MenuBoardApp onBack={() => setCurrentPage('landing')} />;
+  }
+
+  return <LandingPage onNavigate={setCurrentPage} />;
     return <MenuBoardApp onBack={() => setCurrentPage('home')} />;
   }
 

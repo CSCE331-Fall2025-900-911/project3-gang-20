@@ -202,6 +202,41 @@ function AccessibilityControls() {
 const MENU_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
 const ADDONS_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/customization-options/';
 const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
+
+const TAX_RATE = 0.0825; // 8.25% sales tax
+const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
+
+// Helper to format recipe ingredients for display
+const getDrinkDescription = (drink) => {
+  if (!drink.recipe || drink.recipe.length === 0) {
+    return 'A delicious drink made fresh for you.';
+  }
+
+  const formattedIngredients = drink.recipe
+    .map(item => item.ingredient)
+    .filter(name => {
+      const lower = name.toLowerCase();
+      // Filter out inventory items that aren't edible ingredients
+      return !lower.includes('cup') &&
+        !lower.includes('lid') &&
+        !lower.includes('straw') &&
+        !lower.includes('seal') &&
+        !lower.includes('napkin');
+    })
+    .map(name => {
+      // Replace underscores with spaces and Title Case the words
+      return name.replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    });
+
+  if (formattedIngredients.length === 0) {
+    return 'A delicious drink made fresh for you.';
+  }
+
+  return formattedIngredients.join(', ');
+};
 const CUSTOMERS_URL = 'https://project3-gang-20.onrender.com/api/customers/';
 
 function BobaKioskContent({ onBack }) {
@@ -335,6 +370,7 @@ function BobaKioskContent({ onBack }) {
   const [menuItems, setMenuItems] = useState([]);
   const [addOns, setAddOns] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('All'); // New filter state
   const [selectedDrink, setSelectedDrink] = useState(null);
   const [selectedAddOns, setSelectedAddOns] = useState({
     iceLevel: null,
@@ -345,6 +381,7 @@ function BobaKioskContent({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [selectedPaymentType, setSelectedPaymentType] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -399,13 +436,25 @@ function BobaKioskContent({ onBack }) {
 
     setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
     setSelectedDrink(null);
-    setCurrentView('drinks');
-    alert("Item added to cart!");
+    setCurrentView('checkout');
   };
 
   const removeFromCart = (cartId) => setCart(cart.filter(item => item.cartId !== cartId));
 
-  const getTotalPrice = () => cart.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0).toFixed(2);
+  const getSubtotal = () => cart.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
+
+  const getServiceCharge = () => {
+    if (selectedPaymentType === 'Card') {
+      return getSubtotal() * SERVICE_CHARGE_RATE;
+    }
+    return 0.0;
+  };
+
+  const getTax = () => (getSubtotal() + getServiceCharge()) * TAX_RATE;
+
+  const getTotal = () => getSubtotal() + getServiceCharge() + getTax();
+
+  const getTotalPrice = () => getTotal().toFixed(2);
 
   const getCustomizationIDs = (cartItem) => {
     const ids = [];
@@ -416,6 +465,11 @@ function BobaKioskContent({ onBack }) {
   };
 
   const processPayment = async () => {
+    if (!selectedPaymentType) {
+      alert('Please select a payment method (Cash or Card)');
+      return;
+    }
+
     setProcessingPayment(true);
     try {
       const itemsPayload = cart.map((cartItem) => ({
@@ -427,6 +481,8 @@ function BobaKioskContent({ onBack }) {
       // UPDATED LOGIC: Use the resolved dbCustomerId (from the useEffect)
       // If dbCustomerId is null (user not logged in or sync failed), send null.
       const orderData = {
+        payment_type: selectedPaymentType,
+        customer: null,
         payment_type: 'Card',
         customer: dbCustomerId, 
         employee: null,
@@ -445,8 +501,10 @@ function BobaKioskContent({ onBack }) {
       }
 
       const newOrder = await response.json();
-      const finalTotal = getTotalPrice();
+      const finalTotal = getTotal();
       setCart([]);
+      setSelectedPaymentType(null);
+      alert(`Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal.toFixed(2)}`);
       alert(`Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal}${dbCustomerId ? '\n\nRewards points added to your account!' : ''}`);
       setCurrentView('welcome');
 
@@ -548,73 +606,97 @@ function BobaKioskContent({ onBack }) {
     );
   }
 
-  if (currentView === 'categories') {
+  // Combined Categories & Drinks View (Simplified Flow)
+  if (currentView === 'categories' || currentView === 'drinks') {
+    // Dynamic categories from menu items
+    const allCategories = ['All', ...new Set(menuItems.map(item => item.category))];
+
+    // Filter logic
+    const filteredItems = menuItems.filter(item => {
+      if (activeFilter === 'All') return true;
+      return item.category === activeFilter;
+    });
+
     viewContent = (
       <div style={{
         minHeight: '100vh',
         background: theme.bg,
         padding: '32px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
+        paddingTop: '150px' // Increased space for fixed header/buttons
       }}>
-        <div style={{ maxWidth: '1280px', width: '100%' }}>
-          <h2 style={{ fontSize: '2.5em', fontWeight: 'bold', color: theme.text, textAlign: 'center', marginBottom: '1em' }}>
-            Select a Category
-          </h2>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+
+          {/* Filter Bar */}
+          <div style={{
+            display: 'flex',
+            gap: '16px',
+            marginBottom: '32px',
+            overflowX: 'auto',
+            paddingBottom: '8px',
+            justifyContent: 'center',
+            flexWrap: 'wrap' // Allow wrapping if many categories
+          }}>
+            {allCategories.map(filter => (
+              <KioskButton
+                key={filter}
+                onClick={() => setActiveFilter(filter)}
+                variant={activeFilter === filter ? 'primary' : 'secondary'}
+                style={{ minWidth: '120px' }}
+              >
+                {filter}
+              </KioskButton>
+            ))}
+          </div>
+
           {loading && <p style={{ textAlign: 'center', fontSize: '1.5em', color: theme.text }}>Loading menu...</p>}
           {error && <p style={{ textAlign: 'center', fontSize: '1.5em', color: theme.danger }}>Error: {error}</p>}
+
           {!loading && !error && (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', // 3 items per row
               gap: '32px',
               width: '100%',
-              margin: '0 auto',
               justifyItems: 'center'
             }}>
-              {categories.map((category) => (
+              {filteredItems.map((drink) => (
                 <button
-                  key={category}
+                  key={drink.menu_item_id}
                   onClick={() => {
-                    setSelectedCategory(category);
-                    setCurrentView('drinks');
+                    setSelectedDrink(drink);
+                    setCurrentView('customize');
                   }}
                   style={{
                     backgroundColor: theme.cardBg,
-                    borderRadius: highContrast ? '0' : '16px',
+                    borderRadius: highContrast ? '0' : '24px',
                     border: theme.border,
                     padding: '32px',
                     boxShadow: theme.shadow,
                     cursor: 'pointer',
                     width: '100%',
-                    maxWidth: '300px',
+                    maxWidth: '350px',
                     transition: 'transform 0.2s',
+                    textAlign: 'left', // Left align for better reading
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'center',
-                    minHeight: '200px'
+                    gap: '12px',
+                    minHeight: '220px'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                  onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
                   onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                  <div style={{
-                    width: '120px',
-                    height: '120px',
-                    margin: '0 auto 16px',
-                    background: highContrast ? '#000' : 'linear-gradient(to bottom right, #fde68a, #fb923c)',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '3em',
-                    color: highContrast ? '#fff' : 'inherit'
-                  }}>
-                    🧋
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <h3 style={{ fontSize: '1.4em', fontWeight: 'bold', color: theme.text, lineHeight: '1.2' }}>
+                      {drink.name}
+                    </h3>
+                    <span style={{ fontSize: '1.4em', fontWeight: 'bold', color: theme.primary }}>
+                      ${parseFloat(drink.base_price).toFixed(2)}
+                    </span>
                   </div>
-                  <h3 style={{ fontSize: '1.25em', fontWeight: 'bold', color: theme.text, textAlign: 'center' }}>
-                    {category}
-                  </h3>
+
+                  <p style={{ fontSize: '0.95em', color: theme.textSecondary, lineHeight: '1.5', flex: 1 }}>
+                    {getDrinkDescription(drink)}
+                  </p>
                 </button>
               ))}
             </div>
@@ -624,80 +706,8 @@ function BobaKioskContent({ onBack }) {
     );
   }
 
-  if (currentView === 'drinks') {
-    const filteredDrinks = menuItems.filter(item => item.category === selectedCategory);
+  // Removed separate 'drinks' view as it's now merged with categories/filters
 
-    viewContent = (
-      <div style={{
-        minHeight: '100vh',
-        background: theme.bg,
-        padding: '32px'
-      }}>
-        <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%', paddingTop: '60px' }}>
-          <KioskButton onClick={() => setCurrentView('categories')} style={{ marginBottom: '24px' }}>
-            ← Previous
-          </KioskButton>
-          <h2 style={{ fontSize: '2em', fontWeight: 'bold', color: theme.text, marginBottom: '0.5em' }}>
-            Category: {selectedCategory}
-          </h2>
-          <p style={{ fontSize: '1.2em', color: theme.textSecondary, marginBottom: '1.5em' }}>
-            Tap a drink to customize
-          </p>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-            gap: '32px',
-            width: '100%',
-            justifyItems: 'center'
-          }}>
-            {filteredDrinks.map((drink) => (
-              <button
-                key={drink.menu_item_id}
-                onClick={() => {
-                  setSelectedDrink(drink);
-                  setCurrentView('customize');
-                }}
-                style={{
-                  backgroundColor: theme.cardBg,
-                  borderRadius: highContrast ? '0' : '16px',
-                  border: theme.border,
-                  padding: '24px',
-                  boxShadow: theme.shadow,
-                  cursor: 'pointer',
-                  width: '100%',
-                  maxWidth: '300px',
-                  transition: 'transform 0.2s',
-                  textAlign: 'center'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                <div style={{
-                  width: '100px',
-                  height: '100px',
-                  margin: '0 auto 16px',
-                  background: highContrast ? '#000' : 'linear-gradient(to bottom right, #fde68a, #fb923c)',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '2.5em'
-                }}>
-                  🥤
-                </div>
-                <h3 style={{ fontSize: '1.2em', fontWeight: 'bold', color: theme.text, marginBottom: '0.5em' }}>
-                  {drink.name}
-                </h3>
-                <p style={{ fontSize: '1.25em', fontWeight: 'bold', color: theme.success }}>
-                  ${parseFloat(drink.base_price).toFixed(2)}
-                </p>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (currentView === 'customize') {
     const iceLevels = getAddOnsByCategory('Ice Level');
@@ -717,13 +727,21 @@ function BobaKioskContent({ onBack }) {
       }}>
 
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
-          <KioskButton onClick={() => {
-            setSelectedDrink(null);
-            setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
-            setCurrentView('drinks');
-          }} style={{ marginBottom: '24px' }}>
-            ← Previous
-          </KioskButton>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
+            <KioskButton onClick={() => {
+              setSelectedDrink(null);
+              setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
+              setCurrentView('categories');
+            }}>
+              ← Back to Menu
+            </KioskButton>
+
+            {cart.length > 0 && (
+              <KioskButton onClick={() => setCurrentView('checkout')} variant="secondary">
+                Go to Cart ({cart.length}) →
+              </KioskButton>
+            )}
+          </div>
 
           <div style={{
             backgroundColor: theme.cardBg,
@@ -842,8 +860,8 @@ function BobaKioskContent({ onBack }) {
               Add to Cart
             </KioskButton>
             {(!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel) && (
-              <p style={{ textAlign: 'center', color: theme.danger, fontSize: '1em', marginTop: '1em' }}>
-                Please select ice level and sweetness level
+              <p style={{ textAlign: 'center', color: theme.danger, fontSize: '1.2em', marginTop: '1em', fontWeight: 'bold' }}>
+                ⚠ Please select Ice Level and Sweetness Level
               </p>
             )}
           </div>
@@ -916,14 +934,14 @@ function BobaKioskContent({ onBack }) {
                           {item.category}
                         </p>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <p style={{ fontSize: '1.25em', fontWeight: 'bold', color: theme.success }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                        <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.success }}>
                           ${item.totalPrice}
                         </p>
                         <KioskButton
                           onClick={() => removeFromCart(item.cartId)}
                           variant="danger"
-                          style={{ fontSize: '0.9em', padding: '0.5em 1em' }}
+                          style={{ fontSize: '1em', padding: '0.8em 1.5em', minHeight: '50px' }}
                         >
                           Remove
                         </KioskButton>
@@ -944,27 +962,74 @@ function BobaKioskContent({ onBack }) {
                 paddingTop: '24px',
                 borderTop: highContrast ? '2px solid #000' : '2px solid #fbbf24'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ marginBottom: '16px', fontSize: '1.2em' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ color: theme.text }}>Subtotal:</span>
+                    <span style={{ color: theme.text, fontWeight: 'bold' }}>
+                      ${getSubtotal().toFixed(2)}
+                    </span>
+                  </div>
+                  {selectedPaymentType === 'Card' && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: theme.primary }}>
+                      <span>Service Charge ({(SERVICE_CHARGE_RATE * 100).toFixed(1)}%):</span>
+                      <span style={{ fontWeight: 'bold' }}>
+                        ${getServiceCharge().toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ color: theme.text }}>Tax ({(TAX_RATE * 100).toFixed(2)}%):</span>
+                    <span style={{ color: theme.text, fontWeight: 'bold' }}>
+                      ${getTax().toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `2px solid ${theme.primary}`, paddingTop: '16px' }}>
                   <span style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text }}>
                     Total:
                   </span>
                   <span style={{ fontSize: '2em', fontWeight: 'bold', color: theme.success }}>
-                    ${getTotalPrice()}
+                    ${getTotal().toFixed(2)}
                   </span>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '32px' }}>
-                <KioskButton onClick={() => setCurrentView('categories')} variant="secondary">
-                  Add More
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '32px' }}>
+                <KioskButton
+                  onClick={() => setSelectedPaymentType('Cash')}
+                  variant={selectedPaymentType === 'Cash' ? 'primary' : 'secondary'}
+                  style={{ fontSize: '1.2em', padding: '1em 2em' }}
+                >
+                  💵 Cash
+                </KioskButton>
+                <KioskButton
+                  onClick={() => setSelectedPaymentType('Card')}
+                  variant={selectedPaymentType === 'Card' ? 'primary' : 'secondary'}
+                  style={{ fontSize: '1.2em', padding: '1em 2em' }}
+                >
+                  💳 Card
+                </KioskButton>
+              </div>
+
+              <div style={{ display: 'flex', gap: '24px', justifyContent: 'center', marginTop: '24px' }}>
+                <KioskButton onClick={() => setCurrentView('categories')} variant="secondary" style={{ fontSize: '1.2em', padding: '1em 2em' }}>
+                  ← Add More Items
                 </KioskButton>
                 <KioskButton
                   onClick={processPayment}
-                  disabled={processingPayment}
+                  disabled={processingPayment || !selectedPaymentType}
                   variant="success"
+                  style={{ fontSize: '1.2em', padding: '1em 2em' }}
                 >
-                  {processingPayment ? 'Processing...' : 'Pay Now'}
+                  {processingPayment ? 'Processing...' : 'Complete Payment'}
                 </KioskButton>
               </div>
+
+              {!selectedPaymentType && (
+                <p style={{ textAlign: 'center', color: theme.danger, fontSize: '1.1em', marginTop: '1em', fontWeight: 'bold' }}>
+                  ⚠ Please select a payment method
+                </p>
+              )}
             </>
           )}
         </div>
@@ -980,8 +1045,8 @@ function BobaKioskContent({ onBack }) {
         id="google_translate_element"
         style={{
           position: 'fixed',
-          top: '90px',
-          right: '20px',
+          bottom: '24px', // Moved to bottom
+          left: '24px',   // Moved to left to balance UI
           zIndex: 1000,
           backgroundColor: theme.cardBg,
           padding: '8px',
@@ -992,6 +1057,30 @@ function BobaKioskContent({ onBack }) {
       />
 
       {currentView !== 'welcome' && (
+        <button
+          onClick={onBack}
+          style={{
+            position: 'fixed',
+            top: '24px',
+            left: '24px',
+            backgroundColor: theme.danger,
+            color: 'white',
+            borderRadius: '12px',
+            padding: '16px 24px',
+            boxShadow: theme.shadow,
+            border: theme.border,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            zIndex: 50,
+            fontSize: '1.1em',
+            fontWeight: 'bold'
+          }}
+        >
+          <LogOut size={24} />
+          Logout
+        </button>
         <>
           <button
             onClick={onBack}
@@ -1070,39 +1159,38 @@ function BobaKioskContent({ onBack }) {
           onClick={() => setCurrentView('checkout')}
           style={{
             position: 'fixed',
-            top: '20px',
-            right: '20px',
+            top: '24px',
+            right: '24px',
             backgroundColor: theme.primary,
             color: theme.primaryText,
-            borderRadius: '50%',
-            padding: '16px',
+            borderRadius: '50px', // Pill shape
+            padding: '16px 32px',
             boxShadow: theme.shadow,
             border: theme.border,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '12px',
             zIndex: 50,
-            fontSize: '1em',
+            fontSize: '1.1em',
             fontWeight: 'bold'
           }}
         >
           <ShoppingCart size={24} />
+          Cart
           {cart.length > 0 && (
             <span style={{
-              backgroundColor: theme.danger,
-              color: 'white',
+              backgroundColor: 'white',
+              color: theme.primary,
               borderRadius: '50%',
-              width: '24px',
-              height: '24px',
+              width: '28px',
+              height: '28px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '0.8em',
+              fontSize: '0.9em',
               fontWeight: 'bold',
-              position: 'absolute',
-              top: '-5px',
-              right: '-5px'
+              marginLeft: '8px'
             }}>
               {cart.length}
             </span>

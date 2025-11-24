@@ -8,6 +8,7 @@ __pycache__/
 *.pyc
 
 # Secrets
+keys
 .env
 .env.*
 

@@ -75,16 +75,16 @@ class RecipeItemReadSerializer(serializers.ModelSerializer):
 
 class MenuItemReadSerializer(serializers.ModelSerializer):
     """Serializes a full MenuItem for reading, nesting its recipe."""
-    # Nest the full recipe inside the menu item JSON
-    recipe = RecipeItemReadSerializer(source='recipeitem_set', many=True, read_only=True)
-    # Show a list of customization category names
-    # available_customizations = serializers.StringRelatedField(many=True, read_only=True)
+    # ... (other fields)
     category = serializers.StringRelatedField()
     
+    # The ImageField will automatically serialize to its full URL
+    recipe = RecipeItemReadSerializer(source='recipeitem_set', many=True, read_only=True)
     class Meta:
         model = MenuItem
         fields = [
             'id', 'name', 'category', 'base_price', 
+            'image',
             'recipe'
             # , 'available_customizations'
         ]
@@ -190,7 +190,7 @@ class MenuItemWriteSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = MenuItem
-        fields = ['id', 'name', 'category', 'base_price' 
+        fields = ['id', 'name', 'category', 'base_price', 'image'
         #   , 'available_customizations'
         ]
 
