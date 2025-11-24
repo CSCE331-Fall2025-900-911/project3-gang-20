@@ -13,7 +13,7 @@ const API_BASE = 'https://project3-gang-20.onrender.com/api';
 
 function BobaManager({ onBack }) {
   // Current view state
-  const [currentView, setCurrentView] = useState('menu'); // 'menu', 'inventory', 'employees', 'product-usage'
+  const [currentView, setCurrentView] = useState('menu'); // 'menu', 'inventory', 'employees', 'product-usage', 'x-report'
 
   // Data state
   const [menuItems, setMenuItems] = useState([]);
@@ -227,13 +227,23 @@ function BobaManager({ onBack }) {
           >
             Product Usage
           </button>
+          <button
+            onClick={() => setCurrentView('x-report')}
+            className={`px-6 py-4 font-semibold ${
+              currentView === 'x-report'
+                ? 'border-b-4 border-blue-600 text-blue-600'
+                : 'text-gray-600 hover:text-blue-600'
+            }`}
+          >
+            X-Report
+          </button>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="container mx-auto p-6 max-w-7xl">
-        {/* Actions Bar - Hide for Product Usage view */}
-        {currentView !== 'product-usage' && (
+        {/* Actions Bar - Hide for Product Usage and X-Report views */}
+        {currentView !== 'product-usage' && currentView !== 'x-report' && (
           <div className="bg-white rounded-lg shadow-md p-4 mb-6">
             <button
               onClick={handleAdd}
@@ -259,6 +269,8 @@ function BobaManager({ onBack }) {
           <EmployeesTable items={employees} onEdit={handleEdit} onDelete={handleDelete} />
         ) : currentView === 'product-usage' ? (
           <ProductUsageView ingredients={ingredients} recipeItems={recipeItems} />
+        ) : currentView === 'x-report' ? (
+          <XReportView />
         ) : null}
       </div>
 
@@ -691,6 +703,297 @@ function ProductUsageView({ ingredients, recipeItems }) {
       ) : (
         <div className="bg-white rounded-lg shadow-md p-12 text-center">
           <p className="text-lg text-gray-700">Select a date range and click "Calculate Usage" to see results.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function XReportView() {
+  const [reportData, setReportData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [summary, setSummary] = useState({
+    totalSales: 0,
+    totalTransactions: 0,
+    paymentMethods: {}
+  });
+
+  useEffect(() => {
+    generateReport();
+  }, []);
+
+  const generateReport = async () => {
+    setLoading(true);
+
+    try {
+      // Fetch today's orders
+      const ordersRes = await fetch(`${API_BASE}/orders/`);
+
+      if (!ordersRes.ok) {
+        throw new Error(`Failed to fetch orders: ${ordersRes.status}`);
+      }
+
+      const allOrders = await ordersRes.json();
+
+      // Get today's date range (midnight to current time)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const now = new Date();
+
+      // Filter orders for today only
+      const todaysOrders = allOrders.filter(order => {
+        const orderDate = new Date(order.order_date);
+        return orderDate >= today && orderDate <= now;
+      });
+
+      console.log('Today\'s orders found:', todaysOrders.length);
+
+      // Group orders by hour (0-23)
+      const hourlyData = {};
+      for (let hour = 0; hour < 24; hour++) {
+        hourlyData[hour] = {
+          hour,
+          sales: 0,
+          transactions: 0,
+          returns: 0,
+          voids: 0,
+          discards: 0,
+          paymentMethods: {}
+        };
+      }
+
+      let totalSales = 0;
+      let totalTransactions = 0;
+      const allPaymentMethods = {};
+
+      // Process each order
+      for (const order of todaysOrders) {
+        const orderDate = new Date(order.order_date);
+        const hour = orderDate.getHours();
+
+        // Get the hourly bucket
+        const hourData = hourlyData[hour];
+
+        // Increment transaction count
+        hourData.transactions++;
+        totalTransactions++;
+
+        // Add to sales total
+        const orderTotal = parseFloat(order.total_price || 0);
+        hourData.sales += orderTotal;
+        totalSales += orderTotal;
+
+        // Track payment method
+        const paymentMethod = order.payment_method || 'Unknown';
+        hourData.paymentMethods[paymentMethod] = (hourData.paymentMethods[paymentMethod] || 0) + 1;
+        allPaymentMethods[paymentMethod] = (allPaymentMethods[paymentMethod] || 0) + 1;
+
+        // Note: returns, voids, discards would need to be tracked in the order status/type field
+        // For now, we're setting them to 0 as they're not in the current data model
+      }
+
+      // Convert to array and filter out hours with no activity
+      const reportArray = Object.values(hourlyData);
+
+      setReportData(reportArray);
+      setSummary({
+        totalSales,
+        totalTransactions,
+        paymentMethods: allPaymentMethods
+      });
+      setLastUpdated(new Date());
+
+      console.log('X-Report generated:', {
+        totalSales,
+        totalTransactions,
+        paymentMethods: allPaymentMethods
+      });
+
+    } catch (error) {
+      console.error('Failed to generate X-Report:', error);
+      alert(`Error generating report: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatHour = (hour) => {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:00 ${period}`;
+  };
+
+  const formatCurrency = (amount) => {
+    return `$${parseFloat(amount).toFixed(2)}`;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold">X-Report - Hourly Sales</h2>
+            <p className="text-gray-600 mt-1">
+              Current Day: {new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
+            </p>
+            {lastUpdated && (
+              <p className="text-sm text-gray-500 mt-1">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={generateReport}
+            disabled={loading}
+            className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Refreshing...' : 'Refresh Report'}
+          </button>
+        </div>
+
+        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-800">
+            <strong>Note:</strong> This is a non-closing report (X-Report) that can be run multiple times throughout the day
+            without affecting the register. It shows real-time sales activities broken down by hour.
+          </p>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      {!loading && lastUpdated && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-sm font-semibold text-gray-600 uppercase">Total Sales</h3>
+            <p className="text-3xl font-bold text-green-600 mt-2">
+              {formatCurrency(summary.totalSales)}
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-sm font-semibold text-gray-600 uppercase">Total Transactions</h3>
+            <p className="text-3xl font-bold text-blue-600 mt-2">
+              {summary.totalTransactions}
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-sm font-semibold text-gray-600 uppercase">Avg Transaction</h3>
+            <p className="text-3xl font-bold text-purple-600 mt-2">
+              {summary.totalTransactions > 0
+                ? formatCurrency(summary.totalSales / summary.totalTransactions)
+                : '$0.00'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Hourly Breakdown Table */}
+      {loading ? (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="text-lg text-gray-700 mt-4">Generating report...</p>
+        </div>
+      ) : lastUpdated ? (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="p-4 bg-gray-100 border-b">
+            <h3 className="font-bold text-lg">Hourly Breakdown</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-100 border-b">
+                <tr>
+                  <th className="p-3 text-left font-semibold">Hour</th>
+                  <th className="p-3 text-right font-semibold">Sales</th>
+                  <th className="p-3 text-right font-semibold">Transactions</th>
+                  <th className="p-3 text-right font-semibold">Avg Sale</th>
+                  <th className="p-3 text-left font-semibold">Payment Methods</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportData.map((hourData) => {
+                  const hasActivity = hourData.transactions > 0;
+                  const avgSale = hasActivity ? hourData.sales / hourData.transactions : 0;
+
+                  // Only show hours with activity
+                  if (!hasActivity) return null;
+
+                  return (
+                    <tr key={hourData.hour} className="border-b hover:bg-gray-50">
+                      <td className="p-3 font-semibold">
+                        {formatHour(hourData.hour)}
+                      </td>
+                      <td className="p-3 text-right font-bold text-green-600">
+                        {formatCurrency(hourData.sales)}
+                      </td>
+                      <td className="p-3 text-right font-semibold">
+                        {hourData.transactions}
+                      </td>
+                      <td className="p-3 text-right text-gray-600">
+                        {formatCurrency(avgSale)}
+                      </td>
+                      <td className="p-3">
+                        {Object.entries(hourData.paymentMethods).map(([method, count]) => (
+                          <span key={method} className="inline-block mr-2 text-sm">
+                            <span className="font-semibold">{method}:</span> {count}
+                          </span>
+                        ))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-gray-50 border-t-2 border-gray-300">
+                <tr className="font-bold">
+                  <td className="p-3">TOTAL</td>
+                  <td className="p-3 text-right text-green-600 text-lg">
+                    {formatCurrency(summary.totalSales)}
+                  </td>
+                  <td className="p-3 text-right text-lg">
+                    {summary.totalTransactions}
+                  </td>
+                  <td className="p-3 text-right text-lg">
+                    {summary.totalTransactions > 0
+                      ? formatCurrency(summary.totalSales / summary.totalTransactions)
+                      : '$0.00'}
+                  </td>
+                  <td className="p-3">
+                    {Object.entries(summary.paymentMethods).map(([method, count]) => (
+                      <span key={method} className="inline-block mr-2 text-sm">
+                        <span className="font-semibold">{method}:</span> {count}
+                      </span>
+                    ))}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <p className="text-lg text-gray-700">Click "Refresh Report" to generate the X-Report.</p>
+        </div>
+      )}
+
+      {/* Payment Methods Summary */}
+      {!loading && lastUpdated && Object.keys(summary.paymentMethods).length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="font-bold text-lg mb-4">Payment Methods Summary</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(summary.paymentMethods).map(([method, count]) => (
+              <div key={method} className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600 uppercase font-semibold">{method}</p>
+                <p className="text-2xl font-bold text-blue-600 mt-1">{count}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {((count / summary.totalTransactions) * 100).toFixed(1)}% of total
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
