@@ -1,7 +1,5 @@
 import { useState, useEffect, createContext, useContext } from 'react';
-import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, User } from 'lucide-react';
-import { SignedIn, SignedOut, UserButton, useUser } from '@clerk/clerk-react';
-import { CustomSignIn, CustomSignUp } from './Auth';
+import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus } from 'lucide-react';
 
 // --- Accessibility Context & Theme ---
 
@@ -237,68 +235,9 @@ const getDrinkDescription = (drink) => {
 
   return formattedIngredients.join(', ');
 };
-const CUSTOMERS_URL = 'https://project3-gang-20.onrender.com/api/customers/';
 
 function BobaKioskContent({ onBack }) {
   const { theme, highContrast } = useAccessibility();
-  const { user } = useUser();
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState('signin');
-  
-  // State to hold the actual database ID for the logged-in customer
-  const [dbCustomerId, setDbCustomerId] = useState(null);
-
-  // Logic to Sync Clerk User with Database Customer
-  useEffect(() => {
-    const syncCustomer = async () => {
-      if (!user) {
-        setDbCustomerId(null);
-        return;
-      }
-
-      const email = user.primaryEmailAddress?.emailAddress;
-      if (!email) return;
-
-      try {
-        // 1. Fetch all customers to check if user exists
-        // Note: In a larger production app, you would filter via API query parameter e.g. ?email=...
-        const response = await fetch(CUSTOMERS_URL);
-        if (!response.ok) throw new Error("Failed to fetch customers");
-        
-        const customers = await response.json();
-        const existingCustomer = customers.find(c => c.email === email);
-
-        if (existingCustomer) {
-          setDbCustomerId(existingCustomer.id);
-        } else {
-          // Customer does not exist, create them
-          const newCustomerPayload = {
-            first_name: user.firstName || 'Valued',
-            last_name: user.lastName || 'Customer',
-            email: email,
-            phone: '',
-            joined_date: new Date().toISOString().split('T')[0] // YYYY-MM-DD format
-          };
-
-          const createResponse = await fetch(CUSTOMERS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newCustomerPayload)
-          });
-
-          if (!createResponse.ok) throw new Error("Failed to create new customer");
-
-          const newCustomer = await createResponse.json();
-          setDbCustomerId(newCustomer.id);
-        }
-
-      } catch (err) {
-        console.error("Error syncing customer with database:", err);
-      }
-    };
-
-    syncCustomer();
-  }, [user]);
 
   // Initialize Google Translate
   useEffect(() => {
@@ -478,13 +417,9 @@ function BobaKioskContent({ onBack }) {
         customizations: getCustomizationIDs(cartItem)
       }));
 
-      // UPDATED LOGIC: Use the resolved dbCustomerId (from the useEffect)
-      // If dbCustomerId is null (user not logged in or sync failed), send null.
       const orderData = {
         payment_type: selectedPaymentType,
         customer: null,
-        payment_type: 'Card',
-        customer: dbCustomerId, 
         employee: null,
         items: itemsPayload
       };
@@ -505,7 +440,6 @@ function BobaKioskContent({ onBack }) {
       setCart([]);
       setSelectedPaymentType(null);
       alert(`Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal.toFixed(2)}`);
-      alert(`Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal}${dbCustomerId ? '\n\nRewards points added to your account!' : ''}`);
       setCurrentView('welcome');
 
     } catch (err) {
@@ -543,51 +477,6 @@ function BobaKioskContent({ onBack }) {
         justifyContent: 'center',
         padding: '32px'
       }}>
-        {/* Login/User Button on Welcome Screen */}
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          zIndex: 50
-        }}>
-          <SignedOut>
-            <button
-              onClick={() => {
-                setAuthMode('signin');
-                setShowAuthModal(true);
-              }}
-              style={{
-                backgroundColor: theme.primary,
-                color: theme.primaryText,
-                borderRadius: '8px',
-                padding: '12px 20px',
-                border: theme.border,
-                cursor: 'pointer',
-                fontSize: '1em',
-                fontWeight: 'bold',
-                boxShadow: theme.shadow,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <User size={20} />
-              Sign In for Rewards
-            </button>
-          </SignedOut>
-          <SignedIn>
-            <div style={{
-              backgroundColor: theme.cardBg,
-              borderRadius: '8px',
-              padding: '8px',
-              border: theme.border,
-              boxShadow: theme.shadow
-            }}>
-              <UserButton afterSignOutUrl="/" />
-            </div>
-          </SignedIn>
-        </div>
-
         <div style={{ textAlign: 'center' }}>
           <h1 style={{ fontSize: '3em', fontWeight: 'bold', color: theme.text, marginBottom: '0.5em' }}>
             Welcome
@@ -897,21 +786,6 @@ function BobaKioskContent({ onBack }) {
             </div>
           ) : (
             <>
-              {user && (
-                <div style={{
-                  backgroundColor: '#dcfce7',
-                  border: '2px solid #16a34a',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  marginBottom: '24px',
-                  textAlign: 'center'
-                }}>
-                  <p style={{ fontSize: '1.2em', fontWeight: 'bold', color: '#15803d' }}>
-                    🎉 Signed in! You'll earn rewards points with this order.
-                  </p>
-                </div>
-              )}
-              
               <div style={{
                 backgroundColor: theme.cardBg,
                 borderRadius: highContrast ? '0' : '16px',
@@ -1081,77 +955,6 @@ function BobaKioskContent({ onBack }) {
           <LogOut size={24} />
           Logout
         </button>
-        <>
-          <button
-            onClick={onBack}
-            style={{
-              position: 'fixed',
-              top: '20px',
-              left: '20px',
-              backgroundColor: theme.danger,
-              color: 'white',
-              borderRadius: '8px',
-              padding: '12px 20px',
-              boxShadow: theme.shadow,
-              border: theme.border,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              zIndex: 50,
-              fontSize: '1em',
-              fontWeight: 'bold'
-            }}
-          >
-            <LogOut size={20} />
-            Exit
-          </button>
-
-          {/* Login/User Button */}
-          <div style={{
-            position: 'fixed',
-            top: '20px',
-            right: '180px',
-            zIndex: 50
-          }}>
-            <SignedOut>
-              <button
-                onClick={() => {
-                  setAuthMode('signin');
-                  setShowAuthModal(true);
-                }}
-                style={{
-                  backgroundColor: theme.primary,
-                  color: theme.primaryText,
-                  borderRadius: '8px',
-                  padding: '12px 20px',
-                  border: theme.border,
-                  cursor: 'pointer',
-                  fontSize: '1em',
-                  fontWeight: 'bold',
-                  boxShadow: theme.shadow,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <User size={20} />
-                Sign In for Rewards
-              </button>
-            </SignedOut>
-            <SignedIn>
-              <div style={{
-                backgroundColor: theme.cardBg,
-                borderRadius: '8px',
-                padding: '8px',
-                border: theme.border,
-                boxShadow: theme.shadow
-              }}>
-                <UserButton afterSignOutUrl="/" />
-              </div>
-            </SignedIn>
-          </div>
-        </>
       )}
 
       {currentView !== 'welcome' && currentView !== 'checkout' && (
@@ -1196,37 +999,6 @@ function BobaKioskContent({ onBack }) {
             </span>
           )}
         </button>
-      )}
-
-      {/* Auth Modal */}
-      {showAuthModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '20px'
-        }} onClick={() => setShowAuthModal(false)}>
-          <div onClick={(e) => e.stopPropagation()}>
-            {authMode === 'signin' ? (
-              <CustomSignIn
-                onSuccess={() => setShowAuthModal(false)}
-                onSwitchToSignUp={() => setAuthMode('signup')}
-              />
-            ) : (
-              <CustomSignUp
-                onSuccess={() => setShowAuthModal(false)}
-                onSwitchToSignIn={() => setAuthMode('signin')}
-              />
-            )}
-          </div>
-        </div>
       )}
 
       {viewContent}
