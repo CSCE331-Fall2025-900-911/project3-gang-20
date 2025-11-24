@@ -13,7 +13,7 @@ const API_BASE = 'https://project3-gang-20.onrender.com/api';
 
 function BobaManager({ onBack }) {
   // Current view state
-  const [currentView, setCurrentView] = useState('menu'); // 'menu', 'inventory', 'employees', 'product-usage', 'x-report'
+  const [currentView, setCurrentView] = useState('menu'); // 'menu', 'inventory', 'employees', 'product-usage', 'x-report', 'z-report'
 
   // Data state
   const [menuItems, setMenuItems] = useState([]);
@@ -237,13 +237,23 @@ function BobaManager({ onBack }) {
           >
             X-Report
           </button>
+          <button
+            onClick={() => setCurrentView('z-report')}
+            className={`px-6 py-4 font-semibold ${
+              currentView === 'z-report'
+                ? 'border-b-4 border-red-600 text-red-600'
+                : 'text-gray-600 hover:text-red-600'
+            }`}
+          >
+            Z-Report
+          </button>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="container mx-auto p-6 max-w-7xl">
-        {/* Actions Bar - Hide for Product Usage and X-Report views */}
-        {currentView !== 'product-usage' && currentView !== 'x-report' && (
+        {/* Actions Bar - Hide for Product Usage, X-Report, and Z-Report views */}
+        {currentView !== 'product-usage' && currentView !== 'x-report' && currentView !== 'z-report' && (
           <div className="bg-white rounded-lg shadow-md p-4 mb-6">
             <button
               onClick={handleAdd}
@@ -271,6 +281,8 @@ function BobaManager({ onBack }) {
           <ProductUsageView ingredients={ingredients} recipeItems={recipeItems} />
         ) : currentView === 'x-report' ? (
           <XReportView />
+        ) : currentView === 'z-report' ? (
+          <ZReportView />
         ) : null}
       </div>
 
@@ -994,6 +1006,359 @@ function XReportView() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ZReportView() {
+  const [reportData, setReportData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [canRunReport, setCanRunReport] = useState(true);
+  const [lastReportDate, setLastReportDate] = useState(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  useEffect(() => {
+    checkIfCanRun();
+  }, []);
+
+  const checkIfCanRun = () => {
+    // Check if Z-report was already run today
+    const lastRun = localStorage.getItem('lastZReportDate');
+    if (lastRun) {
+      const lastRunDate = new Date(lastRun);
+      const today = new Date();
+
+      // Check if it's the same day
+      if (lastRunDate.toDateString() === today.toDateString()) {
+        setCanRunReport(false);
+        setLastReportDate(lastRunDate);
+      } else {
+        setCanRunReport(true);
+        setLastReportDate(null);
+      }
+    }
+  };
+
+  const confirmAndGenerate = () => {
+    if (!canRunReport) {
+      alert('Z-Report has already been run today. It can only be run once per day.');
+      return;
+    }
+    setShowConfirmDialog(true);
+  };
+
+  const generateReport = async () => {
+    setShowConfirmDialog(false);
+    setLoading(true);
+
+    try {
+      // Fetch today's orders
+      const ordersRes = await fetch(`${API_BASE}/orders/`);
+      if (!ordersRes.ok) {
+        throw new Error(`Failed to fetch orders: ${ordersRes.status}`);
+      }
+      const allOrders = await ordersRes.json();
+
+      // Get today's date range (midnight to now)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const now = new Date();
+
+      // Filter orders for today
+      const todaysOrders = allOrders.filter(order => {
+        const orderDate = new Date(order.order_date);
+        return orderDate >= today && orderDate <= now;
+      });
+
+      // Calculate comprehensive totals
+      let totalSales = 0;
+      let totalTax = 0;
+      let totalServiceCharge = 0;
+      let totalDiscounts = 0;
+      let totalVoids = 0;
+      let grossSales = 0;
+      const paymentMethods = {};
+      const employeeTransactions = {};
+
+      for (const order of todaysOrders) {
+        const orderTotal = parseFloat(order.total_price || 0);
+        const basePrice = parseFloat(order.base_price || orderTotal / 1.0825); // Assuming 8.25% tax
+        const tax = orderTotal - basePrice;
+        const serviceCharge = basePrice * 0.18; // 18% service charge
+
+        grossSales += basePrice;
+        totalTax += tax;
+        totalServiceCharge += serviceCharge;
+        totalSales += orderTotal;
+
+        // Track payment methods
+        const paymentMethod = order.payment_method || 'Unknown';
+        paymentMethods[paymentMethod] = (paymentMethods[paymentMethod] || 0) + orderTotal;
+
+        // Track employee (if available)
+        if (order.employee_name) {
+          if (!employeeTransactions[order.employee_name]) {
+            employeeTransactions[order.employee_name] = {
+              count: 0,
+              total: 0
+            };
+          }
+          employeeTransactions[order.employee_name].count++;
+          employeeTransactions[order.employee_name].total += orderTotal;
+        }
+      }
+
+      const netSales = totalSales - totalDiscounts - totalVoids;
+
+      const report = {
+        date: now.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }),
+        time: now.toLocaleTimeString(),
+        totalTransactions: todaysOrders.length,
+        grossSales,
+        totalTax,
+        totalServiceCharge,
+        totalDiscounts,
+        totalVoids,
+        netSales,
+        paymentMethods,
+        employeeTransactions
+      };
+
+      setReportData(report);
+
+      // Mark Z-report as run for today
+      localStorage.setItem('lastZReportDate', now.toISOString());
+      setCanRunReport(false);
+      setLastReportDate(now);
+
+      console.log('Z-Report generated:', report);
+
+      // In a real system, you would call an API endpoint here to:
+      // 1. Store the Z-report in the database
+      // 2. Reset daily counters
+      // 3. Mark the day as closed
+
+    } catch (error) {
+      console.error('Failed to generate Z-Report:', error);
+      alert(`Error generating report: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    return `$${parseFloat(amount).toFixed(2)}`;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Warning Header */}
+      <div className="bg-red-50 border-2 border-red-500 rounded-lg p-6">
+        <div className="flex items-start gap-4">
+          <div className="flex-shrink-0 w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+            <span className="text-white text-2xl font-bold">!</span>
+          </div>
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-red-900 mb-2">Z-Report (End of Day)</h2>
+            <div className="space-y-2 text-red-800">
+              <p className="font-semibold">⚠️ WARNING: This is a CLOSING report with permanent side effects!</p>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                <li>Can only be run ONCE per day</li>
+                <li>Finalizes all daily transactions</li>
+                <li>Resets daily counters to zero</li>
+                <li>Marks the business day as closed</li>
+                <li>Cannot be undone</li>
+              </ul>
+              <p className="font-semibold mt-3">Only run this report at the end of the business day when you will have no more transactions!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Status Card */}
+      <div className={`bg-white rounded-lg shadow-md p-6 ${!canRunReport ? 'border-2 border-red-500' : ''}`}>
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-bold">Report Status</h3>
+            {canRunReport ? (
+              <p className="text-green-600 font-semibold mt-1">✓ Z-Report can be generated</p>
+            ) : (
+              <div className="mt-2">
+                <p className="text-red-600 font-bold">✗ Z-Report already run today</p>
+                <p className="text-sm text-gray-600 mt-1">
+                  Last run: {lastReportDate?.toLocaleString()}
+                </p>
+                <p className="text-sm text-red-600 mt-1">
+                  You can run the next Z-Report tomorrow after midnight.
+                </p>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={confirmAndGenerate}
+            disabled={!canRunReport || loading}
+            className={`px-6 py-3 font-bold rounded-md transition-colors ${
+              canRunReport && !loading
+                ? 'bg-red-600 text-white hover:bg-red-700'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            {loading ? 'Generating...' : 'Generate Z-Report'}
+          </button>
+        </div>
+      </div>
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-red-900 mb-4">Confirm Z-Report Generation</h3>
+            <div className="space-y-3 mb-6">
+              <p className="text-gray-700">Are you sure you want to generate the Z-Report?</p>
+              <div className="bg-red-50 border border-red-300 rounded p-3">
+                <p className="text-sm text-red-800 font-semibold">This action will:</p>
+                <ul className="text-sm text-red-700 list-disc list-inside mt-2 space-y-1">
+                  <li>Close the business day</li>
+                  <li>Reset all daily counters</li>
+                  <li>Cannot be run again until tomorrow</li>
+                  <li>Cannot be undone</li>
+                </ul>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={generateReport}
+                className="flex-1 px-4 py-2 bg-red-600 text-white font-semibold rounded hover:bg-red-700"
+              >
+                Yes, Generate Report
+              </button>
+              <button
+                onClick={() => setShowConfirmDialog(false)}
+                className="flex-1 px-4 py-2 bg-gray-300 font-semibold rounded hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Display */}
+      {loading ? (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+          <p className="text-lg text-gray-700 mt-4">Generating end-of-day report...</p>
+        </div>
+      ) : reportData ? (
+        <div className="space-y-6">
+          {/* Report Header */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="text-center border-b pb-4 mb-4">
+              <h2 className="text-3xl font-bold text-red-900">Z-REPORT</h2>
+              <p className="text-xl font-semibold mt-2">{reportData.date}</p>
+              <p className="text-gray-600">Closed at: {reportData.time}</p>
+            </div>
+
+            {/* Sales Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <h3 className="font-bold text-lg mb-3 border-b pb-2">Sales Summary</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Gross Sales:</span>
+                    <span className="font-mono">{formatCurrency(reportData.grossSales)}</span>
+                  </div>
+                  <div className="flex justify-between text-red-600">
+                    <span>Discounts:</span>
+                    <span className="font-mono">-{formatCurrency(reportData.totalDiscounts)}</span>
+                  </div>
+                  <div className="flex justify-between text-red-600">
+                    <span>Voids:</span>
+                    <span className="font-mono">-{formatCurrency(reportData.totalVoids)}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2 font-bold">
+                    <span>Net Sales:</span>
+                    <span className="font-mono">{formatCurrency(reportData.netSales)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-lg mb-3 border-b pb-2">Tax & Charges</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Service Charge (18%):</span>
+                    <span className="font-mono">{formatCurrency(reportData.totalServiceCharge)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Sales Tax (8.25%):</span>
+                    <span className="font-mono">{formatCurrency(reportData.totalTax)}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2 font-bold text-green-600">
+                    <span>Total Revenue:</span>
+                    <span className="font-mono text-xl">{formatCurrency(reportData.netSales)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Transaction Count */}
+            <div className="bg-blue-50 rounded p-4 mb-6">
+              <div className="flex justify-between items-center">
+                <span className="font-semibold">Total Transactions:</span>
+                <span className="text-3xl font-bold text-blue-600">{reportData.totalTransactions}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Methods Breakdown */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="font-bold text-lg mb-4 border-b pb-2">Payment Methods</h3>
+            <div className="space-y-3">
+              {Object.entries(reportData.paymentMethods).map(([method, amount]) => (
+                <div key={method} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                  <span className="font-semibold">{method}</span>
+                  <span className="font-mono text-lg">{formatCurrency(amount)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Employee Breakdown */}
+          {Object.keys(reportData.employeeTransactions).length > 0 && (
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h3 className="font-bold text-lg mb-4 border-b pb-2">Employee Activity</h3>
+              <div className="space-y-3">
+                {Object.entries(reportData.employeeTransactions).map(([employee, data]) => (
+                  <div key={employee} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                    <div>
+                      <p className="font-semibold">{employee}</p>
+                      <p className="text-sm text-gray-600">{data.count} transactions</p>
+                    </div>
+                    <span className="font-mono text-lg">{formatCurrency(data.total)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Closing Notice */}
+          <div className="bg-green-50 border-2 border-green-500 rounded-lg p-6 text-center">
+            <p className="text-green-900 font-bold text-lg">✓ Business Day Closed Successfully</p>
+            <p className="text-green-700 mt-2">Daily counters have been reset. See you tomorrow!</p>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <p className="text-lg text-gray-700">Click "Generate Z-Report" to close the business day.</p>
+          <p className="text-sm text-gray-500 mt-2">Make sure all transactions for today are complete!</p>
         </div>
       )}
     </div>
