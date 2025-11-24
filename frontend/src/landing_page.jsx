@@ -68,7 +68,7 @@ function LandingPage({ onNavigate }) {
                 {/* Desktop Menu */}
                 <div className="hidden md:flex" style={{ gap: '32px', fontWeight: '600', alignItems: 'center' }}>
                     <button onClick={() => onNavigate('home')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Home</button>
-                    <button onClick={() => onNavigate('menu-board')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Menu</button>
+                    <button onClick={() => onNavigate('menu_board')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Menu</button>
                     <button style={{ background: 'none', border: 'none', color: theme.text, cursor: 'not-allowed', opacity: 0.5, fontSize: '1rem', fontWeight: '600' }}>Our Story</button>
                 </div>
 
@@ -212,7 +212,7 @@ function LandingPage({ onNavigate }) {
                         Order Now <ChevronRight size={20} />
                     </button>
                     <button
-                        onClick={() => onNavigate('menu-board')}
+                        onClick={() => onNavigate('menu_board')}
                         style={{
                             background: 'white',
                             color: theme.text,
