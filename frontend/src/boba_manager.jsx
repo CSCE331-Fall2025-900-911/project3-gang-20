@@ -13,7 +13,7 @@ const API_BASE = 'https://project3-gang-20.onrender.com/api';
 
 function BobaManager({ onBack }) {
   // Current view state
-  const [currentView, setCurrentView] = useState('menu'); // 'menu', 'inventory', 'employees'
+  const [currentView, setCurrentView] = useState('menu'); // 'menu', 'inventory', 'employees', 'product-usage'
 
   // Data state
   const [menuItems, setMenuItems] = useState([]);
@@ -48,15 +48,43 @@ function BobaManager({ onBack }) {
         fetch(`${API_BASE}/menu-categories/`)
       ]);
 
-      setIngredients(await ingredientsRes.json());
-      setMenuItems(await menuRes.json());
-      setEmployees(await employeesRes.json());
-      setRecipeItems(await recipesRes.json());
-      setUnits(await unitsRes.json());
-      setMenuCategories(await categoriesRes.json());
+      // Check for response errors
+      const checkResponse = async (res, name) => {
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error(`Failed to fetch ${name}:`, res.status, errorText);
+          throw new Error(`Failed to fetch ${name}: ${res.status} ${res.statusText}`);
+        }
+        return res.json();
+      };
+
+      const [ingredientsData, menuData, employeesData, recipesData, unitsData, categoriesData] = await Promise.all([
+        checkResponse(ingredientsRes, 'ingredients'),
+        checkResponse(menuRes, 'menu-items'),
+        checkResponse(employeesRes, 'employees'),
+        checkResponse(recipesRes, 'recipe-items'),
+        checkResponse(unitsRes, 'units'),
+        checkResponse(categoriesRes, 'menu-categories')
+      ]);
+
+      setIngredients(ingredientsData);
+      setMenuItems(menuData);
+      setEmployees(employeesData);
+      setRecipeItems(recipesData);
+      setUnits(unitsData);
+      setMenuCategories(categoriesData);
+
+      console.log('Data loaded successfully:', {
+        ingredients: ingredientsData.length,
+        menuItems: menuData.length,
+        employees: employeesData.length,
+        recipeItems: recipesData.length,
+        units: unitsData.length,
+        categories: categoriesData.length
+      });
     } catch (error) {
       console.error('Failed to load data:', error);
-      alert('Error loading data. Please refresh the page.');
+      alert(`Error loading data: ${error.message}\n\nPlease check the browser console for details.`);
     }
   };
 
@@ -68,17 +96,24 @@ function BobaManager({ onBack }) {
           fetch(`${API_BASE}/menu-items/`),
           fetch(`${API_BASE}/recipe-items/`)
         ]);
+
+        if (!menuRes.ok) throw new Error(`Failed to fetch menu items: ${menuRes.status}`);
+        if (!recipesRes.ok) throw new Error(`Failed to fetch recipes: ${recipesRes.status}`);
+
         setMenuItems(await menuRes.json());
         setRecipeItems(await recipesRes.json());
       } else if (currentView === 'inventory') {
         const res = await fetch(`${API_BASE}/ingredients/`);
+        if (!res.ok) throw new Error(`Failed to fetch ingredients: ${res.status}`);
         setIngredients(await res.json());
       } else if (currentView === 'employees') {
         const res = await fetch(`${API_BASE}/employees/`);
+        if (!res.ok) throw new Error(`Failed to fetch employees: ${res.status}`);
         setEmployees(await res.json());
       }
     } catch (error) {
       console.error('Failed to reload data:', error);
+      alert(`Error reloading data: ${error.message}`);
     }
     setLoading(false);
   };
@@ -182,21 +217,33 @@ function BobaManager({ onBack }) {
           >
             Employees
           </button>
+          <button
+            onClick={() => setCurrentView('product-usage')}
+            className={`px-6 py-4 font-semibold ${
+              currentView === 'product-usage'
+                ? 'border-b-4 border-blue-600 text-blue-600'
+                : 'text-gray-600 hover:text-blue-600'
+            }`}
+          >
+            Product Usage
+          </button>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="container mx-auto p-6 max-w-7xl">
-        {/* Actions Bar */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <button
-            onClick={handleAdd}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700"
-          >
-            <Plus size={20} />
-            Add New {currentView === 'menu' ? 'Menu Item' : currentView === 'inventory' ? 'Ingredient' : 'Employee'}
-          </button>
-        </div>
+        {/* Actions Bar - Hide for Product Usage view */}
+        {currentView !== 'product-usage' && (
+          <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+            <button
+              onClick={handleAdd}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700"
+            >
+              <Plus size={20} />
+              Add New {currentView === 'menu' ? 'Menu Item' : currentView === 'inventory' ? 'Ingredient' : 'Employee'}
+            </button>
+          </div>
+        )}
 
         {/* Data Table */}
         {loading ? (
@@ -208,9 +255,11 @@ function BobaManager({ onBack }) {
           <MenuItemsTable items={menuItems} onEdit={handleEdit} onDelete={handleDelete} recipeItems={recipeItems} />
         ) : currentView === 'inventory' ? (
           <InventoryTable items={ingredients} onEdit={handleEdit} onDelete={handleDelete} />
-        ) : (
+        ) : currentView === 'employees' ? (
           <EmployeesTable items={employees} onEdit={handleEdit} onDelete={handleDelete} />
-        )}
+        ) : currentView === 'product-usage' ? (
+          <ProductUsageView ingredients={ingredients} recipeItems={recipeItems} />
+        ) : null}
       </div>
 
       {/* Add Dialog */}
@@ -450,6 +499,200 @@ function EmployeesTable({ items, onEdit, onDelete }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function ProductUsageView({ ingredients, recipeItems }) {
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [usageData, setUsageData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [hasCalculated, setHasCalculated] = useState(false);
+
+  const calculateUsage = async () => {
+    if (!startDate || !endDate) {
+      alert('Please select both start and end dates');
+      return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      alert('Start date must be before end date');
+      return;
+    }
+
+    setLoading(true);
+    setHasCalculated(false);
+
+    try {
+      // Fetch orders within the date range
+      const ordersRes = await fetch(`${API_BASE}/orders/`);
+
+      if (!ordersRes.ok) {
+        throw new Error(`Failed to fetch orders: ${ordersRes.status}`);
+      }
+
+      const allOrders = await ordersRes.json();
+
+      // Filter orders by date range
+      const filteredOrders = allOrders.filter(order => {
+        const orderDate = new Date(order.order_date);
+        return orderDate >= new Date(startDate) && orderDate <= new Date(endDate);
+      });
+
+      // Fetch order items for all filtered orders
+      const orderItemsRes = await fetch(`${API_BASE}/order-items/`);
+
+      if (!orderItemsRes.ok) {
+        throw new Error(`Failed to fetch order items: ${orderItemsRes.status}`);
+      }
+
+      const allOrderItems = await orderItemsRes.json();
+
+      // Calculate ingredient usage
+      const ingredientUsage = new Map();
+
+      for (const order of filteredOrders) {
+        // Get order items for this order
+        const orderItems = allOrderItems.filter(item => item.order === order.id);
+
+        for (const orderItem of orderItems) {
+          // Get recipes for this menu item
+          const recipes = recipeItems.filter(r => r.menu_item === orderItem.menu_item);
+
+          for (const recipe of recipes) {
+            // Calculate total usage (recipe quantity * order quantity)
+            const totalUsage = recipe.quantity * orderItem.quantity;
+
+            // Add to the map
+            const currentUsage = ingredientUsage.get(recipe.ingredient) || 0;
+            ingredientUsage.set(recipe.ingredient, currentUsage + totalUsage);
+          }
+        }
+      }
+
+      // Convert map to array for display
+      const usageArray = Array.from(ingredientUsage.entries()).map(([ingredientName, quantity]) => {
+        const ingredient = ingredients.find(i => i.name === ingredientName);
+        return {
+          ingredient: ingredientName,
+          quantity: quantity.toFixed(2),
+          unit: ingredient?.unit || 'N/A'
+        };
+      });
+
+      // Sort by ingredient name
+      usageArray.sort((a, b) => a.ingredient.localeCompare(b.ingredient));
+
+      setUsageData(usageArray);
+      setHasCalculated(true);
+
+      console.log('Product usage calculated:', {
+        ordersFound: filteredOrders.length,
+        ingredientsUsed: usageArray.length
+      });
+
+    } catch (error) {
+      console.error('Failed to calculate usage:', error);
+      alert(`Error calculating usage: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Date Range Selector */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-bold mb-4">Product Usage Report</h2>
+        <p className="text-gray-600 mb-4">
+          Select a date range to see how much inventory was used during that period.
+        </p>
+
+        <div className="flex gap-4 items-end">
+          <div className="flex-1">
+            <label className="block font-semibold mb-2">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border rounded"
+            />
+          </div>
+
+          <div className="flex-1">
+            <label className="block font-semibold mb-2">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-3 py-2 border rounded"
+            />
+          </div>
+
+          <button
+            onClick={calculateUsage}
+            disabled={loading}
+            className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Calculating...' : 'Calculate Usage'}
+          </button>
+        </div>
+      </div>
+
+      {/* Results Table */}
+      {loading ? (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="text-lg text-gray-700 mt-4">Calculating usage...</p>
+        </div>
+      ) : hasCalculated ? (
+        usageData.length > 0 ? (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="p-4 bg-gray-100 border-b">
+              <h3 className="font-bold text-lg">
+                Usage from {new Date(startDate).toLocaleDateString()} to {new Date(endDate).toLocaleDateString()}
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Found {usageData.length} ingredient{usageData.length !== 1 ? 's' : ''} used
+              </p>
+            </div>
+            <table className="w-full">
+              <thead className="bg-gray-100 border-b">
+                <tr>
+                  <th className="p-3 text-left font-semibold">Ingredient</th>
+                  <th className="p-3 text-left font-semibold">Quantity Used</th>
+                  <th className="p-3 text-left font-semibold">Unit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usageData.map((item, idx) => (
+                  <tr key={idx} className="border-b hover:bg-gray-50">
+                    <td className="p-3 font-semibold">
+                      {item.ingredient.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                    </td>
+                    <td className="p-3 text-lg font-bold text-blue-600">
+                      {item.quantity}
+                    </td>
+                    <td className="p-3 text-gray-600">
+                      {item.unit}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md p-12 text-center">
+            <p className="text-lg text-gray-700">No orders found in the selected date range.</p>
+            <p className="text-sm text-gray-500 mt-2">Try selecting a different time period.</p>
+          </div>
+        )
+      ) : (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <p className="text-lg text-gray-700">Select a date range and click "Calculate Usage" to see results.</p>
+        </div>
+      )}
     </div>
   );
 }
