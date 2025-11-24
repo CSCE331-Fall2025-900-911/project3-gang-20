@@ -13,7 +13,7 @@ const API_BASE = 'https://project3-gang-20.onrender.com/api';
 
 function BobaManager({ onBack }) {
   // Current view state
-  const [currentView, setCurrentView] = useState('menu'); // 'menu', 'inventory', 'employees', 'product-usage', 'x-report', 'z-report'
+  const [currentView, setCurrentView] = useState('menu'); // 'menu', 'inventory', 'employees', 'product-usage', 'sales-report', 'x-report', 'z-report'
 
   // Data state
   const [menuItems, setMenuItems] = useState([]);
@@ -228,6 +228,16 @@ function BobaManager({ onBack }) {
             Product Usage
           </button>
           <button
+            onClick={() => setCurrentView('sales-report')}
+            className={`px-6 py-4 font-semibold ${
+              currentView === 'sales-report'
+                ? 'border-b-4 border-blue-600 text-blue-600'
+                : 'text-gray-600 hover:text-blue-600'
+            }`}
+          >
+            Sales Report
+          </button>
+          <button
             onClick={() => setCurrentView('x-report')}
             className={`px-6 py-4 font-semibold ${
               currentView === 'x-report'
@@ -252,8 +262,8 @@ function BobaManager({ onBack }) {
 
       {/* Main Content */}
       <div className="container mx-auto p-6 max-w-7xl">
-        {/* Actions Bar - Hide for Product Usage, X-Report, and Z-Report views */}
-        {currentView !== 'product-usage' && currentView !== 'x-report' && currentView !== 'z-report' && (
+        {/* Actions Bar - Hide for Product Usage, Sales Report, X-Report, and Z-Report views */}
+        {currentView !== 'product-usage' && currentView !== 'sales-report' && currentView !== 'x-report' && currentView !== 'z-report' && (
           <div className="bg-white rounded-lg shadow-md p-4 mb-6">
             <button
               onClick={handleAdd}
@@ -279,6 +289,8 @@ function BobaManager({ onBack }) {
           <EmployeesTable items={employees} onEdit={handleEdit} onDelete={handleDelete} />
         ) : currentView === 'product-usage' ? (
           <ProductUsageView ingredients={ingredients} recipeItems={recipeItems} />
+        ) : currentView === 'sales-report' ? (
+          <SalesReportView menuItems={menuItems} />
         ) : currentView === 'x-report' ? (
           <XReportView />
         ) : currentView === 'z-report' ? (
@@ -715,6 +727,260 @@ function ProductUsageView({ ingredients, recipeItems }) {
       ) : (
         <div className="bg-white rounded-lg shadow-md p-12 text-center">
           <p className="text-lg text-gray-700">Select a date range and click "Calculate Usage" to see results.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SalesReportView({ menuItems }) {
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [salesData, setSalesData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [hasCalculated, setHasCalculated] = useState(false);
+
+  const calculateSales = async () => {
+    if (!startDate || !endDate) {
+      alert('Please select both start and end dates');
+      return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      alert('Start date must be before end date');
+      return;
+    }
+
+    setLoading(true);
+    setHasCalculated(false);
+
+    try {
+      // Fetch orders within the date range
+      const ordersRes = await fetch(`${API_BASE}/orders/`);
+
+      if (!ordersRes.ok) {
+        throw new Error(`Failed to fetch orders: ${ordersRes.status}`);
+      }
+
+      const allOrders = await ordersRes.json();
+
+      // Filter orders by date range
+      const filteredOrders = allOrders.filter(order => {
+        const orderDate = new Date(order.order_date);
+        return orderDate >= new Date(startDate) && orderDate <= new Date(endDate);
+      });
+
+      // Fetch order items for all orders
+      const orderItemsRes = await fetch(`${API_BASE}/order-items/`);
+
+      if (!orderItemsRes.ok) {
+        throw new Error(`Failed to fetch order items: ${orderItemsRes.status}`);
+      }
+
+      const allOrderItems = await orderItemsRes.json();
+
+      // Calculate sales by menu item
+      const itemSales = new Map();
+
+      for (const order of filteredOrders) {
+        // Get order items for this order
+        const orderItems = allOrderItems.filter(item => item.order === order.id);
+
+        for (const orderItem of orderItems) {
+          const menuItemId = orderItem.menu_item;
+          const quantity = orderItem.quantity;
+          const price = parseFloat(orderItem.price || 0);
+          const totalRevenue = quantity * price;
+
+          if (itemSales.has(menuItemId)) {
+            const existing = itemSales.get(menuItemId);
+            itemSales.set(menuItemId, {
+              menuItemId,
+              quantity: existing.quantity + quantity,
+              revenue: existing.revenue + totalRevenue
+            });
+          } else {
+            itemSales.set(menuItemId, {
+              menuItemId,
+              quantity,
+              revenue: totalRevenue
+            });
+          }
+        }
+      }
+
+      // Convert map to array and add menu item names
+      const salesArray = Array.from(itemSales.values()).map(sale => {
+        const menuItem = menuItems.find(m => m.id === sale.menuItemId);
+        return {
+          menuItemId: sale.menuItemId,
+          menuItemName: menuItem?.name || 'Unknown Item',
+          quantitySold: sale.quantity,
+          totalRevenue: sale.revenue,
+          averagePrice: sale.quantity > 0 ? sale.revenue / sale.quantity : 0
+        };
+      });
+
+      // Sort by total revenue (highest first)
+      salesArray.sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+      setSalesData(salesArray);
+      setHasCalculated(true);
+
+      console.log('Sales report calculated:', {
+        ordersFound: filteredOrders.length,
+        itemsFound: salesArray.length,
+        totalRevenue: salesArray.reduce((sum, item) => sum + item.totalRevenue, 0)
+      });
+
+    } catch (error) {
+      console.error('Failed to calculate sales:', error);
+      alert(`Error calculating sales: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCurrency = (amount) => {
+    return `$${parseFloat(amount).toFixed(2)}`;
+  };
+
+  const totalRevenue = salesData.reduce((sum, item) => sum + item.totalRevenue, 0);
+  const totalQuantity = salesData.reduce((sum, item) => sum + item.quantitySold, 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Date Range Selector */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-bold mb-4">Sales Report by Item</h2>
+        <p className="text-gray-600 mb-4">
+          Select a date range to see sales breakdown by menu item.
+        </p>
+
+        <div className="flex gap-4 items-end">
+          <div className="flex-1">
+            <label className="block font-semibold mb-2">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border rounded"
+            />
+          </div>
+
+          <div className="flex-1">
+            <label className="block font-semibold mb-2">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-3 py-2 border rounded"
+            />
+          </div>
+
+          <button
+            onClick={calculateSales}
+            disabled={loading}
+            className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Calculating...' : 'Generate Report'}
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      {hasCalculated && salesData.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-sm font-semibold text-gray-600 uppercase">Total Revenue</h3>
+            <p className="text-3xl font-bold text-green-600 mt-2">
+              {formatCurrency(totalRevenue)}
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-sm font-semibold text-gray-600 uppercase">Total Items Sold</h3>
+            <p className="text-3xl font-bold text-blue-600 mt-2">
+              {totalQuantity}
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-sm font-semibold text-gray-600 uppercase">Average Item Price</h3>
+            <p className="text-3xl font-bold text-purple-600 mt-2">
+              {totalQuantity > 0 ? formatCurrency(totalRevenue / totalQuantity) : '$0.00'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Results Table */}
+      {loading ? (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="text-lg text-gray-700 mt-4">Calculating sales...</p>
+        </div>
+      ) : hasCalculated ? (
+        salesData.length > 0 ? (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="p-4 bg-gray-100 border-b">
+              <h3 className="font-bold text-lg">
+                Sales from {new Date(startDate).toLocaleDateString()} to {new Date(endDate).toLocaleDateString()}
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Found {salesData.length} menu item{salesData.length !== 1 ? 's' : ''} sold
+              </p>
+            </div>
+            <table className="w-full">
+              <thead className="bg-gray-100 border-b">
+                <tr>
+                  <th className="p-3 text-left font-semibold">Menu Item</th>
+                  <th className="p-3 text-right font-semibold">Quantity Sold</th>
+                  <th className="p-3 text-right font-semibold">Avg Price</th>
+                  <th className="p-3 text-right font-semibold">Total Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {salesData.map((item, idx) => (
+                  <tr key={idx} className="border-b hover:bg-gray-50">
+                    <td className="p-3 font-semibold">
+                      {item.menuItemName}
+                    </td>
+                    <td className="p-3 text-right text-lg font-bold text-blue-600">
+                      {item.quantitySold}
+                    </td>
+                    <td className="p-3 text-right text-gray-600">
+                      {formatCurrency(item.averagePrice)}
+                    </td>
+                    <td className="p-3 text-right text-lg font-bold text-green-600">
+                      {formatCurrency(item.totalRevenue)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-50 border-t-2 border-gray-300">
+                <tr className="font-bold">
+                  <td className="p-3">TOTAL</td>
+                  <td className="p-3 text-right text-lg text-blue-600">
+                    {totalQuantity}
+                  </td>
+                  <td className="p-3 text-right text-lg">
+                    {totalQuantity > 0 ? formatCurrency(totalRevenue / totalQuantity) : '$0.00'}
+                  </td>
+                  <td className="p-3 text-right text-xl text-green-600">
+                    {formatCurrency(totalRevenue)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md p-12 text-center">
+            <p className="text-lg text-gray-700">No sales found in the selected date range.</p>
+            <p className="text-sm text-gray-500 mt-2">Try selecting a different time period.</p>
+          </div>
+        )
+      ) : (
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <p className="text-lg text-gray-700">Select a date range and click "Generate Report" to see sales by item.</p>
         </div>
       )}
     </div>
