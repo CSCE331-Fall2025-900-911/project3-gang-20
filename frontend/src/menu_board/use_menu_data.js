@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-const MENU_ENDPOINT = 'https://project3-gang-20.onrender.com/api/menu-items/';
+const MENU_ENDPOINT = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
 const POLL_DEFAULT = 30_000;
 
 export const FALLBACK_DATA = {
@@ -158,7 +158,7 @@ export function useMenuData(pollMs = POLL_DEFAULT) {
     try {
       const [menuResponse, addonsResponse] = await Promise.all([
         fetch(MENU_ENDPOINT, { signal: controller.signal }),
-        fetch('https://project3-gang-20.onrender.com/api/customization-options/', { signal: controller.signal })
+        fetch('https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/', { signal: controller.signal })
       ]);
 
       if (!menuResponse.ok || !addonsResponse.ok) {

@@ -15,7 +15,7 @@ import { ArrowLeft, Plus, Edit2, Trash2, Check, X } from 'lucide-react';
 // CONSTANTS
 // ============================================================================
 
-const API_BASE = 'https://project3-gang-20.onrender.com/api';
+const API_BASE = 'https://project3-gang-20-810838872032.us-south1.run.app/api';
 
 // ============================================================================
 // MAIN COMPONENT

@@ -206,9 +206,9 @@ function AccessibilityControls() {
 
 // --- Main App Logic ---
 
-const MENU_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
-const ADDONS_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/customization-options/';
-const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
+const MENU_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
+const ADDONS_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/';
+const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/orders/';
 
 const TAX_RATE = 0.0825; // 8.25% sales tax
 const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments

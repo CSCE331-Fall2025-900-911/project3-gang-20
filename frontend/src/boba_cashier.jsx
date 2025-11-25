@@ -9,9 +9,9 @@ import { useState, useEffect } from 'react';
 import { Trash2, LogOut } from 'lucide-react';
 
 // API Endpoints
-const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
-const CUSTOMIZATION_OPTIONS_URL = 'https://project3-gang-20.onrender.com/api/customization-options/';
-const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
+const API_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
+const CUSTOMIZATION_OPTIONS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/';
+const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/orders/';
 
 // Business logic constants
 const TAX_RATE = 0.0825; // 8.25% sales tax

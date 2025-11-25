@@ -147,7 +147,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
-GS_BUCKET_NAME = 'boba_images_bucket' # <-- CHANGE THIS
+GS_BUCKET_NAME = 'boba_images_bucket'
 
 DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
 
