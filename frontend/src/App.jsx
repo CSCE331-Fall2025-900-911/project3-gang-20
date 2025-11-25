@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react'; 
+import { useUser } from '@clerk/clerk-react';
 
 import BobaKiosk from './boba_kiosk';
 import BobaManager from './boba_manager';
@@ -7,10 +7,26 @@ import BobaCashier from './boba_cashier';
 import MenuBoardApp from './menu_board/menu_board_app';
 import LandingPage from './landing_page';
 
-/**
- * A wrapper component to enforce organization membership for portal access.
- * The 'requiredGroups' prop now expects an array of required Organization Names.
- */
+/*
+  File: App.jsx
+  Description: Main application component that handles routing and portal access control.
+  Manages the state of the current view (Kiosk, Manager, Cashier, Menu Board) and enforces
+  authentication requirements for restricted areas using Clerk.
+*/
+
+import { useState, useEffect } from 'react';
+import { useUser } from '@clerk/clerk-react';
+
+import BobaKiosk from './boba_kiosk';
+import BobaManager from './boba_manager';
+import BobaCashier from './boba_cashier';
+import MenuBoardApp from './menu_board/menu_board_app';
+import LandingPage from './landing_page';
+
+/*
+  Wrapper component to enforce organization membership for portal access.
+  Checks if the signed-in user belongs to any of the required organizations.
+*/
 const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage, onBack }) => {
   const { isLoaded, isSignedIn, user } = useUser();
 
@@ -29,8 +45,8 @@ const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage, on
         <p style={{ fontSize: '1.2em', color: '#92400e', marginBottom: '2em' }}>
           You must be signed in to access this employee portal.
         </p>
-        <button 
-          onClick={onBack} 
+        <button
+          onClick={onBack}
           style={{ padding: '10px 20px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
         >
           Back
@@ -39,7 +55,7 @@ const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage, on
     );
   }
 
-  const hasRequiredRole = requiredGroups.some(requiredOrgName => 
+  const hasRequiredRole = requiredGroups.some(requiredOrgName =>
     user.organizationMemberships?.some(
       (membership) => membership.organization.name === requiredOrgName
     )
@@ -52,8 +68,8 @@ const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage, on
         <p style={{ fontSize: '1.2em', color: '#92400e', marginBottom: '2em', fontWeight: 'bold' }}>
           {unauthorizedMessage}
         </p>
-        <button 
-          onClick={onBack} 
+        <button
+          onClick={onBack}
           style={{ padding: '10px 20px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
         >
           Go Back
@@ -68,6 +84,7 @@ const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage, on
 
 // Main
 
+// Main application component. Handles initial loading state and routing.
 function App() {
   const [currentPage, setCurrentPage] = useState(null); // <-- start as null
   const [isLoaded, setIsLoaded] = useState(false); // <-- gate rendering
@@ -99,15 +116,15 @@ function App() {
 
   // ---------- Portal Routing ----------
 
-  // Kiosk (Public/Customer View) - No Clerk check needed here, login is optional and handled inside BobaKiosk
+  // Kiosk (Public/Customer View)
   if (currentPage === 'kiosk') {
     return <BobaKiosk onBack={() => setCurrentPage('landing')} />;
   }
 
-  // Manager Portal (Restricted) - Must be a 'manager'
+  // Manager Portal (Restricted)
   if (currentPage === 'manager') {
     return (
-      <PortalAccessChecker 
+      <PortalAccessChecker
         requiredGroups={['manager']} // Now checks for membership in the 'manager' organization
         unauthorizedMessage="Must be a Manager to access this portal."
         onBack={() => setCurrentPage('landing')}
@@ -117,10 +134,10 @@ function App() {
     );
   }
 
-  // Cashier Portal (Restricted) - Must be a 'cashier' OR 'manager'
+  // Cashier Portal (Restricted)
   if (currentPage === 'cashier') {
     return (
-      <PortalAccessChecker 
+      <PortalAccessChecker
         requiredGroups={['cashier', 'manager']} // Now checks for membership in 'cashier' OR 'manager' organization
         unauthorizedMessage="Must be an Employee (Cashier or Manager) to access this portal."
         onBack={() => setCurrentPage('landing')}
@@ -136,7 +153,7 @@ function App() {
   }
 
   // Landing Page (Default View)
-  return <LandingPage onNavigate={setCurrentPage} />; 
+  return <LandingPage onNavigate={setCurrentPage} />;
 }
 
 export default App;

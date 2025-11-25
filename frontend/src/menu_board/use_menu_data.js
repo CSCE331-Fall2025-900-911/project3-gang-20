@@ -1,3 +1,10 @@
+/*
+  File: use_menu_data.js
+  Description: Custom hook for fetching and managing menu data.
+  Handles polling, error states, and data transformation for the menu board.
+  Includes fallback data for offline or error scenarios.
+*/
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const MENU_ENDPOINT = 'https://project3-gang-20.onrender.com/api/menu-items/';
@@ -136,10 +143,7 @@ function mapMenu(items) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/**
- * Hook to fetch and poll menu data.
- * Handles data transformation and error states.
- */
+// Hook to fetch and poll menu data. Handles data transformation and error states.
 export function useMenuData(pollMs = POLL_DEFAULT) {
   const [data, setData] = useState(FALLBACK_DATA);
   const [isLoading, setIsLoading] = useState(true);

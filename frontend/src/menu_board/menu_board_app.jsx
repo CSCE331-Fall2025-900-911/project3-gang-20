@@ -1,3 +1,10 @@
+/*
+  File: menu_board_app.jsx
+  Description: The main entry point for the digital menu board display.
+  Orchestrates the layout, data fetching, and rotation of promotional content.
+  Designed for large format displays.
+*/
+
 import './menu-board.css';
 import { useEffect, useMemo, useState } from 'react';
 import { LogOut } from 'lucide-react';
@@ -37,10 +44,10 @@ function normaliseName(name) {
   return name.toLowerCase().replace(/[^a-z]/g, '');
 }
 
-/**
- * Main Menu Board Application Component.
- * Orchestrates data fetching and layout rendering.
- */
+/*
+  Main Menu Board Application Component.
+  Orchestrates data fetching and layout rendering.
+*/
 export default function MenuBoardApp({
   pollMs,
   showClock = true,

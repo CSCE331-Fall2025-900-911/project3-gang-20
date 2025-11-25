@@ -1,3 +1,13 @@
+/*
+  File: boba_manager.jsx
+  Description: The Manager Dashboard application.
+  Provides comprehensive management capabilities including:
+  - Menu Item management (CRUD, Recipe management)
+  - Inventory tracking (Ingredients, Stock levels)
+  - Employee management
+  - Sales and Inventory Reports (X-Report, Z-Report, Low Stock)
+*/
+
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Edit2, Trash2, Check, X } from 'lucide-react';
 
@@ -11,6 +21,10 @@ const API_BASE = 'https://project3-gang-20.onrender.com/api';
 // MAIN COMPONENT
 // ============================================================================
 
+/*
+  Main Manager Dashboard Component.
+  Orchestrates the different management views and handles initial data loading.
+*/
 function BobaManager({ onBack }) {
   // Current view state
   const [currentView, setCurrentView] = useState('menu'); // 'menu', 'inventory', 'employees', 'product-usage', 'sales-report', 'x-report', 'z-report'
@@ -140,7 +154,7 @@ function BobaManager({ onBack }) {
 
     try {
       const endpoint = currentView === 'menu' ? 'menu-items' :
-                       currentView === 'inventory' ? 'ingredients' : 'employees';
+        currentView === 'inventory' ? 'ingredients' : 'employees';
 
       const res = await fetch(`${API_BASE}/${endpoint}/${item.id}/`, {
         method: 'DELETE'
@@ -189,71 +203,64 @@ function BobaManager({ onBack }) {
         <div className="container mx-auto flex">
           <button
             onClick={() => setCurrentView('menu')}
-            className={`px-6 py-4 font-semibold ${
-              currentView === 'menu'
-                ? 'border-b-4 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-blue-600'
-            }`}
+            className={`px-6 py-4 font-semibold ${currentView === 'menu'
+              ? 'border-b-4 border-blue-600 text-blue-600'
+              : 'text-gray-600 hover:text-blue-600'
+              }`}
           >
             Menu Items
           </button>
           <button
             onClick={() => setCurrentView('inventory')}
-            className={`px-6 py-4 font-semibold ${
-              currentView === 'inventory'
-                ? 'border-b-4 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-blue-600'
-            }`}
+            className={`px-6 py-4 font-semibold ${currentView === 'inventory'
+              ? 'border-b-4 border-blue-600 text-blue-600'
+              : 'text-gray-600 hover:text-blue-600'
+              }`}
           >
             Inventory
           </button>
           <button
             onClick={() => setCurrentView('employees')}
-            className={`px-6 py-4 font-semibold ${
-              currentView === 'employees'
-                ? 'border-b-4 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-blue-600'
-            }`}
+            className={`px-6 py-4 font-semibold ${currentView === 'employees'
+              ? 'border-b-4 border-blue-600 text-blue-600'
+              : 'text-gray-600 hover:text-blue-600'
+              }`}
           >
             Employees
           </button>
           <button
             onClick={() => setCurrentView('product-usage')}
-            className={`px-6 py-4 font-semibold ${
-              currentView === 'product-usage'
-                ? 'border-b-4 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-blue-600'
-            }`}
+            className={`px-6 py-4 font-semibold ${currentView === 'product-usage'
+              ? 'border-b-4 border-blue-600 text-blue-600'
+              : 'text-gray-600 hover:text-blue-600'
+              }`}
           >
             Product Usage
           </button>
           <button
             onClick={() => setCurrentView('sales-report')}
-            className={`px-6 py-4 font-semibold ${
-              currentView === 'sales-report'
-                ? 'border-b-4 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-blue-600'
-            }`}
+            className={`px-6 py-4 font-semibold ${currentView === 'sales-report'
+              ? 'border-b-4 border-blue-600 text-blue-600'
+              : 'text-gray-600 hover:text-blue-600'
+              }`}
           >
             Sales Report
           </button>
           <button
             onClick={() => setCurrentView('x-report')}
-            className={`px-6 py-4 font-semibold ${
-              currentView === 'x-report'
-                ? 'border-b-4 border-blue-600 text-blue-600'
-                : 'text-gray-600 hover:text-blue-600'
-            }`}
+            className={`px-6 py-4 font-semibold ${currentView === 'x-report'
+              ? 'border-b-4 border-blue-600 text-blue-600'
+              : 'text-gray-600 hover:text-blue-600'
+              }`}
           >
             X-Report
           </button>
           <button
             onClick={() => setCurrentView('z-report')}
-            className={`px-6 py-4 font-semibold ${
-              currentView === 'z-report'
-                ? 'border-b-4 border-red-600 text-red-600'
-                : 'text-gray-600 hover:text-red-600'
-            }`}
+            className={`px-6 py-4 font-semibold ${currentView === 'z-report'
+              ? 'border-b-4 border-red-600 text-red-600'
+              : 'text-gray-600 hover:text-red-600'
+              }`}
           >
             Z-Report
           </button>
@@ -1470,11 +1477,10 @@ function ZReportView() {
           <button
             onClick={confirmAndGenerate}
             disabled={!canRunReport || loading}
-            className={`px-6 py-3 font-bold rounded-md transition-colors ${
-              canRunReport && !loading
-                ? 'bg-red-600 text-white hover:bg-red-700'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
+            className={`px-6 py-3 font-bold rounded-md transition-colors ${canRunReport && !loading
+              ? 'bg-red-600 text-white hover:bg-red-700'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
           >
             {loading ? 'Generating...' : 'Generate Z-Report'}
           </button>

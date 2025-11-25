@@ -1,9 +1,16 @@
+/*
+  File: landing_page.jsx
+  Description: The landing page component serving as the main entry point for users.
+  Provides navigation to different portals (Kiosk, Menu, Manager, Cashier) and handles
+  user authentication (Login/Signup) via Clerk.
+*/
+
 import { useState } from 'react';
 import { Coffee, User, LogIn, ChevronRight, Star, MapPin, Clock, X, LogOut } from 'lucide-react';
-// Import Clerk hooks and custom auth components
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { CustomSignIn, CustomSignUp } from './Auth';
 
+// LandingPage Component
 function LandingPage({ onNavigate }) {
     // 'login', 'signup', or null
     const [authMode, setAuthMode] = useState(null);
@@ -83,7 +90,7 @@ function LandingPage({ onNavigate }) {
                                     <div style={{ display: 'flex', alignItems: 'center', color: theme.text, fontWeight: '600' }}>
                                         Hello, {user?.firstName || 'User'}
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={() => signOut(() => onNavigate('landing'))} // Sign out and navigate back to landing
                                         style={{
                                             background: 'transparent',
@@ -105,7 +112,7 @@ function LandingPage({ onNavigate }) {
                             ) : (
                                 // SIGNED OUT: Show Log In and Sign Up buttons
                                 <>
-                                    <button 
+                                    <button
                                         onClick={() => setAuthMode('login')}
                                         style={{
                                             background: 'transparent',
@@ -119,7 +126,7 @@ function LandingPage({ onNavigate }) {
                                         }}>
                                         Log In
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={() => setAuthMode('signup')}
                                         style={{
                                             background: theme.primary,
@@ -240,14 +247,14 @@ function LandingPage({ onNavigate }) {
                 </h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '40px' }}>
                     {/* Manager Portal */}
-                    <div onClick={() => onNavigate('manager')} style={{ 
-                        background: 'white', 
-                        padding: '32px', 
-                        borderRadius: '24px', 
-                        cursor: 'pointer', 
-                        transition: 'all 0.3s ease', 
-                        border: '2px solid transparent', 
-                        boxShadow: '0 10px 20px rgba(0, 0, 0, 0.05)' 
+                    <div onClick={() => onNavigate('manager')} style={{
+                        background: 'white',
+                        padding: '32px',
+                        borderRadius: '24px',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        border: '2px solid transparent',
+                        boxShadow: '0 10px 20px rgba(0, 0, 0, 0.05)'
                     }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.borderColor = theme.primary; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'transparent'; }} >
                         <div style={{ background: '#fff7ed', width: '60px', height: '60px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', color: theme.primary }}>
                             <User size={32} />
@@ -257,14 +264,14 @@ function LandingPage({ onNavigate }) {
                     </div>
 
                     {/* Cashier Portal */}
-                    <div onClick={() => onNavigate('cashier')} style={{ 
-                        background: 'white', 
-                        padding: '32px', 
-                        borderRadius: '24px', 
-                        cursor: 'pointer', 
-                        transition: 'all 0.3s ease', 
-                        border: '2px solid transparent', 
-                        boxShadow: '0 10px 20px rgba(0, 0, 0, 0.05)' 
+                    <div onClick={() => onNavigate('cashier')} style={{
+                        background: 'white',
+                        padding: '32px',
+                        borderRadius: '24px',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        border: '2px solid transparent',
+                        boxShadow: '0 10px 20px rgba(0, 0, 0, 0.05)'
                     }} onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.borderColor = theme.primary; }} onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'transparent'; }} >
                         <div style={{ background: '#fff7ed', width: '60px', height: '60px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', color: theme.primary }}>
                             <LogIn size={32} />
@@ -282,7 +289,7 @@ function LandingPage({ onNavigate }) {
 
             {/* --- Auth Modal --- */}
             {(authMode === 'login' || authMode === 'signup') && (
-                <div 
+                <div
                     onClick={handleCloseModal}
                     style={{
                         position: 'fixed',
@@ -299,7 +306,7 @@ function LandingPage({ onNavigate }) {
                         animation: 'fadeIn 0.3s ease-out'
                     }}
                 >
-                    <div 
+                    <div
                         onClick={handleModalContentClick}
                         style={{
                             minWidth: '400px',
@@ -308,8 +315,8 @@ function LandingPage({ onNavigate }) {
                     >
                         {/* Custom Auth Components - Render Sign In or Sign Up */}
                         {authMode === 'login' ? (
-                            <CustomSignIn 
-                                onSuccess={handleCloseModal} 
+                            <CustomSignIn
+                                onSuccess={handleCloseModal}
                                 onSwitchToSignUp={() => setAuthMode('signup')}
                             />
                         ) : (
@@ -324,11 +331,11 @@ function LandingPage({ onNavigate }) {
                             {authMode === 'login' ? "Don't have an account?" : "Already have an account?"}{' '}
                             <button
                                 onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
-                                style={{ 
-                                    background: 'none', 
-                                    border: 'none', 
-                                    color: theme.primary, 
-                                    fontWeight: 'bold', 
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: theme.primary,
+                                    fontWeight: 'bold',
                                     cursor: 'pointer',
                                     fontSize: 'inherit'
                                 }}

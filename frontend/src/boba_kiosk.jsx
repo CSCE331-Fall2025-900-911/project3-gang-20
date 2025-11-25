@@ -1,3 +1,10 @@
+/*
+  File: boba_kiosk.jsx
+  Description: The self-service kiosk application for customers.
+  Features a high-contrast accessibility mode, multi-language support via Google Translate,
+  and a complete ordering flow from menu selection to payment.
+*/
+
 import { useState, useEffect, createContext, useContext } from 'react';
 import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus } from 'lucide-react';
 
@@ -36,9 +43,10 @@ const THEMES = {
   }
 };
 
-/**
- * Provider for global accessibility settings (font size, contrast).
- */
+/*
+  Provider for global accessibility settings.
+  Manages font size scaling and high contrast mode preferences, persisting them to localStorage.
+*/
 function AccessibilityProvider({ children }) {
   const [fontSize, setFontSize] = useState(() => {
     return parseFloat(localStorage.getItem('kioskFontSize')) || 1.0;
@@ -84,9 +92,10 @@ function useAccessibility() {
 
 // --- Reusable Components ---
 
-/**
- * Accessible button component with theme support.
- */
+/*
+  Accessible button component with theme support.
+  Automatically adjusts padding based on font size and handles high contrast styling.
+*/
 function KioskButton({ onClick, children, variant = 'primary', style = {}, disabled = false, ...props }) {
   const { theme, highContrast, fontSize } = useAccessibility();
 
@@ -236,6 +245,10 @@ const getDrinkDescription = (drink) => {
   return formattedIngredients.join(', ');
 };
 
+/*
+  Main Content Component for the Kiosk.
+  Handles the entire ordering flow: Welcome -> Categories -> Customization -> Checkout -> Payment.
+*/
 function BobaKioskContent({ onBack }) {
   const { theme, highContrast } = useAccessibility();
 
@@ -1006,6 +1019,10 @@ function BobaKioskContent({ onBack }) {
   );
 }
 
+/*
+  Root Kiosk Component.
+  Wraps the content in the AccessibilityProvider to ensure global access to theme settings.
+*/
 function BobaKiosk(props) {
   return (
     <AccessibilityProvider>

@@ -1,8 +1,12 @@
+/*
+  File: header_strip.jsx
+  Description: Header component for the menu board.
+  Displays the list of available categories and a live clock/date widget.
+*/
+
 import { useMemo } from 'react';
 
-/**
- * Header component displaying category chips and a live clock.
- */
+// Header component displaying category chips and a live clock.
 export function HeaderStrip({ categories, showClock = true, showWeather = false, currentTime }) {
   // Memoize chip names to avoid re-mapping on every second tick
   const chips = useMemo(() => categories.map((cat) => cat.name), [categories]);
