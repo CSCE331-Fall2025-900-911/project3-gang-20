@@ -5,7 +5,7 @@ import { ArrowLeft, Plus, Edit2, Trash2, Check, X } from 'lucide-react';
 // CONSTANTS
 // ============================================================================
 
-const API_BASE = 'https://project3-gang-20.onrender.com/api';
+const API_BASE = 'http://127.0.0.1:8000/api';
 
 // ============================================================================
 // MAIN COMPONENT
@@ -572,7 +572,7 @@ function ProductUsageView({ ingredients, recipeItems }) {
 
       // Filter orders by date range
       const filteredOrders = allOrders.filter(order => {
-        const orderDate = new Date(order.order_date);
+        const orderDate = new Date(order.order_date_time);
         return orderDate >= new Date(startDate) && orderDate <= new Date(endDate);
       });
 
@@ -766,7 +766,7 @@ function SalesReportView({ menuItems }) {
 
       // Filter orders by date range
       const filteredOrders = allOrders.filter(order => {
-        const orderDate = new Date(order.order_date);
+        const orderDate = new Date(order.order_date_time);
         return orderDate >= new Date(startDate) && orderDate <= new Date(endDate);
       });
 
@@ -1021,11 +1021,25 @@ function XReportView() {
 
       // Filter orders for today only
       const todaysOrders = allOrders.filter(order => {
-        const orderDate = new Date(order.order_date);
+        const orderDate = new Date(order.order_date_time);
         return orderDate >= today && orderDate <= now;
       });
 
-      console.log('Today\'s orders found:', todaysOrders.length);
+      console.log('X-Report Debug:', {
+        totalOrdersFetched: allOrders.length,
+        todayStart: today.toISOString(),
+        todayEnd: now.toISOString(),
+        todaysOrdersFound: todaysOrders.length,
+        sampleOrderDates: allOrders.slice(0, 5).map(o => {
+          const d = new Date(o.order_date_time);
+          return {
+            id: o.id,
+            date: o.order_date_time,
+            isValid: !isNaN(d.getTime()),
+            parsed: !isNaN(d.getTime()) ? d.toISOString() : 'INVALID DATE'
+          };
+        })
+      });
 
       // Group orders by hour (0-23)
       const hourlyData = {};
@@ -1047,7 +1061,7 @@ function XReportView() {
 
       // Process each order
       for (const order of todaysOrders) {
-        const orderDate = new Date(order.order_date);
+        const orderDate = new Date(order.order_date_time);
         const hour = orderDate.getHours();
 
         // Get the hourly bucket
@@ -1334,8 +1348,24 @@ function ZReportView() {
 
       // Filter orders for today
       const todaysOrders = allOrders.filter(order => {
-        const orderDate = new Date(order.order_date);
+        const orderDate = new Date(order.order_date_time);
         return orderDate >= today && orderDate <= now;
+      });
+
+      console.log('Z-Report Debug:', {
+        totalOrdersFetched: allOrders.length,
+        todayStart: today.toISOString(),
+        todayEnd: now.toISOString(),
+        todaysOrdersFound: todaysOrders.length,
+        sampleOrderDates: allOrders.slice(0, 5).map(o => {
+          const d = new Date(o.order_date_time);
+          return {
+            id: o.id,
+            date: o.order_date_time,
+            isValid: !isNaN(d.getTime()),
+            parsed: !isNaN(d.getTime()) ? d.toISOString() : 'INVALID DATE'
+          };
+        })
       });
 
       // Calculate comprehensive totals
