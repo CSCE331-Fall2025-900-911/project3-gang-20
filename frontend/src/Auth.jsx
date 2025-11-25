@@ -1,9 +1,13 @@
+/*
+  File: Auth.jsx
+  Description: Authentication components for the application using Clerk.
+  Contains custom Sign In and Sign Up forms with error handling and session management.
+*/
+
 import { useState, useEffect } from 'react';
 import { useSignIn, useSignUp, useClerk } from '@clerk/clerk-react';
 
-/**
- * Compact Login Button Component
- */
+// Compact Login Button Component. A small, styled button used for triggering the login modal.
 export function CompactLoginButton({ onClick }) {
   return (
     <button
@@ -29,12 +33,10 @@ export function CompactLoginButton({ onClick }) {
   );
 }
 
-/**
- * Custom Sign In Component
- */
+// Custom Sign In Component. Handles user authentication via email and password.
 export function CustomSignIn({ onSuccess, onSwitchToSignUp }) {
   const { signIn, setActive, isLoaded } = useSignIn();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -42,7 +44,7 @@ export function CustomSignIn({ onSuccess, onSwitchToSignUp }) {
 
   const handleSubmit = async () => {
     if (!isLoaded || !email || !password) return;
-    
+
     setError('');
     setLoading(true);
 
@@ -55,10 +57,10 @@ export function CustomSignIn({ onSuccess, onSwitchToSignUp }) {
       if (result.status === 'complete') {
         // Activate the session and wait for it to complete
         await setActive({ session: result.createdSessionId });
-        
+
         // Wait longer to ensure Clerk provider fully updates
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         // Call success callback
         if (onSuccess) {
           onSuccess();
@@ -85,7 +87,7 @@ export function CustomSignIn({ onSuccess, onSwitchToSignUp }) {
   return (
     <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full">
       <h2 className="text-3xl font-bold text-amber-900 mb-6 text-center">Sign In</h2>
-      
+
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
           {error}
@@ -136,10 +138,7 @@ export function CustomSignIn({ onSuccess, onSwitchToSignUp }) {
   );
 }
 
-/**
- * Custom Sign Up Component
- * Fixed to properly activate session after signup
- */
+// Custom Sign Up Component. Handles new user registration and session activation.
 export function CustomSignUp({ onSuccess, onSwitchToSignIn }) {
   const { isLoaded, signUp, setActive } = useSignUp();
 
@@ -169,10 +168,10 @@ export function CustomSignUp({ onSuccess, onSwitchToSignIn }) {
       if (result.status === 'complete') {
         // No verification needed - activate session immediately
         await setActive({ session: result.createdSessionId });
-        
+
         // Wait longer to ensure provider fully updates
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         // Call success callback
         if (onSuccess) {
           onSuccess();
@@ -204,7 +203,7 @@ export function CustomSignUp({ onSuccess, onSwitchToSignIn }) {
   return (
     <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full">
       <h2 className="text-3xl font-bold text-amber-900 mb-6 text-center">Sign Up</h2>
-      
+
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
           {error}
@@ -214,7 +213,7 @@ export function CustomSignUp({ onSuccess, onSwitchToSignIn }) {
       <div className="space-y-4">
         <div className="flex gap-4">
           <div className="w-1/2">
-             <input
+            <input
               type="text"
               placeholder="First Name"
               className="w-full px-4 py-2 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"

@@ -1,3 +1,9 @@
+/*
+  File: menu_item_row.jsx
+  Description: Renders a single menu item row within a category section.
+  Displays the item name, description, badges, and prices.
+*/
+
 // Format price to currency string
 function formatPrice(value) {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -6,9 +12,7 @@ function formatPrice(value) {
   return '—';
 }
 
-/**
- * Renders a single menu item row.
- */
+// Renders a single menu item row.
 export function MenuItemRow({ item }) {
   const prices = Object.values(item.prices ?? {});
 
