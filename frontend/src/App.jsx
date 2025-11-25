@@ -1,12 +1,3 @@
-import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
-
-import BobaKiosk from './boba_kiosk';
-import BobaManager from './boba_manager';
-import BobaCashier from './boba_cashier';
-import MenuBoardApp from './menu_board/menu_board_app';
-import LandingPage from './landing_page';
-
 /*
   File: App.jsx
   Description: Main application component that handles routing and portal access control.
