@@ -68,7 +68,7 @@ function LandingPage({ onNavigate }) {
                         <Coffee size={24} />
                     </div>
                     <span style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.5px' }}>
-                        Boba<span style={{ color: theme.primary }}>Spot</span>
+                        Share<span style={{ color: theme.primary }}>Tea</span>
                     </span>
                 </div>
 
