@@ -2,10 +2,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv()
+load_dotenv(BASE_DIR / '.env')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -14,22 +12,27 @@ load_dotenv()
 SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG')
+DEBUG = os.environ.get('DEBUG')  == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'project3-gang-20-810838872032.us-south1.run.app',
+    'project3-gang-20.onrender.com',
+    '127.0.0.1',
+    'localhost',
+]
 
-# This K_SERVICE_URL variable is set automatically by Cloud Run
-CLOUDRUN_SERVICE_URL = os.environ.get('K_SERVICE_URL')
+# # This K_SERVICE_URL variable is set automatically by Cloud Run
+# CLOUDRUN_SERVICE_URL = os.environ.get('K_SERVICE_URL')
 
-if CLOUDRUN_SERVICE_URL:
-    # This automatically gets your URL: 'project3-gang-20-810838872032.us-south1.run.app'
-    ALLOWED_HOSTS.append(CLOUDRUN_SERVICE_URL.split("://")[1])
-else:
-    # Fallback for local development
-    ALLOWED_HOSTS.append('127.0.0.1')
-    ALLOWED_HOSTS.append('localhost')
+# if CLOUDRUN_SERVICE_URL:
+#     clean_url = CLOUDRUN_SERVICE_URL.split("://")[1].rstrip('/')
+#     ALLOWED_HOSTS.append(clean_url)
+# else:
+#     # Fallback for local development
+#     ALLOWED_HOSTS.append('127.0.0.1')
+#     ALLOWED_HOSTS.append('localhost')
 
-ALLOWED_HOSTS.append('project3-gang-20.onrender.com')
+# ALLOWED_HOSTS.append('project3-gang-20.onrender.com')
 
 # Application definition
 
@@ -144,26 +147,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
-
-# --- Google Cloud Storage Settings ---
-
-# This is the name of the bucket you created in Step 2
 GS_BUCKET_NAME = 'boba_images_bucket' # <-- CHANGE THIS
 
-# This tells django-storages to use the GCS backend
 DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
 
-# This setting controls the "Cache-Control" header for uploaded files.
-# It's good for performance.
 GS_CACHE_CONTROL = 'max-age=3600' # Cache for 1 hour (in seconds)
 
-# Optional: Make all uploaded files public by default
-# This is simpler for a public menu. For private files, you'd need
-# to generate signed URLs, which is more complex.
-# GS_DEFAULT_ACL = 'publicRead'
-
-# This will be the root URL for your media files
 MEDIA_URL = f'https://storage.googleapis.com/{GS_BUCKET_NAME}/media/'
-MEDIA_ROOT = 'media/' # This is the *prefix* inside the bucket
-
-# --- End Google Cloud Storage Settings ---b
+MEDIA_ROOT = 'media/'
