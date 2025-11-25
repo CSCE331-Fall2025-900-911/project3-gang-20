@@ -14,20 +14,25 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG')  == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'project3-gang-20-810838872032.us-south1.run.app',
+    'project3-gang-20.onrender.com',
+    '127.0.0.1',
+    'localhost',
+]
 
-# This K_SERVICE_URL variable is set automatically by Cloud Run
-CLOUDRUN_SERVICE_URL = os.environ.get('K_SERVICE_URL')
+# # This K_SERVICE_URL variable is set automatically by Cloud Run
+# CLOUDRUN_SERVICE_URL = os.environ.get('K_SERVICE_URL')
 
-if CLOUDRUN_SERVICE_URL:
-    clean_url = CLOUDRUN_SERVICE_URL.split("://")[1].rstrip('/')
-    ALLOWED_HOSTS.append(clean_url)
-else:
-    # Fallback for local development
-    ALLOWED_HOSTS.append('127.0.0.1')
-    ALLOWED_HOSTS.append('localhost')
+# if CLOUDRUN_SERVICE_URL:
+#     clean_url = CLOUDRUN_SERVICE_URL.split("://")[1].rstrip('/')
+#     ALLOWED_HOSTS.append(clean_url)
+# else:
+#     # Fallback for local development
+#     ALLOWED_HOSTS.append('127.0.0.1')
+#     ALLOWED_HOSTS.append('localhost')
 
-ALLOWED_HOSTS.append('project3-gang-20.onrender.com')
+# ALLOWED_HOSTS.append('project3-gang-20.onrender.com')
 
 # Application definition
 
