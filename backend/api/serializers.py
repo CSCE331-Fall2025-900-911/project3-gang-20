@@ -163,7 +163,7 @@ class CustomizationOptionWriteSerializer(serializers.ModelSerializer):
     # Accept integer IDs for category and ingredient
     category = serializers.PrimaryKeyRelatedField(queryset=CustomizationCategory.objects.all())
     ingredient = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all(), allow_null=True, required=False)
-    # unit = serializers.PrimaryKeyRelatedField(queryset=Unit.objects.all(), allow_null=True, required=False) # <-- REMOVED
+    # unit = serializers.PrimaryKeyRelatedField(queryset=Unit.objects.all(), allow_null=True, required=False)
 
     class Meta:
         model = CustomizationOption
@@ -181,18 +181,10 @@ class RecipeItemWriteSerializer(serializers.ModelSerializer):
 class MenuItemWriteSerializer(serializers.ModelSerializer):
     """Serializes a MenuItem for writing."""
     category = serializers.PrimaryKeyRelatedField(queryset=MenuCategory.objects.all(), allow_null=True, required=False)
-    # Accept a list of customization category IDs
-    # available_customizations = serializers.PrimaryKeyRelatedField(
-    #     queryset=CustomizationCategory.objects.all(),
-    #     many=True,
-    #     required=False
-    # )
     
     class Meta:
         model = MenuItem
-        fields = ['id', 'name', 'category', 'base_price', 'image'
-        #   , 'available_customizations'
-        ]
+        fields = ['id', 'name', 'category', 'base_price', 'image']
 
 class OrderItemWriteSerializer(serializers.ModelSerializer):
     """Serialserializes an OrderItem for writing (nested inside an Order)."""
