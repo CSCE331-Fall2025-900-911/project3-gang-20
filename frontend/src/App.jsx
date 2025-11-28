@@ -77,33 +77,37 @@ const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage, on
 
 // Main application component. Handles initial loading state and routing.
 function App() {
-  const [currentPage, setCurrentPage] = useState(null); // <-- start as null
-  const [isLoaded, setIsLoaded] = useState(false); // <-- gate rendering
+  // --- STATE MANAGEMENT: Session Storage ---
+  // 1. Lazy Initialization: This runs ONCE when the app starts.
+  //    If it's a refresh, it pulls from session.
+  //    If it's a new tab/window, session is empty, so it defaults to 'landing'.
+  const [currentPage, setCurrentPage] = useState(() => {
+    return sessionStorage.getItem('currentPage') || 'landing';
+  });
 
-  // Load saved page on first mount
+  // 2. Save to Session Storage whenever currentPage changes.
   useEffect(() => {
-    const saved = localStorage.getItem('currentPage');
-
-    if (saved) {
-      setCurrentPage(saved);
-    } else {
-      setCurrentPage('landing'); // default
-    }
-
-    setIsLoaded(true); // allow rendering
-  }, []);
-
-  // Save currentPage whenever it changes (but only after load)
-  useEffect(() => {
-    if (currentPage) {
-      localStorage.setItem('currentPage', currentPage);
-    }
+    sessionStorage.setItem('currentPage', currentPage);
   }, [currentPage]);
 
-  // ---------- Prevent rendering until state is ready ----------
-  if (!isLoaded) {
-    return null; // or a loading spinner
-  }
+  // --- AUDIO UNLOCK (Your existing code) ---
+  useEffect(() => {
+    const unlockAudio = () => {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        ctx.resume();
+      } catch (e) {}
+  
+      const u = new SpeechSynthesisUtterance(".");
+      u.volume = 0.01; 
+      speechSynthesis.speak(u);
+  
+      console.log("🔓 Audio unlocked");
+      window.removeEventListener("click", unlockAudio);
+    };
+  
+    window.addEventListener("click", unlockAudio);
+  }, []);
 
   // ---------- Portal Routing ----------
 
