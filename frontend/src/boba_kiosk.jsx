@@ -572,31 +572,75 @@ function BobaKioskContent({ onBack }) {
                     backgroundColor: theme.cardBg,
                     borderRadius: highContrast ? '0' : '24px',
                     border: theme.border,
-                    padding: '32px',
+                    padding: '24px',
                     boxShadow: theme.shadow,
                     cursor: 'pointer',
                     width: '100%',
                     maxWidth: '350px',
                     transition: 'transform 0.2s',
-                    textAlign: 'left', // Left align for better reading
+                    textAlign: 'left',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px',
-                    minHeight: '220px'
+                    gap: '16px',
+                    minHeight: '320px'
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
                   onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <h3 style={{ fontSize: '1.4em', fontWeight: 'bold', color: theme.text, lineHeight: '1.2' }}>
+                  {/* Image Section */}
+                  <div style={{
+                    width: '100%',
+                    height: '180px',
+                    borderRadius: highContrast ? '0' : '12px',
+                    overflow: 'hidden',
+                    backgroundColor: highContrast ? '#f0f0f0' : '#fef3c7',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: highContrast ? '2px solid #000' : 'none'
+                  }}>
+                    {drink.image ? (
+                      <img
+                        src={drink.image.startsWith('data:') ? drink.image : `data:image/jpeg;base64,${drink.image}`}
+                        alt={drink.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                        onError={(e) => {
+                          // Fallback if image fails to load
+                          e.target.style.display = 'none';
+                          e.target.parentElement.innerHTML = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: ${theme.textSecondary}; font-size: 3em;">🧋</div>`;
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100%',
+                        color: theme.textSecondary,
+                        fontSize: '3em'
+                      }}>
+                        🧋
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Name and Price */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                    <h3 style={{ fontSize: '1.25em', fontWeight: 'bold', color: theme.text, lineHeight: '1.2', flex: 1 }}>
                       {drink.name}
                     </h3>
-                    <span style={{ fontSize: '1.4em', fontWeight: 'bold', color: theme.primary }}>
+                    <span style={{ fontSize: '1.3em', fontWeight: 'bold', color: theme.primary, whiteSpace: 'nowrap' }}>
                       ${parseFloat(drink.base_price).toFixed(2)}
                     </span>
                   </div>
 
-                  <p style={{ fontSize: '0.95em', color: theme.textSecondary, lineHeight: '1.5', flex: 1 }}>
+                  {/* Description */}
+                  <p style={{ fontSize: '0.9em', color: theme.textSecondary, lineHeight: '1.4', margin: 0 }}>
                     {getDrinkDescription(drink)}
                   </p>
                 </button>
