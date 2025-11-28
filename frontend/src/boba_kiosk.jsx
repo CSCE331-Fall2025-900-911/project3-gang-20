@@ -318,12 +318,14 @@ function AccessibilityControls() {
 
 // --- Main App Logic ---
 
-const MENU_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
-const ADDONS_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/';
-const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/orders/';
+const MENU_ITEMS_URL = 'http://127.0.0.1:8000/api/menu-items/';
+const ADDONS_ITEMS_URL = 'http://127.0.0.1:8000/api/customization-options/';
+const ORDERS_URL = 'http://127.0.0.1:8000/api/orders/';
 
 const TAX_RATE = 0.0825; // 8.25% sales tax
 const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
+
+
 
 // Helper to format recipe ingredients for display
 const getDrinkDescription = (drink) => {
@@ -750,9 +752,17 @@ function BobaKioskContent({ onBack }) {
                       ${parseFloat(drink.base_price).toFixed(2)}
                     </span>
                   </div>
-
-                  {/* Description */}
-                  <p style={{ fontSize: '0.9em', color: theme.textSecondary, lineHeight: '1.4', margin: 0 }}>
+                  <img 
+                    src={drink.image} 
+                    alt="drink"
+                    style={{
+                      height: '9em',
+                      width: '50%', 
+                      objectFit: 'contain',
+                      borderRadius: '0.5em'
+                    }}
+                  />
+                  <p style={{ fontSize: '0.95em', color: theme.textSecondary, lineHeight: '1.5', flex: 1 }}>
                     {getDrinkDescription(drink)}
                   </p>
                 </button>
