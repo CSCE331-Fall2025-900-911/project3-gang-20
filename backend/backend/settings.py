@@ -149,6 +149,8 @@ CORS_ALLOWED_ORIGINS = [
 
 GS_BUCKET_NAME = 'boba_images_bucket'
 
+GS_PROJECT_ID = os.environ.get('GOOGLE_CLOUD_PROJECT')
+
 DEFAULT_FILE_STORAGE = 'storages.backends.gcloud.GoogleCloudStorage'
 
 GS_CACHE_CONTROL = 'max-age=3600' # Cache for 1 hour (in seconds)
