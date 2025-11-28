@@ -6,7 +6,7 @@
 */
 
 import { useState, useEffect, createContext, useContext } from 'react';
-import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus } from 'lucide-react';
+import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX } from 'lucide-react';
 
 // --- Accessibility Context & Theme ---
 
@@ -48,38 +48,131 @@ const THEMES = {
   Manages font size scaling and high contrast mode preferences, persisting them to localStorage.
 */
 function AccessibilityProvider({ children }) {
-  const [fontSize, setFontSize] = useState(() => {
-    return parseFloat(localStorage.getItem('kioskFontSize')) || 1.0;
-  });
-  const [highContrast, setHighContrast] = useState(() => {
-    return localStorage.getItem('kioskHighContrast') === 'true';
-  });
+  const [fontSize, setFontSize] = useState(() => parseFloat(localStorage.getItem('kioskFontSize')) || 1.0);
+  const [highContrast, setHighContrast] = useState(() => localStorage.getItem('kioskHighContrast') === 'true');
+  const [ttsEnabled, setTtsEnabled] = useState(() => localStorage.getItem('kioskTtsEnabled') === 'true');
+  
+  // New: Store available voices
+  const [availableVoices, setAvailableVoices] = useState([]);
 
   useEffect(() => {
     localStorage.setItem('kioskFontSize', fontSize);
     localStorage.setItem('kioskHighContrast', highContrast);
-  }, [fontSize, highContrast]);
+    localStorage.setItem('kioskTtsEnabled', ttsEnabled);
+  }, [fontSize, highContrast, ttsEnabled]);
+
+  // --- 1. Load Voices Properly ---
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) setAvailableVoices(voices);
+    };
+  
+    // Retry loading voices for 1 second
+    let intervalId = setInterval(() => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        setAvailableVoices(voices);
+        clearInterval(intervalId);
+      }
+    }, 200);
+  
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  
+    return () => clearInterval(intervalId);
+  }, []);
+  
+
+  const [ttsReady, setTtsReady] = useState(false);
+
+  useEffect(() => {
+    const enableAudio = () => setTtsReady(true);
+    window.addEventListener("click", enableAudio, { once: true });
+  }, []);
+
+
+  // --- 2. TTS Logic (Fixed Dependencies) ---
+  useEffect(() => {
+    if (!ttsEnabled || !ttsReady) return;
+
+    let timer;
+
+    const handleMouseOver = (e) => {
+      clearTimeout(timer);
+
+      const target = e.target;
+      
+      // 1. Filter containers
+      if (target.childElementCount > 3) return;
+
+      // 2. Get text
+      let textToRead = target.getAttribute('aria-label') || target.innerText;
+
+      // 3. Clean text
+      if (!textToRead) return;
+      textToRead = textToRead.replace(/\s+/g, ' ').trim();
+      if (textToRead.length === 0) return;
+
+      // 4. Tag check
+      const relevantTags = ['BUTTON', 'H1', 'H2', 'H3', 'P', 'SPAN', 'A', 'LI', 'DIV'];
+      if (!relevantTags.includes(target.tagName)) return;
+      
+      // 5. Length check
+      if (target.tagName === 'DIV' && textToRead.length > 60) return;
+
+      timer = setTimeout(() => {
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(textToRead);
+
+        if (availableVoices.length > 0) {
+          const preferredVoice =
+            availableVoices.find(v => v.lang.includes('en-US')) ||
+            availableVoices.find(v => v.lang.includes('en'));
+          if (preferredVoice) utterance.voice = preferredVoice;
+        }
+
+        utterance.rate = 1.0;
+        utterance.volume = 1.0;
+
+        // Prevent Garbage Collection bug
+        window.utteranceReference = utterance;
+        utterance.onend = () => { window.utteranceReference = null; };
+
+        window.speechSynthesis.speak(utterance);
+      }, 400);
+    };
+
+    const handleMouseLeave = () => {
+      clearTimeout(timer);
+      // We do not cancel here to prevent audio cutting out too aggressively
+    };
+
+    document.addEventListener('mouseover', handleMouseOver);
+    document.addEventListener('mouseout', handleMouseLeave);
+    
+    return () => {
+      document.removeEventListener('mouseover', handleMouseOver);
+      document.removeEventListener('mouseout', handleMouseLeave);
+      clearTimeout(timer);
+      window.speechSynthesis.cancel();
+    };
+  // FIX: Watch .length instead of the array object to prevent dependency size errors
+  }, [ttsEnabled, ttsReady, availableVoices.length]);
 
   const increaseFontSize = () => setFontSize(prev => Math.min(prev + 0.25, 1.5));
   const decreaseFontSize = () => setFontSize(prev => Math.max(prev - 0.25, 1.0));
   const toggleContrast = () => setHighContrast(prev => !prev);
+  const toggleTts = () => setTtsEnabled(prev => !prev);
 
   const theme = highContrast ? THEMES.highContrast : THEMES.normal;
 
   return (
     <AccessibilityContext.Provider value={{
-      fontSize,
-      highContrast,
-      theme,
-      increaseFontSize,
-      decreaseFontSize,
-      toggleContrast
+      fontSize, highContrast, theme, ttsEnabled,
+      increaseFontSize, decreaseFontSize, toggleContrast, toggleTts
     }}>
-      <div style={{
-        fontSize: `${fontSize}rem`,
-        lineHeight: 1.5,
-        transition: 'all 0.2s ease'
-      }}>
+      <div style={{ fontSize: `${fontSize}rem`, lineHeight: 1.5, transition: 'all 0.2s ease' }}>
         {children}
       </div>
     </AccessibilityContext.Provider>
@@ -166,11 +259,17 @@ function KioskButton({ onClick, children, variant = 'primary', style = {}, disab
   );
 }
 
-/**
- * Floating controls for accessibility settings.
- */
 function AccessibilityControls() {
-  const { fontSize, increaseFontSize, decreaseFontSize, toggleContrast, highContrast, theme } = useAccessibility();
+  const { 
+    fontSize, 
+    increaseFontSize, 
+    decreaseFontSize, 
+    toggleContrast, 
+    highContrast, 
+    theme,
+    toggleTts,     // Get new function
+    ttsEnabled     // Get new state
+  } = useAccessibility();
 
   return (
     <div style={{
@@ -195,10 +294,23 @@ function AccessibilityControls() {
         <Plus size={24} />
         <span style={{ fontSize: '1.2em' }}>A</span>
       </KioskButton>
+      
       <div style={{ width: '1px', backgroundColor: '#ccc' }}></div>
+      
       <KioskButton onClick={toggleContrast} aria-label="Toggle high contrast" variant="secondary" style={{ padding: '8px' }}>
         {highContrast ? <Sun size={24} /> : <Moon size={24} />}
         <span>{highContrast ? 'Normal' : 'Contrast'}</span>
+      </KioskButton>
+
+      {/* --- NEW SPEECH BUTTON --- */}
+      <KioskButton 
+        onClick={toggleTts} 
+        aria-label={ttsEnabled ? "Disable Text to Speech" : "Enable Text to Speech"} 
+        variant={ttsEnabled ? 'primary' : 'secondary'} 
+        style={{ padding: '8px' }}
+      >
+        {ttsEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
+        <span>{ttsEnabled ? 'Speech On' : 'Speech Off'}</span>
       </KioskButton>
     </div>
   );
