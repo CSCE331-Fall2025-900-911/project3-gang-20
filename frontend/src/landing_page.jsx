@@ -5,7 +5,7 @@
   user authentication (Login/Signup) via Clerk.
 */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Coffee, User, LogIn, ChevronRight, Star, MapPin, Clock, X, LogOut } from 'lucide-react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { CustomSignIn, CustomSignUp } from './Auth';
@@ -18,6 +18,45 @@ function LandingPage({ onNavigate }) {
     // Use Clerk hooks to get the user state and sign out function
     const { isSignedIn, user, isLoaded } = useUser();
     const { signOut } = useClerk();
+
+    const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
+
+    useEffect(() => {
+        const syncUserToBackend = async () => {
+            if (isLoaded && isSignedIn && user) {
+                try {
+                    // 1. Fetch existing customers to check for duplicates
+                    const response = await fetch(CUSTOMERS_URL);
+                    const customers = await response.json();
+                    
+                    const userEmail = user.primaryEmailAddress?.emailAddress;
+                    const existingCustomer = customers.find(c => c.email === userEmail);
+
+                    // 2. If customer does not exist, add them
+                    if (!existingCustomer) {
+                        const newCustomer = {
+                            first_name: user.firstName || "New",
+                            last_name: user.lastName || "User",
+                            email: userEmail,
+                            phone: user.primaryPhoneNumber?.phoneNumber || "", // Handle optional phone
+                            joined_date: new Date().toISOString().split('T')[0] // Format: YYYY-MM-DD
+                        };
+
+                        await fetch(CUSTOMERS_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(newCustomer)
+                        });
+                        console.log("New user added to backend:", newCustomer.email);
+                    }
+                } catch (error) {
+                    console.error("Error syncing user to backend:", error);
+                }
+            }
+        };
+
+        syncUserToBackend();
+    }, [isLoaded, isSignedIn, user]);
 
     // Theme constants matching the app's design
     const theme = {

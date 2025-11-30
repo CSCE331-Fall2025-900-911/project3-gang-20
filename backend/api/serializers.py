@@ -102,7 +102,7 @@ class OrderReadSerializer(serializers.ModelSerializer):
     """Serializes a full Order for reading, nesting its items."""
     # Nest all related order items
     items = OrderItemReadSerializer(many=True, read_only=True)
-    customer = serializers.StringRelatedField()
+    # customer = serializers.StringRelatedField()
     employee = serializers.StringRelatedField()
     
     class Meta:
