@@ -752,16 +752,6 @@ function BobaKioskContent({ onBack }) {
                       ${parseFloat(drink.base_price).toFixed(2)}
                     </span>
                   </div>
-                  <img 
-                    src={drink.image} 
-                    alt="drink"
-                    style={{
-                      height: '9em',
-                      width: '50%', 
-                      objectFit: 'contain',
-                      borderRadius: '0.5em'
-                    }}
-                  />
                   <p style={{ fontSize: '0.95em', color: theme.textSecondary, lineHeight: '1.5', flex: 1 }}>
                     {getDrinkDescription(drink)}
                   </p>
