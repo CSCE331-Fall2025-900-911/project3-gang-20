@@ -7,6 +7,7 @@
 
 import { useState, useEffect, createContext, useContext } from 'react';
 import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX } from 'lucide-react';
+import { useUser } from '@clerk/clerk-react';
 
 // --- Accessibility Context & Theme ---
 
@@ -321,9 +322,12 @@ function AccessibilityControls() {
 const MENU_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
 const ADDONS_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/';
 const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/orders/';
+const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
+
 
 const TAX_RATE = 0.0825; // 8.25% sales tax
 const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
+
 
 
 
@@ -365,6 +369,31 @@ const getDrinkDescription = (drink) => {
 */
 function BobaKioskContent({ onBack }) {
   const { theme, highContrast } = useAccessibility();
+
+
+  const { user, isSignedIn } = useUser();
+  const [dbCustomerId, setDbCustomerId] = useState(null);
+
+  useEffect(() => {
+      const fetchCustomerId = async () => {
+          if (isSignedIn && user) {
+              try {
+                  const response = await fetch(CUSTOMERS_URL);
+                  const customers = await response.json();
+                  const foundCustomer = customers.find(c => c.email === user.primaryEmailAddress.emailAddress);
+                  
+                  if (foundCustomer) {
+                      setDbCustomerId(foundCustomer.id);
+                      console.log("Tracking Customer ID:", foundCustomer.id);
+                  }
+              } catch (err) {
+                  console.error("Error fetching customer ID:", err);
+              }
+          }
+      };
+      fetchCustomerId();
+  }, [isSignedIn, user]);
+
 
   // Initialize Google Translate
   useEffect(() => {
@@ -546,7 +575,7 @@ function BobaKioskContent({ onBack }) {
 
       const orderData = {
         payment_type: selectedPaymentType,
-        customer: null,
+        customer: dbCustomerId || null, 
         employee: null,
         items: itemsPayload
       };
