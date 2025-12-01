@@ -715,15 +715,15 @@ function BobaKioskContent({ onBack }) {
                   }}>
                     {drink.image ? (
                       <img
-                        src={drink.image.startsWith('data:') ? drink.image : `data:image/jpeg;base64,${drink.image}`}
+                        src={drink.image}
                         alt={drink.name}
                         style={{
                           width: '100%',
                           height: '100%',
-                          objectFit: 'cover'
+                          objectFit: 'contain'
                         }}
                         onError={(e) => {
-                          // Fallback if image fails to load
+                          // fallback on image error
                           e.target.style.display = 'none';
                           e.target.parentElement.innerHTML = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: ${theme.textSecondary}; font-size: 3em;">🧋</div>`;
                         }}
