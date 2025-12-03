@@ -7,11 +7,13 @@
 
 import { useState, useEffect } from 'react';
 import { Trash2, LogOut } from 'lucide-react';
+import { useUser } from '@clerk/clerk-react';
 
 // API Endpoints
 const API_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
 const CUSTOMIZATION_OPTIONS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/';
 const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/orders/';
+const EMPLOYEES_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/employees/';
 
 // Business logic constants
 const TAX_RATE = 0.0825; // 8.25% sales tax
@@ -48,11 +50,43 @@ function BobaCashier({ onBack }) {
   const [temperature, setTemperature] = useState(null);
   const [description, setDescription] = useState("");
 
+  // State for employee user data
+  const { user } = useUser();
+  const [currentEmployeeId, setCurrentEmployeeId] = useState(1);
+
   // On component mount, fetch menu data and the next available order ID
   useEffect(() => {
     fetchData();
     fetchNextOrderNumber();
-  }, []);
+    if (user) {
+      matchEmployee();
+    }
+  }, [user]);
+
+  // match logged in user to employee in database
+  const matchEmployee = async () => {
+    try {
+      const response = await fetch(EMPLOYEES_URL);
+      const employees = await response.json();
+      
+      if (user && user.firstName && user.lastName) {
+        const foundEmployee = employees.find(emp => 
+          emp.first_name.toLowerCase() === user.firstName.toLowerCase() &&
+          emp.last_name.toLowerCase() === user.lastName.toLowerCase()
+        );
+
+        if (foundEmployee) {
+          console.log(`Employee Matched: ${foundEmployee.first_name} (ID: ${foundEmployee.id})`);
+          setCurrentEmployeeId(foundEmployee.id);
+        } else {
+          // default to ID 1 if user not found
+          console.warn("Logged in user not found in employee database. Using default ID: 1");
+        }
+      }
+    } catch (err) {
+      console.error("Error matching employee:", err);
+    }
+  };
 
   // Fetches all menu items and customization options from the API in parallel.
   const fetchData = async () => {
@@ -257,18 +291,15 @@ function BobaCashier({ onBack }) {
         });
       }
 
-      // 3. CONSTRUCT THE MAIN ORDER OBJECT
-      // Now we include 'items' inside the main order object
       const orderData = {
         payment_type: selectedPaymentType,
-        employee: 1,
+        employee: currentEmployeeId,
         customer: null,
-        items: formattedItems // <--- This is the missing field the error complained about
+        items: formattedItems 
       };
 
       console.log('Sending complete order payload:', orderData);
 
-      // 4. SEND SINGLE REQUEST
       const orderResponse = await fetch(ORDERS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -283,8 +314,6 @@ function BobaCashier({ onBack }) {
       const order = await orderResponse.json();
       console.log('Order created successfully:', order);
 
-      // 5. SUCCESS STATE HANDLING
-      // (We no longer need the second loop for ORDER_ITEMS_URL because the backend handled it)
 
       const finalTotal = getTotal();
       setTransactionMessage(`Transaction Complete - Order #${order.id} - Total: $${finalTotal.toFixed(2)}`);
@@ -292,7 +321,7 @@ function BobaCashier({ onBack }) {
       setCart([]);
       setSelectedPaymentType(null);
 
-      // After 3 seconds, clear the message and fetch the next order number
+      // after 3 seconds, clear the message and fetch the next order number
       setTimeout(() => {
         fetchNextOrderNumber();
         setTransactionMessage('');
@@ -301,7 +330,6 @@ function BobaCashier({ onBack }) {
     } catch (err) {
       console.error('Error completing transaction:', err);
       setTransactionMessage(`Transaction Failed: ${err.message}`);
-      // Do not reset payment type here so user can try again
     }
   };
 
@@ -323,19 +351,15 @@ function BobaCashier({ onBack }) {
     }
   };
 
-  // Calls the onBack prop to exit the cashier view.
   const handleLogout = () => {
     if (onBack) {
       onBack();
     }
   };
 
-  // --- Weather API Effect and Helper ---
 
-  // Fetches weather data on component mount
   useEffect(() => {
     fetch(
-      // Fetches weather for College Station, TX
       "https://api.openweathermap.org/data/2.5/weather?lat=30.621703&lon=-96.340494&appid=" + import.meta.env.VITE_WEATHER_API + "&units=imperial"
     )
       .then((response) => response.json())
@@ -357,7 +381,7 @@ function BobaCashier({ onBack }) {
     if (desc === "rain") return "🌧️";
     if (desc === "thunderstorm") return "⛈️";
     if (desc === "snow") return "❄️";
-    return "🌞⛅" // Default
+    return "🌞⛅" // default if desc is something different
   };
 
   const weatherEmoji = getWeatherEmoji(description);
