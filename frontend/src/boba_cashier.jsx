@@ -1,21 +1,25 @@
+/*
+  File: boba_cashier.jsx
+  Description: The Cashier Point of Sale (POS) system.
+  Handles order creation, payment processing (Cash/Card), and weather integration.
+  Allows employees to customize drinks, manage the cart, and view transaction history.
+*/
+
 import { useState, useEffect } from 'react';
 import { Trash2, LogOut } from 'lucide-react';
 
 // API Endpoints
-const API_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
-const CUSTOMIZATION_OPTIONS_URL = 'https://project3-gang-20.onrender.com/api/customization-options/';
-const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
-const ORDER_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/order-items/';
+const API_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
+const CUSTOMIZATION_OPTIONS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/';
+const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/orders/';
 
 // Business logic constants
 const TAX_RATE = 0.0825; // 8.25% sales tax
 const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
 
-/**
- * The main component for the cashier POS interface.
- * @param {object} props - Component props.
- * @param {function} props.onBack - Callback function to return to the previous view (e.g., employee login).
- */
+/*
+  The main component for the cashier POS interface.
+*/
 function BobaCashier({ onBack }) {
   // State for storing data fetched from the API
   const [menuItems, setMenuItems] = useState([]);
@@ -25,7 +29,7 @@ function BobaCashier({ onBack }) {
   const [selectedCategory, setSelectedCategory] = useState('Milky'); // Default category
   const [cart, setCart] = useState([]);
   const [selectedPaymentType, setSelectedPaymentType] = useState(null);
-  
+
   // State for the customization modal
   const [customizationModal, setCustomizationModal] = useState(false);
   const [selectedDrink, setSelectedDrink] = useState(null);
@@ -50,10 +54,7 @@ function BobaCashier({ onBack }) {
     fetchNextOrderNumber();
   }, []);
 
-  /**
-   * Fetches all menu items and customization options from the API in parallel.
-   * Updates the component state with the fetched data.
-   */
+  // Fetches all menu items and customization options from the API in parallel.
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -61,10 +62,10 @@ function BobaCashier({ onBack }) {
         fetch(API_URL),
         fetch(CUSTOMIZATION_OPTIONS_URL)
       ]);
-      
+
       const menuData = await menuResponse.json();
       const customizationsData = await customizationsResponse.json();
-      
+
       setMenuItems(menuData);
       setCustomizationOptions(customizationsData);
     } catch (err) {
@@ -74,15 +75,12 @@ function BobaCashier({ onBack }) {
     }
   };
 
-  /**
-   * Fetches all existing orders to determine the next display order number.
-   * Sets the `orderNumber` state to the highest existing ID + 1.
-   */
+  // Fetches all existing orders to determine the next display order number.
   const fetchNextOrderNumber = async () => {
     try {
       const response = await fetch(ORDERS_URL);
       const orders = await response.json();
-      
+
       if (orders.length > 0) {
         // Find the maximum order ID and add 1 for display
         const maxOrderId = Math.max(...orders.map(order => order.id));
@@ -103,19 +101,12 @@ function BobaCashier({ onBack }) {
   // Filter the menu items based on the currently selected category
   const filteredDrinks = menuItems.filter(item => item.category === selectedCategory);
 
-  /**
-   * Filters the master customization options list to find options for a specific category.
-   * @param {string} category - The category to filter by (e.g., 'Ice Level', 'Toppings').
-   * @returns {Array<object>} - An array of customization options matching the category.
-   */
+  // Filters the master customization options list to find options for a specific category.
   const getCustomizationsByCategory = (category) => {
     return customizationOptions.filter(option => option.category === category);
   };
 
-  /**
-   * Opens the customization modal for a specific drink.
-   * @param {object} drink - The drink item to be customized.
-   */
+  // Opens the customization modal for a specific drink.
   const openCustomization = (drink) => {
     setSelectedDrink(drink);
     // Reset customizations for the new drink
@@ -127,10 +118,7 @@ function BobaCashier({ onBack }) {
     setCustomizationModal(true);
   };
 
-  /**
-   * Calculates the total price of all currently selected customizations in the modal.
-   * @returns {number} - The total price of customizations.
-   */
+  // Calculates the total price of all currently selected customizations in the modal.
   const calculateCustomizationPrice = () => {
     let total = 0;
     if (selectedCustomizations.iceLevel) total += parseFloat(selectedCustomizations.iceLevel.price);
@@ -141,14 +129,11 @@ function BobaCashier({ onBack }) {
     return total;
   };
 
-  /**
-   * Adds the currently customized drink from the modal to the cart.
-   * Resets modal state and closes the modal.
-   */
+  // Adds the currently customized drink from the modal to the cart.
   const addToCart = () => {
     const customizationPrice = calculateCustomizationPrice();
     const totalPrice = parseFloat(selectedDrink.base_price) + customizationPrice;
-    
+
     setCart([...cart, {
       ...selectedDrink,
       cartId: Date.now(), // Unique ID for cart item removal
@@ -156,7 +141,7 @@ function BobaCashier({ onBack }) {
       customizationPrice,
       totalPrice: totalPrice.toFixed(2)
     }]);
-    
+
     // Reset and close modal
     setCustomizationModal(false);
     setSelectedDrink(null);
@@ -167,17 +152,12 @@ function BobaCashier({ onBack }) {
     });
   };
 
-  /**
-   * Removes an item from the cart.
-   * @param {number} cartId - The unique ID of the cart item to remove.
-   */
+  // Removes an item from the cart.
   const removeFromCart = (cartId) => {
     setCart(cart.filter(item => item.cartId !== cartId));
   };
 
-  /**
-   * Clears all items from the cart and resets payment selection.
-   */
+  // Clears all items from the cart and resets payment selection.
   const clearCart = () => {
     setCart([]);
     setSelectedPaymentType(null);
@@ -186,18 +166,12 @@ function BobaCashier({ onBack }) {
 
   // --- Cart Total Calculation Functions ---
 
-  /**
-   * Calculates the subtotal of all items in the cart.
-   * @returns {number} - The cart subtotal.
-   */
+  // Calculates the subtotal of all items in the cart.
   const getSubtotal = () => {
     return cart.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
   };
 
-  /**
-   * Calculates the service charge. Only applied if payment type is 'Card'.
-   * @returns {number} - The calculated service charge.
-   */
+  // Calculates the service charge. Only applied if payment type is 'Card'.
   const getServiceCharge = () => {
     if (selectedPaymentType === 'Card') {
       return getSubtotal() * SERVICE_CHARGE_RATE;
@@ -205,50 +179,36 @@ function BobaCashier({ onBack }) {
     return 0.0;
   };
 
-  /**
-   * Calculates the tax based on subtotal and service charge.
-   * @returns {number} - The calculated tax.
-   */
+  // Calculates the tax based on subtotal and service charge.
   const getTax = () => {
     // Tax is calculated on subtotal + service charge
     return (getSubtotal() + getServiceCharge()) * TAX_RATE;
   };
 
-  /**
-   * Calculates the final total (subtotal + service charge + tax).
-   * @returns {number} - The final total.
-   */
+  // Calculates the final total (subtotal + service charge + tax).
   const getTotal = () => {
     return getSubtotal() + getServiceCharge() + getTax();
   };
 
   // --- Payment and Transaction Functions ---
 
-  /**
-   * Sets the payment type to 'Cash'.
-   */
+  // Sets the payment type to 'Cash'.
   const handleCashPayment = () => {
     setSelectedPaymentType('Cash');
     setTransactionMessage('');
   };
 
-  /**
-   * Sets the payment type to 'Card'.
-   */
+  // Sets the payment type to 'Card'.
   const handleCardPayment = () => {
     setSelectedPaymentType('Card');
     setTransactionMessage('');
   };
 
-  /**
-   * Handles the final transaction submission.
-   * 1. Validates the cart and payment type.
-   * 2. Creates a new order in the 'orders' table.
-   * 3. Groups cart items and creates entries in the 'order_items' table.
-   * 4. Clears the cart and displays a success message.
-   * 5. Fetches the next order number for the next transaction.
-   */
- const completeTransaction = async () => {
+  /*
+    Handles the final transaction submission.
+    Validates cart, creates order, and resets state.
+  */
+  const completeTransaction = async () => {
     // 1. Validation checks
     if (cart.length === 0) {
       setTransactionMessage('Add items to cart');
@@ -280,7 +240,7 @@ function BobaCashier({ onBack }) {
 
       // Format the items array for the API
       const formattedItems = [];
-      
+
       for (const [menuItemKey, itemData] of Object.entries(itemQuantities)) {
         // Collect all customization option IDs into a flat array
         const allCustomizationIds = [];
@@ -293,7 +253,7 @@ function BobaCashier({ onBack }) {
         formattedItems.push({
           menu_item: itemData.menuItemId,
           quantity: itemData.quantity,
-          customizations: allCustomizationIds 
+          customizations: allCustomizationIds
         });
       }
 
@@ -301,7 +261,7 @@ function BobaCashier({ onBack }) {
       // Now we include 'items' inside the main order object
       const orderData = {
         payment_type: selectedPaymentType,
-        employee: 1, 
+        employee: 1,
         customer: null,
         items: formattedItems // <--- This is the missing field the error complained about
       };
@@ -325,10 +285,10 @@ function BobaCashier({ onBack }) {
 
       // 5. SUCCESS STATE HANDLING
       // (We no longer need the second loop for ORDER_ITEMS_URL because the backend handled it)
-      
+
       const finalTotal = getTotal();
       setTransactionMessage(`Transaction Complete - Order #${order.id} - Total: $${finalTotal.toFixed(2)}`);
-      
+
       setCart([]);
       setSelectedPaymentType(null);
 
@@ -345,10 +305,7 @@ function BobaCashier({ onBack }) {
     }
   };
 
-  /**
-   * Toggles the selection of a topping in the customization modal.
-   * @param {object} topping - The topping object to add or remove.
-   */
+  // Toggles the selection of a topping in the customization modal.
   const toggleTopping = (topping) => {
     const isSelected = selectedCustomizations.toppings.some(t => t.id === topping.id);
     if (isSelected) {
@@ -366,9 +323,7 @@ function BobaCashier({ onBack }) {
     }
   };
 
-  /**
-   * Calls the onBack prop to exit the cashier view.
-   */
+  // Calls the onBack prop to exit the cashier view.
   const handleLogout = () => {
     if (onBack) {
       onBack();
@@ -378,8 +333,8 @@ function BobaCashier({ onBack }) {
   // --- Weather API Effect and Helper ---
 
   // Fetches weather data on component mount
-   useEffect(() => {
-    fetch( 
+  useEffect(() => {
+    fetch(
       // Fetches weather for College Station, TX
       "https://api.openweathermap.org/data/2.5/weather?lat=30.621703&lon=-96.340494&appid=" + import.meta.env.VITE_WEATHER_API + "&units=imperial"
     )
@@ -391,11 +346,7 @@ function BobaCashier({ onBack }) {
       .catch((error) => console.error("Error fetching weather:", error));
   }, []);
 
-  /**
-   * Converts a weather description string into an emoji.
-   * @param {string} desc - The weather description (e.g., "clear sky").
-   * @returns {string} - A corresponding emoji.
-   */
+  // Converts a weather description string into an emoji.
   const getWeatherEmoji = (desc) => {
     if (desc === "clear sky") return "☀️";
     if (desc === "few clouds") return "⛅";
@@ -435,7 +386,7 @@ function BobaCashier({ onBack }) {
           </div>
 
           {/* Logout Button */}
-          <button 
+          <button
             onClick={handleLogout}
             className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700"
           >
@@ -447,7 +398,7 @@ function BobaCashier({ onBack }) {
 
       {/* Main 3-Column Layout */}
       <div className="grid grid-cols-12 gap-4 h-[calc(100vh-120px)]">
-        
+
         {/* Column 1: Categories Sidebar */}
         <div className="col-span-2 bg-white rounded-lg shadow-lg p-4 overflow-y-auto">
           <h2 className="text-xl font-bold text-amber-900 mb-4">Categories</h2>
@@ -456,11 +407,10 @@ function BobaCashier({ onBack }) {
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors ${
-                  selectedCategory === category
-                    ? 'bg-amber-600 text-white'
-                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                }`}
+                className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors ${selectedCategory === category
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                  }`}
               >
                 {category}
               </button>
@@ -581,11 +531,10 @@ function BobaCashier({ onBack }) {
 
           {/* Transaction Message Area */}
           {transactionMessage && (
-            <div className={`mt-4 p-3 rounded-lg text-center font-bold ${
-              transactionMessage.includes('Complete') 
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-red-100 text-red-800'
-            }`}>
+            <div className={`mt-4 p-3 rounded-lg text-center font-bold ${transactionMessage.includes('Complete')
+              ? 'bg-green-100 text-green-800'
+              : 'bg-red-100 text-red-800'
+              }`}>
               {transactionMessage}
             </div>
           )}
@@ -594,21 +543,19 @@ function BobaCashier({ onBack }) {
           <div className="grid grid-cols-2 gap-2 mt-4">
             <button
               onClick={handleCashPayment}
-              className={`py-3 rounded-lg font-bold transition-colors ${
-                selectedPaymentType === 'Cash'
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-              }`}
+              className={`py-3 rounded-lg font-bold transition-colors ${selectedPaymentType === 'Cash'
+                ? 'bg-amber-600 text-white'
+                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                }`}
             >
               Cash
             </button>
             <button
               onClick={handleCardPayment}
-              className={`py-3 rounded-lg font-bold transition-colors ${
-                selectedPaymentType === 'Card'
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-              }`}
+              className={`py-3 rounded-lg font-bold transition-colors ${selectedPaymentType === 'Card'
+                ? 'bg-amber-600 text-white'
+                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                }`}
             >
               Card
             </button>
@@ -645,11 +592,10 @@ function BobaCashier({ onBack }) {
                     <button
                       key={ice.id}
                       onClick={() => setSelectedCustomizations({ ...selectedCustomizations, iceLevel: ice })}
-                      className={`px-4 py-3 rounded-lg font-semibold transition-all ${
-                        selectedCustomizations.iceLevel?.id === ice.id
-                          ? 'bg-amber-600 text-white'
-                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                      }`}
+                      className={`px-4 py-3 rounded-lg font-semibold transition-all ${selectedCustomizations.iceLevel?.id === ice.id
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                        }`}
                     >
                       {ice.name}
                     </button>
@@ -665,11 +611,10 @@ function BobaCashier({ onBack }) {
                     <button
                       key={sweet.id}
                       onClick={() => setSelectedCustomizations({ ...selectedCustomizations, sweetnessLevel: sweet })}
-                      className={`px-4 py-3 rounded-lg font-semibold transition-all ${
-                        selectedCustomizations.sweetnessLevel?.id === sweet.id
-                          ? 'bg-amber-600 text-white'
-                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                      }`}
+                      className={`px-4 py-3 rounded-lg font-semibold transition-all ${selectedCustomizations.sweetnessLevel?.id === sweet.id
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                        }`}
                     >
                       {sweet.name}
                     </button>
@@ -687,11 +632,10 @@ function BobaCashier({ onBack }) {
                       <button
                         key={topping.id}
                         onClick={() => toggleTopping(topping)}
-                        className={`px-4 py-3 rounded-lg font-semibold transition-all text-left ${
-                          isSelected
-                            ? 'bg-amber-600 text-white'
-                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                        }`}
+                        className={`px-4 py-3 rounded-lg font-semibold transition-all text-left ${isSelected
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                          }`}
                       >
                         <div>{topping.name}</div>
                         <div className="text-sm">+${parseFloat(topping.price).toFixed(2)}</div>

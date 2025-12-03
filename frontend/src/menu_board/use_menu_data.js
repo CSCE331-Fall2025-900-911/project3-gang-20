@@ -1,6 +1,13 @@
+/*
+  File: use_menu_data.js
+  Description: Custom hook for fetching and managing menu data.
+  Handles polling, error states, and data transformation for the menu board.
+  Includes fallback data for offline or error scenarios.
+*/
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-const MENU_ENDPOINT = 'https://project3-gang-20.onrender.com/api/menu-items/';
+const MENU_ENDPOINT = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
 const POLL_DEFAULT = 30_000;
 
 export const FALLBACK_DATA = {
@@ -136,10 +143,7 @@ function mapMenu(items) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/**
- * Hook to fetch and poll menu data.
- * Handles data transformation and error states.
- */
+// Hook to fetch and poll menu data. Handles data transformation and error states.
 export function useMenuData(pollMs = POLL_DEFAULT) {
   const [data, setData] = useState(FALLBACK_DATA);
   const [isLoading, setIsLoading] = useState(true);
@@ -154,7 +158,7 @@ export function useMenuData(pollMs = POLL_DEFAULT) {
     try {
       const [menuResponse, addonsResponse] = await Promise.all([
         fetch(MENU_ENDPOINT, { signal: controller.signal }),
-        fetch('https://project3-gang-20.onrender.com/api/customization-options/', { signal: controller.signal })
+        fetch('https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/', { signal: controller.signal })
       ]);
 
       if (!menuResponse.ok || !addonsResponse.ok) {

@@ -1,13 +1,5 @@
-/*
-  File: boba_kiosk.jsx
-  Description: The self-service kiosk application for customers.
-  Features a high-contrast accessibility mode, multi-language support via Google Translate,
-  and a complete ordering flow from menu selection to payment with Loyalty Points integration.
-*/
-
 import { useState, useEffect, createContext, useContext } from 'react';
-import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star } from 'lucide-react';
-import { useUser } from '@clerk/clerk-react';
+import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus } from 'lucide-react';
 
 // --- Accessibility Context & Theme ---
 
@@ -327,10 +319,6 @@ const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/a
 
 const TAX_RATE = 0.0825; // 8.25% sales tax
 const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
-const POINTS_RATE = 10; // 10 points per $1
-
-
-
 
 // Helper to format recipe ingredients for display
 const getDrinkDescription = (drink) => {
@@ -370,38 +358,6 @@ const getDrinkDescription = (drink) => {
 */
 function BobaKioskContent({ onBack }) {
   const { theme, highContrast } = useAccessibility();
-
-
-  const { user, isSignedIn } = useUser();
-  const [dbCustomer, setDbCustomer] = useState(null);
-
-  // FIX: Added safety checks for email to prevent "Cannot read properties of null" error
-  useEffect(() => {
-      const fetchCustomer = async () => {
-          if (isSignedIn && user) {
-              try {
-                  const response = await fetch(CUSTOMERS_URL);
-                  const customers = await response.json();
-                  
-                  const foundCustomer = customers.find(c => 
-                    // Safely check if customer email exists AND user email exists before comparing
-                    c.email && 
-                    user.primaryEmailAddress?.emailAddress && 
-                    c.email.toLowerCase() === user.primaryEmailAddress.emailAddress.toLowerCase()
-                  );
-                  
-                  if (foundCustomer) {
-                      setDbCustomer(foundCustomer);
-                      console.log("Customer Matched:", foundCustomer);
-                  }
-              } catch (err) {
-                  console.error("Error fetching customer:", err);
-              }
-          }
-      };
-      fetchCustomer();
-  }, [isSignedIn, user]);
-
 
   // Initialize Google Translate
   useEffect(() => {
@@ -588,7 +544,7 @@ function BobaKioskContent({ onBack }) {
 
       const orderData = {
         payment_type: selectedPaymentType,
-        customer: dbCustomer ? dbCustomer.id : null, 
+        customer: null,
         employee: null,
         items: itemsPayload
       };
@@ -821,6 +777,7 @@ function BobaKioskContent({ onBack }) {
                       ${parseFloat(drink.base_price).toFixed(2)}
                     </span>
                   </div>
+
                   <p style={{ fontSize: '0.95em', color: theme.textSecondary, lineHeight: '1.5', flex: 1 }}>
                     {getDrinkDescription(drink)}
                   </p>

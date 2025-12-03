@@ -50,15 +50,12 @@ class MenuCategoryAdmin(admin.ModelAdmin):
 @admin.register(MenuItem)
 class MenuItemAdmin(admin.ModelAdmin):
     """Admin view for Menu Items."""
-    # Add 'image_tag' to your list_display
     list_display = ('name', 'category', 'base_price', 'image_tag') 
     list_filter = ('category',)
     search_fields = ('name',)
     inlines = [RecipeItemInline]
     autocomplete_fields = ('category',)
-    
-    # Add this to see the image in the admin list view
-    readonly_fields = ('image_tag',) # Also show in detail view
+    readonly_fields = ('image_tag',)
 
     @admin.display(description='Image')
     def image_tag(self, obj):
@@ -80,10 +77,10 @@ class OrderAdmin(admin.ModelAdmin):
 @admin.register(CustomizationOption)
 class CustomizationOptionAdmin(admin.ModelAdmin):
     """Admin view for Customization Options."""
-    list_display = ('name', 'category', 'price', 'quantity') # Removed 'unit'
+    list_display = ('name', 'category', 'price', 'quantity')
     list_filter = ('category',)
     search_fields = ('name',)
-    autocomplete_fields = ('category', 'ingredient') # Removed 'unit'
+    autocomplete_fields = ('category', 'ingredient')
 
 @admin.register(CustomizationCategory)
 class CustomizationCategoryAdmin(admin.ModelAdmin):
