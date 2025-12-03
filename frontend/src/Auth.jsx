@@ -1,270 +1,178 @@
 /*
   File: Auth.jsx
-  Description: Authentication components for the application using Clerk.
-  Contains custom Sign In and Sign Up forms with error handling and session management.
+  Description: Shared authentication components (Sign In / Sign Up).
+  Includes custom logic for:
+  1. Phone Number requirement & validation.
+  2. Automatic syncing of new users to your backend Database (PostgreSQL/API).
+  3. "Amber" styling to match your brand.
 */
 
-import { useState, useEffect } from 'react';
-import { useSignIn, useSignUp, useClerk } from '@clerk/clerk-react';
+import { useState } from 'react';
+import { useSignIn, useSignUp } from '@clerk/clerk-react';
+import { Phone, Mail, Lock, User as UserIcon, X } from 'lucide-react';
 
-// Compact Login Button Component. A small, styled button used for triggering the login modal.
-export function CompactLoginButton({ onClick }) {
-  return (
+// --- Configuration ---
+const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
+
+// --- Helpers ---
+const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).toLowerCase());
+const validatePhone = (phone) => phone.replace(/\D/g, '').length === 10;
+
+// --- Shared UI Components ---
+const InputField = ({ icon: Icon, error, ...props }) => (
+    <div style={{ position: 'relative', marginBottom: error ? '8px' : '16px' }}>
+        <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#d97706' }}>
+            <Icon size={20} />
+        </div>
+        <input
+            {...props}
+            style={{
+                width: '100%', padding: '12px 16px 12px 48px', borderRadius: '12px',
+                border: error ? '2px solid #dc2626' : '2px solid #fed7aa',
+                fontSize: '1rem', outline: 'none', backgroundColor: '#fffbeb', color: '#78350f'
+            }}
+            onFocus={(e) => !error && (e.target.style.borderColor = '#d97706')}
+            onBlur={(e) => !error && (e.target.style.borderColor = '#fed7aa')}
+        />
+        {error && <div style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '4px', marginLeft: '4px' }}>{error}</div>}
+    </div>
+);
+
+const AuthButton = ({ children, onClick, isLoading }) => (
     <button
-      onClick={onClick}
-      style={{
-        backgroundColor: '#d97706',
-        color: 'white',
-        borderRadius: '8px',
-        padding: '8px 16px',
-        border: 'none',
-        cursor: 'pointer',
-        fontSize: '0.9em',
-        fontWeight: 'bold',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px'
-      }}
+        onClick={onClick}
+        disabled={isLoading}
+        style={{
+            width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
+            backgroundColor: '#d97706', color: 'white', fontSize: '1.1rem', fontWeight: 'bold',
+            cursor: isLoading ? 'wait' : 'pointer', marginTop: '8px', opacity: isLoading ? 0.7 : 1
+        }}
     >
-      <span>🔓</span>
-      <span>Sign In for Rewards</span>
+        {isLoading ? 'Processing...' : children}
     </button>
-  );
+);
+
+// --- Shared Sign In Component ---
+export function CustomSignIn({ onSuccess, onClose }) {
+    const { signIn, setActive, isLoaded } = useSignIn();
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(false);
+
+    const handleSignIn = async (e) => {
+        e.preventDefault();
+        if (!isLoaded) return;
+        setLoading(true); setError(null);
+
+        try {
+            const result = await signIn.create({ identifier: email, password });
+            if (result.status === "complete") {
+                await setActive({ session: result.createdSessionId });
+                if(onSuccess) onSuccess();
+            }
+        } catch (err) {
+            setError(err.errors?.[0]?.longMessage || "Login failed");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div style={{ padding: '32px', background: 'white', borderRadius: '24px', width: '100%', maxWidth: '400px', position: 'relative' }}>
+            {onClose && (
+                <button onClick={onClose} style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', cursor: 'pointer', color: '#78350f' }}>
+                    <X size={24} />
+                </button>
+            )}
+            <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#78350f', marginBottom: '24px', textAlign: 'center' }}>Welcome Back</h2>
+            <form onSubmit={handleSignIn}>
+                <InputField type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} icon={Mail} required />
+                <InputField type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} icon={Lock} required />
+                {error && <p style={{ color: '#dc2626', marginBottom: '16px', textAlign: 'center' }}>{error}</p>}
+                <AuthButton isLoading={loading} onClick={handleSignIn}>Log In</AuthButton>
+            </form>
+        </div>
+    );
 }
 
-// Custom Sign In Component. Handles user authentication via email and password.
-export function CustomSignIn({ onSuccess, onSwitchToSignUp }) {
-  const { signIn, setActive, isLoaded } = useSignIn();
+// --- Shared Sign Up Component (Includes DB Sync) ---
+export function CustomSignUp({ onSuccess, onClose }) {
+    const { signUp, setActive, isLoaded } = useSignUp();
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
+    const [phone, setPhone] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [loading, setLoading] = useState(false);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+    const handleSignUp = async (e) => {
+        e.preventDefault();
+        if (!isLoaded) return;
+        setLoading(true); setFieldErrors({});
 
-  const handleSubmit = async () => {
-    if (!isLoaded || !email || !password) return;
-
-    setError('');
-    setLoading(true);
-
-    try {
-      const result = await signIn.create({
-        identifier: email,
-        password,
-      });
-
-      if (result.status === 'complete') {
-        // Activate the session and wait for it to complete
-        await setActive({ session: result.createdSessionId });
-
-        // Wait longer to ensure Clerk provider fully updates
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Call success callback
-        if (onSuccess) {
-          onSuccess();
+        // 1. Validate
+        const errors = {};
+        if (!firstName.trim()) errors.firstName = "Required";
+        if (!lastName.trim()) errors.lastName = "Required";
+        if (!validateEmail(email)) errors.email = "Invalid email";
+        if (!validatePhone(phone)) errors.phone = "Invalid phone (10 digits)";
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors); setLoading(false); return;
         }
-      } else {
-        // Handle other statuses
-        console.error("Sign in status:", result.status);
-        if (result.status === 'needs_identifier_verification') {
-          setError("Account exists but email is not verified.");
-        } else if (result.status === 'needs_second_factor') {
-          setError("2FA is required for this account.");
-        } else {
-          setError(`Login failed. Status: ${result.status}`);
+
+        try {
+            // 2. Create Clerk User
+            const result = await signUp.create({ firstName, lastName, emailAddress: email, password });
+
+            if (result.status === "complete") {
+                await setActive({ session: result.createdSessionId });
+
+                // 3. Create Backend DB Record
+                try {
+                    await fetch(CUSTOMERS_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            first_name: firstName,
+                            last_name: lastName,
+                            email: email.toLowerCase().trim(),
+                            phone: phone.replace(/\D/g, ''),
+                            joined_date: new Date().toISOString().split('T')[0]
+                        })
+                    });
+                } catch (dbError) {
+                    console.error("DB Sync Error:", dbError);
+                }
+                if(onSuccess) onSuccess();
+            }
+        } catch (err) {
+            setFieldErrors({ general: err.errors?.[0]?.longMessage || "Sign up failed" });
+        } finally {
+            setLoading(false);
         }
-      }
-    } catch (err) {
-      console.error(err);
-      setError(err.errors?.[0]?.message || 'Sign in failed');
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  return (
-    <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full">
-      <h2 className="text-3xl font-bold text-amber-900 mb-6 text-center">Sign In</h2>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-          {error}
+    return (
+        <div style={{ padding: '32px', background: 'white', borderRadius: '24px', width: '100%', maxWidth: '400px', position: 'relative' }}>
+            {onClose && (
+                <button onClick={onClose} style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', cursor: 'pointer', color: '#78350f' }}>
+                    <X size={24} />
+                </button>
+            )}
+            <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#78350f', marginBottom: '24px', textAlign: 'center' }}>Create Account</h2>
+            <form onSubmit={handleSignUp}>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <InputField type="text" placeholder="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} icon={UserIcon} error={fieldErrors.firstName} />
+                    <InputField type="text" placeholder="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} icon={UserIcon} error={fieldErrors.lastName} />
+                </div>
+                <InputField type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} icon={Mail} error={fieldErrors.email} />
+                <InputField type="tel" placeholder="Phone (10 digits)" value={phone} onChange={(e) => setPhone(e.target.value)} icon={Phone} maxLength="14" error={fieldErrors.phone} />
+                <InputField type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} icon={Lock} required />
+                {fieldErrors.general && <p style={{ color: '#dc2626', marginBottom: '16px', textAlign: 'center' }}>{fieldErrors.general}</p>}
+                <AuthButton isLoading={loading} onClick={handleSignUp}>Sign Up</AuthButton>
+            </form>
         </div>
-      )}
-
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-amber-900 mb-2">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
-            className="w-full px-4 py-2 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-amber-900 mb-2">Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
-            className="w-full px-4 py-2 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-          />
-        </div>
-
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="w-full bg-amber-500 text-white py-3 rounded-lg font-semibold hover:bg-amber-600 transition-colors disabled:opacity-50"
-        >
-          {loading ? 'Signing in...' : 'Sign In'}
-        </button>
-      </div>
-
-      <div className="mt-6 text-center">
-        <button
-          onClick={onSwitchToSignUp}
-          className="text-amber-600 hover:text-amber-700 font-medium"
-        >
-          Don't have an account? Sign up
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// Custom Sign Up Component. Handles new user registration and session activation.
-export function CustomSignUp({ onSuccess, onSwitchToSignIn }) {
-  const { isLoaded, signUp, setActive } = useSignUp();
-
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async () => {
-    if (!isLoaded) return;
-
-    setError('');
-    setLoading(true);
-
-    try {
-      const result = await signUp.create({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        emailAddress: email.trim(),
-        password,
-      });
-
-      // Check if email verification is required
-      if (result.status === 'complete') {
-        // No verification needed - activate session immediately
-        await setActive({ session: result.createdSessionId });
-
-        // Wait longer to ensure provider fully updates
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Call success callback
-        if (onSuccess) {
-          onSuccess();
-        }
-      } else if (result.status === 'missing_requirements') {
-        // Email verification required - show message
-        setError("Please check your email to verify your account, then sign in.");
-        setTimeout(() => {
-          onSwitchToSignIn?.();
-        }, 3000);
-      } else {
-        // Other status
-        console.log("Signup status:", result.status);
-        setError(`Signup completed with status: ${result.status}. Please try signing in.`);
-        setTimeout(() => {
-          onSwitchToSignIn?.();
-        }, 3000);
-      }
-
-    } catch (err) {
-      console.error(err);
-      const msg = err.errors?.[0]?.message || "Sign up failed. Please try again.";
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full">
-      <h2 className="text-3xl font-bold text-amber-900 mb-6 text-center">Sign Up</h2>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-          {error}
-        </div>
-      )}
-
-      <div className="space-y-4">
-        <div className="flex gap-4">
-          <div className="w-1/2">
-            <input
-              type="text"
-              placeholder="First Name"
-              className="w-full px-4 py-2 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-            />
-          </div>
-          <div className="w-1/2">
-            <input
-              type="text"
-              placeholder="Last Name"
-              className="w-full px-4 py-2 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <input
-          type="email"
-          placeholder="Email Address"
-          className="w-full px-4 py-2 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-
-        <input
-          type="password"
-          placeholder="Password (min. 8 chars)"
-          className="w-full px-4 py-2 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="w-full bg-amber-500 text-white py-3 rounded-lg font-semibold hover:bg-amber-600 transition-colors disabled:opacity-50"
-        >
-          {loading ? "Creating Account..." : "Sign Up"}
-        </button>
-      </div>
-
-      <div className="mt-6 text-center">
-        <button
-          onClick={onSwitchToSignIn}
-          className="text-amber-600 hover:text-amber-700 font-medium"
-        >
-          Already have an account? Sign In
-        </button>
-      </div>
-    </div>
-  );
+    );
 }
