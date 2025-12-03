@@ -361,14 +361,13 @@ function LandingPage({ onNavigate }) {
                         <Coffee size={24} />
                     </div>
                     <span style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.5px' }}>
-                        Share<span style={{ color: theme.primary }}>Tea</span>
+                        Boba<span style={{ color: theme.primary }}>Spot</span>
                     </span>
                 </div>
 
                 <div className="hidden md:flex" style={{ gap: '32px', fontWeight: '600', alignItems: 'center' }}>
                     <button onClick={() => onNavigate('home')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Home</button>
                     <button onClick={() => onNavigate('menu_board')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Menu</button>
-                    <button style={{ background: 'none', border: 'none', color: theme.text, cursor: 'not-allowed', opacity: 0.5, fontSize: '1rem', fontWeight: '600' }}>Our Story</button>
                 </div>
 
                 <div style={{ display: 'flex', gap: '16px' }}>
@@ -485,7 +484,7 @@ function LandingPage({ onNavigate }) {
             </section>
 
             <footer style={{ background: '#78350f', color: 'white', padding: '60px 20px 30px', borderTop: '5px solid #d97706' }}>
-                <div style={{ textAlign: 'center', opacity: 0.8 }}>© 2025 ShareTea Kiosk System. All rights reserved.</div>
+                <div style={{ textAlign: 'center', opacity: 0.8 }}>Group 20 CSCE-331-902</div>
             </footer>
 
             {/* --- Auth Modal Overlay --- */}
@@ -513,7 +512,6 @@ function LandingPage({ onNavigate }) {
 
             {/* CSS Animation for floating elements and modal */}
             <style>{`
-                @keyframes float { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-20px) rotate(5deg); } 100% { transform: translateY(0px) rotate(0deg); } }
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
                 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
             `}</style>
