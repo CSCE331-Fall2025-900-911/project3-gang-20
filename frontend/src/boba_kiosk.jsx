@@ -1,5 +1,13 @@
+/*
+  File: boba_kiosk.jsx
+  Description: The self-service kiosk application for customers.
+  Features a high-contrast accessibility mode, multi-language support via Google Translate,
+  and a complete ordering flow from menu selection to payment with Loyalty Points integration.
+*/
+
 import { useState, useEffect, createContext, useContext } from 'react';
-import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus } from 'lucide-react';
+import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star } from 'lucide-react';
+import { useUser } from '@clerk/clerk-react';
 
 // --- Accessibility Context & Theme ---
 
@@ -36,42 +44,136 @@ const THEMES = {
   }
 };
 
-/**
- * Provider for global accessibility settings (font size, contrast).
- */
+/*
+  Provider for global accessibility settings.
+  Manages font size scaling and high contrast mode preferences, persisting them to localStorage.
+*/
 function AccessibilityProvider({ children }) {
-  const [fontSize, setFontSize] = useState(() => {
-    return parseFloat(localStorage.getItem('kioskFontSize')) || 1.0;
-  });
-  const [highContrast, setHighContrast] = useState(() => {
-    return localStorage.getItem('kioskHighContrast') === 'true';
-  });
+  const [fontSize, setFontSize] = useState(() => parseFloat(localStorage.getItem('kioskFontSize')) || 1.0);
+  const [highContrast, setHighContrast] = useState(() => localStorage.getItem('kioskHighContrast') === 'true');
+  const [ttsEnabled, setTtsEnabled] = useState(() => localStorage.getItem('kioskTtsEnabled') === 'true');
+  
+  // New: Store available voices
+  const [availableVoices, setAvailableVoices] = useState([]);
 
   useEffect(() => {
     localStorage.setItem('kioskFontSize', fontSize);
     localStorage.setItem('kioskHighContrast', highContrast);
-  }, [fontSize, highContrast]);
+    localStorage.setItem('kioskTtsEnabled', ttsEnabled);
+  }, [fontSize, highContrast, ttsEnabled]);
+
+  // --- 1. Load Voices Properly ---
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) setAvailableVoices(voices);
+    };
+  
+    // Retry loading voices for 1 second
+    let intervalId = setInterval(() => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        setAvailableVoices(voices);
+        clearInterval(intervalId);
+      }
+    }, 200);
+  
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  
+    return () => clearInterval(intervalId);
+  }, []);
+  
+
+  const [ttsReady, setTtsReady] = useState(false);
+
+  useEffect(() => {
+    const enableAudio = () => setTtsReady(true);
+    window.addEventListener("click", enableAudio, { once: true });
+  }, []);
+
+
+  // --- 2. TTS Logic (Fixed Dependencies) ---
+  useEffect(() => {
+    if (!ttsEnabled || !ttsReady) return;
+
+    let timer;
+
+    const handleMouseOver = (e) => {
+      clearTimeout(timer);
+
+      const target = e.target;
+      
+      // 1. Filter containers
+      if (target.childElementCount > 3) return;
+
+      // 2. Get text
+      let textToRead = target.getAttribute('aria-label') || target.innerText;
+
+      // 3. Clean text
+      if (!textToRead) return;
+      textToRead = textToRead.replace(/\s+/g, ' ').trim();
+      if (textToRead.length === 0) return;
+
+      // 4. Tag check
+      const relevantTags = ['BUTTON', 'H1', 'H2', 'H3', 'P', 'SPAN', 'A', 'LI', 'DIV'];
+      if (!relevantTags.includes(target.tagName)) return;
+      
+      // 5. Length check
+      if (target.tagName === 'DIV' && textToRead.length > 60) return;
+
+      timer = setTimeout(() => {
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(textToRead);
+
+        if (availableVoices.length > 0) {
+          const preferredVoice =
+            availableVoices.find(v => v.lang.includes('en-US')) ||
+            availableVoices.find(v => v.lang.includes('en'));
+          if (preferredVoice) utterance.voice = preferredVoice;
+        }
+
+        utterance.rate = 1.0;
+        utterance.volume = 1.0;
+
+        // Prevent Garbage Collection bug
+        window.utteranceReference = utterance;
+        utterance.onend = () => { window.utteranceReference = null; };
+
+        window.speechSynthesis.speak(utterance);
+      }, 400);
+    };
+
+    const handleMouseLeave = () => {
+      clearTimeout(timer);
+      // We do not cancel here to prevent audio cutting out too aggressively
+    };
+
+    document.addEventListener('mouseover', handleMouseOver);
+    document.addEventListener('mouseout', handleMouseLeave);
+    
+    return () => {
+      document.removeEventListener('mouseover', handleMouseOver);
+      document.removeEventListener('mouseout', handleMouseLeave);
+      clearTimeout(timer);
+      window.speechSynthesis.cancel();
+    };
+  // FIX: Watch .length instead of the array object to prevent dependency size errors
+  }, [ttsEnabled, ttsReady, availableVoices.length]);
 
   const increaseFontSize = () => setFontSize(prev => Math.min(prev + 0.25, 1.5));
   const decreaseFontSize = () => setFontSize(prev => Math.max(prev - 0.25, 1.0));
   const toggleContrast = () => setHighContrast(prev => !prev);
+  const toggleTts = () => setTtsEnabled(prev => !prev);
 
   const theme = highContrast ? THEMES.highContrast : THEMES.normal;
 
   return (
     <AccessibilityContext.Provider value={{
-      fontSize,
-      highContrast,
-      theme,
-      increaseFontSize,
-      decreaseFontSize,
-      toggleContrast
+      fontSize, highContrast, theme, ttsEnabled,
+      increaseFontSize, decreaseFontSize, toggleContrast, toggleTts
     }}>
-      <div style={{
-        fontSize: `${fontSize}rem`,
-        lineHeight: 1.5,
-        transition: 'all 0.2s ease'
-      }}>
+      <div style={{ fontSize: `${fontSize}rem`, lineHeight: 1.5, transition: 'all 0.2s ease' }}>
         {children}
       </div>
     </AccessibilityContext.Provider>
@@ -84,9 +186,10 @@ function useAccessibility() {
 
 // --- Reusable Components ---
 
-/**
- * Accessible button component with theme support.
- */
+/*
+  Accessible button component with theme support.
+  Automatically adjusts padding based on font size and handles high contrast styling.
+*/
 function KioskButton({ onClick, children, variant = 'primary', style = {}, disabled = false, ...props }) {
   const { theme, highContrast, fontSize } = useAccessibility();
 
@@ -157,11 +260,17 @@ function KioskButton({ onClick, children, variant = 'primary', style = {}, disab
   );
 }
 
-/**
- * Floating controls for accessibility settings.
- */
 function AccessibilityControls() {
-  const { fontSize, increaseFontSize, decreaseFontSize, toggleContrast, highContrast, theme } = useAccessibility();
+  const { 
+    fontSize, 
+    increaseFontSize, 
+    decreaseFontSize, 
+    toggleContrast, 
+    highContrast, 
+    theme,
+    toggleTts,     // Get new function
+    ttsEnabled     // Get new state
+  } = useAccessibility();
 
   return (
     <div style={{
@@ -186,10 +295,23 @@ function AccessibilityControls() {
         <Plus size={24} />
         <span style={{ fontSize: '1.2em' }}>A</span>
       </KioskButton>
+      
       <div style={{ width: '1px', backgroundColor: '#ccc' }}></div>
+      
       <KioskButton onClick={toggleContrast} aria-label="Toggle high contrast" variant="secondary" style={{ padding: '8px' }}>
         {highContrast ? <Sun size={24} /> : <Moon size={24} />}
         <span>{highContrast ? 'Normal' : 'Contrast'}</span>
+      </KioskButton>
+
+      {/* --- NEW SPEECH BUTTON --- */}
+      <KioskButton 
+        onClick={toggleTts} 
+        aria-label={ttsEnabled ? "Disable Text to Speech" : "Enable Text to Speech"} 
+        variant={ttsEnabled ? 'primary' : 'secondary'} 
+        style={{ padding: '8px' }}
+      >
+        {ttsEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
+        <span>{ttsEnabled ? 'Speech On' : 'Speech Off'}</span>
       </KioskButton>
     </div>
   );
@@ -197,12 +319,18 @@ function AccessibilityControls() {
 
 // --- Main App Logic ---
 
-const MENU_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/menu-items/';
-const ADDONS_ITEMS_URL = 'https://project3-gang-20.onrender.com/api/customization-options/';
-const ORDERS_URL = 'https://project3-gang-20.onrender.com/api/orders/';
+const MENU_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
+const ADDONS_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/';
+const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/orders/';
+const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
+
 
 const TAX_RATE = 0.0825; // 8.25% sales tax
 const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
+const POINTS_RATE = 10; // 10 points per $1
+
+
+
 
 // Helper to format recipe ingredients for display
 const getDrinkDescription = (drink) => {
@@ -236,8 +364,44 @@ const getDrinkDescription = (drink) => {
   return formattedIngredients.join(', ');
 };
 
+/*
+  Main Content Component for the Kiosk.
+  Handles the entire ordering flow: Welcome -> Categories -> Customization -> Checkout -> Payment.
+*/
 function BobaKioskContent({ onBack }) {
   const { theme, highContrast } = useAccessibility();
+
+
+  const { user, isSignedIn } = useUser();
+  const [dbCustomer, setDbCustomer] = useState(null);
+
+  // FIX: Added safety checks for email to prevent "Cannot read properties of null" error
+  useEffect(() => {
+      const fetchCustomer = async () => {
+          if (isSignedIn && user) {
+              try {
+                  const response = await fetch(CUSTOMERS_URL);
+                  const customers = await response.json();
+                  
+                  const foundCustomer = customers.find(c => 
+                    // Safely check if customer email exists AND user email exists before comparing
+                    c.email && 
+                    user.primaryEmailAddress?.emailAddress && 
+                    c.email.toLowerCase() === user.primaryEmailAddress.emailAddress.toLowerCase()
+                  );
+                  
+                  if (foundCustomer) {
+                      setDbCustomer(foundCustomer);
+                      console.log("Customer Matched:", foundCustomer);
+                  }
+              } catch (err) {
+                  console.error("Error fetching customer:", err);
+              }
+          }
+      };
+      fetchCustomer();
+  }, [isSignedIn, user]);
+
 
   // Initialize Google Translate
   useEffect(() => {
@@ -403,6 +567,11 @@ function BobaKioskContent({ onBack }) {
     return ids;
   };
 
+  // NEW Helper: Calculate points earned based on total
+  const getPointsToEarn = () => {
+    return Math.floor(getTotal() * POINTS_RATE);
+  };
+
   const processPayment = async () => {
     if (!selectedPaymentType) {
       alert('Please select a payment method (Cash or Card)');
@@ -419,7 +588,7 @@ function BobaKioskContent({ onBack }) {
 
       const orderData = {
         payment_type: selectedPaymentType,
-        customer: null,
+        customer: dbCustomer ? dbCustomer.id : null, 
         employee: null,
         items: itemsPayload
       };
@@ -437,9 +606,35 @@ function BobaKioskContent({ onBack }) {
 
       const newOrder = await response.json();
       const finalTotal = getTotal();
+      const pointsEarned = getPointsToEarn();
+
+      if (dbCustomer) {
+        const newPointsTotal = (dbCustomer.points || 0) + pointsEarned;
+        
+        const updateResponse = await fetch(`${CUSTOMERS_URL}${dbCustomer.id}/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ points: newPointsTotal })
+        });
+
+        if (updateResponse.ok) {
+          const updatedCustomer = await updateResponse.json();
+          setDbCustomer(updatedCustomer);
+          console.log(`Points updated! Earned: ${pointsEarned}, New Total: ${newPointsTotal}`);
+        } else {
+          console.error("Failed to update points via API");
+        }
+      }
+
       setCart([]);
       setSelectedPaymentType(null);
-      alert(`Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal.toFixed(2)}`);
+      
+      let successMsg = `Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal.toFixed(2)}`;
+      if (dbCustomer) {
+        successMsg += `\n\n🎉 You earned ${pointsEarned} points!`;
+      }
+
+      alert(successMsg);
       setCurrentView('welcome');
 
     } catch (err) {
@@ -550,7 +745,8 @@ function BobaKioskContent({ onBack }) {
             }}>
               {filteredItems.map((drink) => (
                 <button
-                  key={drink.menu_item_id}
+                  // FIX: Changed drink.menu_item_id to drink.id to resolve unique key prop warning
+                  key={drink.id}
                   onClick={() => {
                     setSelectedDrink(drink);
                     setCurrentView('customize');
@@ -559,30 +755,72 @@ function BobaKioskContent({ onBack }) {
                     backgroundColor: theme.cardBg,
                     borderRadius: highContrast ? '0' : '24px',
                     border: theme.border,
-                    padding: '32px',
+                    padding: '24px',
                     boxShadow: theme.shadow,
                     cursor: 'pointer',
                     width: '100%',
                     maxWidth: '350px',
                     transition: 'transform 0.2s',
-                    textAlign: 'left', // Left align for better reading
+                    textAlign: 'left',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px',
-                    minHeight: '220px'
+                    gap: '16px',
+                    minHeight: '320px'
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
                   onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <h3 style={{ fontSize: '1.4em', fontWeight: 'bold', color: theme.text, lineHeight: '1.2' }}>
+                  {/* Image Section */}
+                  <div style={{
+                    width: '100%',
+                    height: '180px',
+                    borderRadius: highContrast ? '0' : '12px',
+                    overflow: 'hidden',
+                    background: 'linear-gradient(155deg, #be2b35 58%, #a8222f 42%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: highContrast ? '2px solid #000' : 'none'
+                  }}>
+                    {drink.image ? (
+                      <img
+                        src={drink.image}
+                        alt={drink.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain'
+                        }}
+                        onError={(e) => {
+                          // fallback on image error
+                          e.target.style.display = 'none';
+                          e.target.parentElement.innerHTML = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: ${theme.textSecondary}; font-size: 3em;">🧋</div>`;
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100%',
+                        color: theme.textSecondary,
+                        fontSize: '3em'
+                      }}>
+                        🧋
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Name and Price */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                    <h3 style={{ fontSize: '1.25em', fontWeight: 'bold', color: theme.text, lineHeight: '1.2', flex: 1 }}>
                       {drink.name}
                     </h3>
-                    <span style={{ fontSize: '1.4em', fontWeight: 'bold', color: theme.primary }}>
+                    <span style={{ fontSize: '1.3em', fontWeight: 'bold', color: theme.primary, whiteSpace: 'nowrap' }}>
                       ${parseFloat(drink.base_price).toFixed(2)}
                     </span>
                   </div>
-
                   <p style={{ fontSize: '0.95em', color: theme.textSecondary, lineHeight: '1.5', flex: 1 }}>
                     {getDrinkDescription(drink)}
                   </p>
@@ -862,9 +1100,18 @@ function BobaKioskContent({ onBack }) {
                   <span style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text }}>
                     Total:
                   </span>
-                  <span style={{ fontSize: '2em', fontWeight: 'bold', color: theme.success }}>
-                    ${getTotal().toFixed(2)}
-                  </span>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '2em', fontWeight: 'bold', color: theme.success }}>
+                      ${getTotal().toFixed(2)}
+                    </div>
+                    {/* Points Earned Display */}
+                    {dbCustomer && (
+                       <div style={{ fontSize: '1rem', color: theme.primary, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', marginTop: '4px' }}>
+                         <Star size={16} fill={theme.primary} />
+                         <span>+{getPointsToEarn()} Points</span>
+                       </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -958,47 +1205,66 @@ function BobaKioskContent({ onBack }) {
       )}
 
       {currentView !== 'welcome' && currentView !== 'checkout' && (
-        <button
-          onClick={() => setCurrentView('checkout')}
-          style={{
-            position: 'fixed',
-            top: '24px',
-            right: '24px',
-            backgroundColor: theme.primary,
-            color: theme.primaryText,
-            borderRadius: '50px', // Pill shape
-            padding: '16px 32px',
-            boxShadow: theme.shadow,
-            border: theme.border,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            zIndex: 50,
-            fontSize: '1.1em',
-            fontWeight: 'bold'
-          }}
-        >
-          <ShoppingCart size={24} />
-          Cart
-          {cart.length > 0 && (
-            <span style={{
-              backgroundColor: 'white',
+        <div style={{ position: 'fixed', top: '24px', right: '24px', display: 'flex', gap: '16px', zIndex: 50 }}>
+          
+          {/* NEW: Points Badge */}
+          {dbCustomer && (
+            <div style={{
+              backgroundColor: theme.cardBg,
               color: theme.primary,
-              borderRadius: '50%',
-              width: '28px',
-              height: '28px',
+              borderRadius: '50px',
+              padding: '16px 24px',
+              boxShadow: theme.shadow,
+              border: theme.border,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.9em',
-              fontWeight: 'bold',
-              marginLeft: '8px'
+              gap: '8px',
+              fontSize: '1.1em',
+              fontWeight: 'bold'
             }}>
-              {cart.length}
-            </span>
+              <Star size={24} fill={theme.primary} />
+              {dbCustomer.points} pts
+            </div>
           )}
-        </button>
+
+          <button
+            onClick={() => setCurrentView('checkout')}
+            style={{
+              backgroundColor: theme.primary,
+              color: theme.primaryText,
+              borderRadius: '50px', // Pill shape
+              padding: '16px 32px',
+              boxShadow: theme.shadow,
+              border: theme.border,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              fontSize: '1.1em',
+              fontWeight: 'bold'
+            }}
+          >
+            <ShoppingCart size={24} />
+            Cart
+            {cart.length > 0 && (
+              <span style={{
+                backgroundColor: 'white',
+                color: theme.primary,
+                borderRadius: '50%',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.9em',
+                fontWeight: 'bold',
+                marginLeft: '8px'
+              }}>
+                {cart.length}
+              </span>
+            )}
+          </button>
+        </div>
       )}
 
       {viewContent}
@@ -1006,6 +1272,10 @@ function BobaKioskContent({ onBack }) {
   );
 }
 
+/*
+  Root Kiosk Component.
+  Wraps the content in the AccessibilityProvider to ensure global access to theme settings.
+*/
 function BobaKiosk(props) {
   return (
     <AccessibilityProvider>
