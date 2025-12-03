@@ -437,9 +437,6 @@ function LandingPage({ onNavigate }) {
 
             {/* --- Hero Section --- */}
             <header style={{ padding: '80px 20px', textAlign: 'center', position: 'relative', maxWidth: '1200px', margin: '0 auto' }}>
-                <div style={{ position: 'absolute', top: '20%', left: '5%', fontSize: '4rem', opacity: 0.2, animation: 'float 6s ease-in-out infinite' }}>🧋</div>
-                <div style={{ position: 'absolute', bottom: '10%', right: '10%', fontSize: '5rem', opacity: 0.2, animation: 'float 8s ease-in-out infinite reverse' }}>✨</div>
-
                 <h1 style={{
                     fontSize: 'clamp(3rem, 8vw, 5rem)',
                     fontWeight: '900',

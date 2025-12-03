@@ -736,7 +736,7 @@ function BobaKioskContent({ onBack }) {
                     height: '180px',
                     borderRadius: highContrast ? '0' : '12px',
                     overflow: 'hidden',
-                    backgroundColor: highContrast ? '#f0f0f0' : '#fef3c7',
+                    background: 'linear-gradient(155deg, #be2b35 58%, #a8222f 42%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
