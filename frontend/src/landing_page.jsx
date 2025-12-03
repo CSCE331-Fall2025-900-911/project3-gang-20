@@ -121,9 +121,9 @@ function CustomSignIn({ onSuccess, onClose }) {
 
     return (
         <div style={{ padding: '32px', background: 'white', borderRadius: '24px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
-            
+
             {/* Close Button (X) */}
-            <button 
+            <button
                 onClick={onClose}
                 aria-label="Close"
                 style={{
@@ -165,14 +165,14 @@ function CustomSignIn({ onSuccess, onClose }) {
 */
 function CustomSignUp({ onSuccess, onClose }) {
     const { signUp, setActive, isLoaded } = useSignUp();
-    
+
     // Form States
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [phone, setPhone] = useState(""); // Phone Number State
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    
+
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
 
@@ -229,9 +229,9 @@ function CustomSignUp({ onSuccess, onClose }) {
 
     return (
         <div style={{ padding: '32px', background: 'white', borderRadius: '24px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
-            
+
             {/* Close Button (X) */}
-            <button 
+            <button
                 onClick={onClose}
                 aria-label="Close"
                 style={{
@@ -262,12 +262,12 @@ function CustomSignUp({ onSuccess, onClose }) {
                     <InputField type="text" placeholder="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} icon={UserIcon} required />
                 </div>
                 <InputField type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} icon={Mail} required />
-                
+
                 {/* Phone Number Field (Only in Sign Up) */}
                 <InputField type="tel" placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} icon={Phone} required />
-                
+
                 <InputField type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} icon={Lock} required />
-                
+
                 {error && <p style={{ color: '#dc2626', marginBottom: '16px', fontSize: '0.9rem', textAlign: 'center' }}>{error}</p>}
                 <AuthButton isLoading={loading} onClick={handleSignUp}>Sign Up</AuthButton>
             </form>
@@ -302,7 +302,7 @@ function LandingPage({ onNavigate }) {
                     // 1. Fetch existing customers
                     const response = await fetch(CUSTOMERS_URL);
                     const customers = await response.json();
-                    
+
                     // 2. Check if current user exists by email
                     const userEmail = user.primaryEmailAddress?.emailAddress;
                     const existingCustomer = customers.find(c => c.email === userEmail);
@@ -335,24 +335,25 @@ function LandingPage({ onNavigate }) {
 
     return (
         <div style={{
-            minHeight: '100vh',
+            height: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
             background: theme.bg,
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: theme.text,
-            overflowX: 'hidden',
+            overflow: 'hidden', // Prevent scrolling
             position: 'relative'
         }}>
 
             {/* --- Navigation Bar --- */}
             <nav style={{
+                flexShrink: 0, // Don't shrink
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '20px 40px',
+                padding: '1.5vh 40px', // Responsive padding
                 background: 'rgba(255, 255, 255, 0.8)',
                 backdropFilter: 'blur(10px)',
-                position: 'sticky',
-                top: 0,
                 zIndex: 100,
                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
             }}>
@@ -434,71 +435,78 @@ function LandingPage({ onNavigate }) {
                 </div>
             </nav>
 
-            {/* --- Hero Section --- */}
-            <header style={{ padding: '80px 20px', textAlign: 'center', position: 'relative', maxWidth: '1200px', margin: '0 auto' }}>
-                <h1 style={{
-                    fontSize: 'clamp(3rem, 8vw, 5rem)',
-                    fontWeight: '900',
-                    lineHeight: '1.1',
-                    marginBottom: '24px',
-                    background: `linear-gradient(135deg, ${theme.text} 0%, ${theme.primary} 100%)`,
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent'
-                }}>
-                    Sip into <br /> Happiness.
-                </h1>
-                <p style={{ fontSize: '1.25rem', color: theme.textLight, maxWidth: '600px', margin: '0 auto 48px', lineHeight: '1.6' }}>
-                    Experience the perfect blend of premium tea, fresh milk, and chewy tapioca pearls. Handcrafted daily for your delight.
-                </p>
+            {/* --- Main Content (Centers vertically) --- */}
+            <main style={{
+                flex: 1, // Take up all remaining space
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center', // Center content vertically
+                alignItems: 'center',
+                padding: '0 20px',
+                gap: '4vh' // Responsive gap between Hero and Portals
+            }}>
 
-                <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <button onClick={() => onNavigate('kiosk')} style={{ background: theme.primary, color: 'white', padding: '16px 40px', borderRadius: '50px', fontSize: '1.2rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 10px 25px -5px rgba(217, 119, 6, 0.4)', transition: 'transform 0.2s' }}>
-                        Order Now <ChevronRight size={20} />
-                    </button>
-                    <button onClick={() => onNavigate('menu_board')} style={{ background: 'white', color: theme.text, padding: '16px 40px', borderRadius: '50px', fontSize: '1.2rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-                        View Menu
-                    </button>
-                </div>
-            </header>
+                {/* --- Hero Section --- */}
+                <header style={{ textAlign: 'center', maxWidth: '1200px', width: '100%' }}>
+                    <h1 style={{
+                        fontSize: 'clamp(3rem, 7vh, 5rem)', // Responsive font size based on viewport height
+                        fontWeight: '900',
+                        lineHeight: '1.1',
+                        marginBottom: '1.5vh',
+                        background: `linear-gradient(135deg, ${theme.text} 0%, ${theme.primary} 100%)`,
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent'
+                    }}>
+                        Bobaclat
+                    </h1>
+                    <p style={{ fontSize: 'clamp(1rem, 2vh, 1.25rem)', color: theme.textLight, maxWidth: '600px', margin: '0 auto 3vh', lineHeight: '1.6' }}>
+                        Experience the perfect blend of premium tea, fresh milk, and chewy tapioca pearls. Handcrafted daily for your delight.
+                    </p>
 
-            {/* --- Employee Portals --- */}
-            <section style={{ padding: '80px 20px', textAlign: 'center', maxWidth: '1200px', margin: '0 auto' }}>
-                <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '60px', color: theme.text }}>Employee Portals</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '40px' }}>
-                    <div onClick={() => onNavigate('manager')} style={{ background: 'white', padding: '32px', borderRadius: '24px', cursor: 'pointer', border: '2px solid transparent', boxShadow: '0 10px 20px rgba(0, 0, 0, 0.05)' }}>
-                        <div style={{ background: '#fff7ed', width: '60px', height: '60px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', color: theme.primary }}>
-                            <User size={32} />
-                        </div>
-                        <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '8px' }}>Manager Dashboard</h3>
-                        <p style={{ color: theme.textLight }}>Access inventory, staff management, and sales reports.</p>
+                    <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button onClick={() => onNavigate('kiosk')} style={{ background: theme.primary, color: 'white', padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 10px 25px -5px rgba(217, 119, 6, 0.4)', transition: 'transform 0.2s' }}>
+                            Order Now <ChevronRight size={20} />
+                        </button>
+                        <button onClick={() => onNavigate('menu_board')} style={{ background: 'white', color: theme.text, padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                            View Menu
+                        </button>
                     </div>
+                </header>
 
-                    <div onClick={() => onNavigate('cashier')} style={{ background: 'white', padding: '32px', borderRadius: '24px', cursor: 'pointer', border: '2px solid transparent', boxShadow: '0 10px 20px rgba(0, 0, 0, 0.05)' }}>
-                        <div style={{ background: '#fff7ed', width: '60px', height: '60px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', color: theme.primary }}>
-                            <LogIn size={32} />
+                {/* --- Employee Portals --- */}
+                <section style={{ textAlign: 'center', maxWidth: '1000px', width: '100%' }}>
+                    <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 2rem)', fontWeight: '800', marginBottom: '2vh', color: theme.text }}>Employee Portals</h2>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2vh' }}>
+                        <div onClick={() => onNavigate('manager')} style={{ background: 'white', padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', border: '2px solid transparent', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)', transition: 'transform 0.2s' }}>
+                            <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Manager Dashboard</h3>
+                            <p style={{ color: theme.textLight, fontSize: '0.95rem' }}>Access inventory, staff management, and sales reports.</p>
                         </div>
-                        <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '8px' }}>Cashier POS</h3>
-                        <p style={{ color: theme.textLight }}>Handle customer orders, process payments, and manage the till.</p>
-                    </div>
-                </div>
-            </section>
 
-            <footer style={{ background: '#78350f', color: 'white', padding: '60px 20px 30px', borderTop: '5px solid #d97706' }}>
-                <div style={{ textAlign: 'center', opacity: 0.8 }}>Group 20 CSCE-331-902</div>
+                        <div onClick={() => onNavigate('cashier')} style={{ background: 'white', padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', border: '2px solid transparent', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)', transition: 'transform 0.2s' }}>
+                            <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Cashier POS</h3>
+                            <p style={{ color: theme.textLight, fontSize: '0.95rem' }}>Handle customer orders, process payments, and manage the till.</p>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+
+            <footer style={{ flexShrink: 0, background: '#78350f', color: 'white', padding: '2vh 20px', borderTop: '5px solid #d97706' }}>
+                <div style={{ textAlign: 'center', opacity: 0.8, fontSize: '0.9rem' }}>Group 20 CSCE-331-902</div>
             </footer>
 
             {/* --- Auth Modal Overlay --- */}
             {(authMode === 'login' || authMode === 'signup') && (
                 <div onClick={handleCloseModal} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: theme.overlay, zIndex: 1000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', animation: 'fadeIn 0.3s ease-out', backdropFilter: 'blur(4px)' }}>
                     <div onClick={handleModalContentClick} style={{ animation: 'slideUp 0.3s ease-out' }}>
-                        
+
                         {/* Switch between Sign In and Sign Up components based on state */}
                         {authMode === 'login' ? (
                             <CustomSignIn onSuccess={handleCloseModal} onClose={handleCloseModal} />
                         ) : (
                             <CustomSignUp onSuccess={handleCloseModal} onClose={handleCloseModal} />
                         )}
-                        
+
                         {/* Toggle Button (Login <-> Signup) */}
                         <div style={{ marginTop: '20px', textAlign: 'center', color: 'white', fontWeight: '600', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
                             {authMode === 'login' ? "New here?" : "Already joined?"}{' '}
