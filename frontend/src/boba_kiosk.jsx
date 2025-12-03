@@ -2,11 +2,11 @@
   File: boba_kiosk.jsx
   Description: The self-service kiosk application for customers.
   Features a high-contrast accessibility mode, multi-language support via Google Translate,
-  and a complete ordering flow from menu selection to payment.
+  and a complete ordering flow from menu selection to payment with Loyalty Points integration.
 */
 
 import { useState, useEffect, createContext, useContext } from 'react';
-import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX } from 'lucide-react';
+import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
 
 // --- Accessibility Context & Theme ---
@@ -322,11 +322,12 @@ function AccessibilityControls() {
 const MENU_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
 const ADDONS_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/';
 const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/orders/';
-const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
+const CUSTOMERS_URL = 'http://127.0.0.1:8000/api/customers/'; // 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
 
 
 const TAX_RATE = 0.0825; // 8.25% sales tax
 const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
+const POINTS_RATE = 10; // 10 points per $1
 
 
 
@@ -372,26 +373,33 @@ function BobaKioskContent({ onBack }) {
 
 
   const { user, isSignedIn } = useUser();
-  const [dbCustomerId, setDbCustomerId] = useState(null);
+  const [dbCustomer, setDbCustomer] = useState(null);
 
+  // FIX: Added safety checks for email to prevent "Cannot read properties of null" error
   useEffect(() => {
-      const fetchCustomerId = async () => {
+      const fetchCustomer = async () => {
           if (isSignedIn && user) {
               try {
                   const response = await fetch(CUSTOMERS_URL);
                   const customers = await response.json();
-                  const foundCustomer = customers.find(c => c.email === user.primaryEmailAddress.emailAddress);
+                  
+                  const foundCustomer = customers.find(c => 
+                    // Safely check if customer email exists AND user email exists before comparing
+                    c.email && 
+                    user.primaryEmailAddress?.emailAddress && 
+                    c.email.toLowerCase() === user.primaryEmailAddress.emailAddress.toLowerCase()
+                  );
                   
                   if (foundCustomer) {
-                      setDbCustomerId(foundCustomer.id);
-                      console.log("Tracking Customer ID:", foundCustomer.id);
+                      setDbCustomer(foundCustomer);
+                      console.log("Customer Matched:", foundCustomer);
                   }
               } catch (err) {
-                  console.error("Error fetching customer ID:", err);
+                  console.error("Error fetching customer:", err);
               }
           }
       };
-      fetchCustomerId();
+      fetchCustomer();
   }, [isSignedIn, user]);
 
 
@@ -559,6 +567,11 @@ function BobaKioskContent({ onBack }) {
     return ids;
   };
 
+  // NEW Helper: Calculate points earned based on total
+  const getPointsToEarn = () => {
+    return Math.floor(getTotal() * POINTS_RATE);
+  };
+
   const processPayment = async () => {
     if (!selectedPaymentType) {
       alert('Please select a payment method (Cash or Card)');
@@ -575,7 +588,7 @@ function BobaKioskContent({ onBack }) {
 
       const orderData = {
         payment_type: selectedPaymentType,
-        customer: dbCustomerId || null, 
+        customer: dbCustomer ? dbCustomer.id : null, 
         employee: null,
         items: itemsPayload
       };
@@ -593,9 +606,35 @@ function BobaKioskContent({ onBack }) {
 
       const newOrder = await response.json();
       const finalTotal = getTotal();
+      const pointsEarned = getPointsToEarn();
+
+      if (dbCustomer) {
+        const newPointsTotal = (dbCustomer.points || 0) + pointsEarned;
+        
+        const updateResponse = await fetch(`${CUSTOMERS_URL}${dbCustomer.id}/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ points: newPointsTotal })
+        });
+
+        if (updateResponse.ok) {
+          const updatedCustomer = await updateResponse.json();
+          setDbCustomer(updatedCustomer);
+          console.log(`Points updated! Earned: ${pointsEarned}, New Total: ${newPointsTotal}`);
+        } else {
+          console.error("Failed to update points via API");
+        }
+      }
+
       setCart([]);
       setSelectedPaymentType(null);
-      alert(`Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal.toFixed(2)}`);
+      
+      let successMsg = `Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal.toFixed(2)}`;
+      if (dbCustomer) {
+        successMsg += `\n\n🎉 You earned ${pointsEarned} points!`;
+      }
+
+      alert(successMsg);
       setCurrentView('welcome');
 
     } catch (err) {
@@ -706,7 +745,8 @@ function BobaKioskContent({ onBack }) {
             }}>
               {filteredItems.map((drink) => (
                 <button
-                  key={drink.menu_item_id}
+                  // FIX: Changed drink.menu_item_id to drink.id to resolve unique key prop warning
+                  key={drink.id}
                   onClick={() => {
                     setSelectedDrink(drink);
                     setCurrentView('customize');
@@ -1060,9 +1100,18 @@ function BobaKioskContent({ onBack }) {
                   <span style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text }}>
                     Total:
                   </span>
-                  <span style={{ fontSize: '2em', fontWeight: 'bold', color: theme.success }}>
-                    ${getTotal().toFixed(2)}
-                  </span>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '2em', fontWeight: 'bold', color: theme.success }}>
+                      ${getTotal().toFixed(2)}
+                    </div>
+                    {/* Points Earned Display */}
+                    {dbCustomer && (
+                       <div style={{ fontSize: '1rem', color: theme.primary, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', marginTop: '4px' }}>
+                         <Star size={16} fill={theme.primary} />
+                         <span>+{getPointsToEarn()} Points</span>
+                       </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1156,47 +1205,66 @@ function BobaKioskContent({ onBack }) {
       )}
 
       {currentView !== 'welcome' && currentView !== 'checkout' && (
-        <button
-          onClick={() => setCurrentView('checkout')}
-          style={{
-            position: 'fixed',
-            top: '24px',
-            right: '24px',
-            backgroundColor: theme.primary,
-            color: theme.primaryText,
-            borderRadius: '50px', // Pill shape
-            padding: '16px 32px',
-            boxShadow: theme.shadow,
-            border: theme.border,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            zIndex: 50,
-            fontSize: '1.1em',
-            fontWeight: 'bold'
-          }}
-        >
-          <ShoppingCart size={24} />
-          Cart
-          {cart.length > 0 && (
-            <span style={{
-              backgroundColor: 'white',
+        <div style={{ position: 'fixed', top: '24px', right: '24px', display: 'flex', gap: '16px', zIndex: 50 }}>
+          
+          {/* NEW: Points Badge */}
+          {dbCustomer && (
+            <div style={{
+              backgroundColor: theme.cardBg,
               color: theme.primary,
-              borderRadius: '50%',
-              width: '28px',
-              height: '28px',
+              borderRadius: '50px',
+              padding: '16px 24px',
+              boxShadow: theme.shadow,
+              border: theme.border,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.9em',
-              fontWeight: 'bold',
-              marginLeft: '8px'
+              gap: '8px',
+              fontSize: '1.1em',
+              fontWeight: 'bold'
             }}>
-              {cart.length}
-            </span>
+              <Star size={24} fill={theme.primary} />
+              {dbCustomer.points} pts
+            </div>
           )}
-        </button>
+
+          <button
+            onClick={() => setCurrentView('checkout')}
+            style={{
+              backgroundColor: theme.primary,
+              color: theme.primaryText,
+              borderRadius: '50px', // Pill shape
+              padding: '16px 32px',
+              boxShadow: theme.shadow,
+              border: theme.border,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              fontSize: '1.1em',
+              fontWeight: 'bold'
+            }}
+          >
+            <ShoppingCart size={24} />
+            Cart
+            {cart.length > 0 && (
+              <span style={{
+                backgroundColor: 'white',
+                color: theme.primary,
+                borderRadius: '50%',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.9em',
+                fontWeight: 'bold',
+                marginLeft: '8px'
+              }}>
+                {cart.length}
+              </span>
+            )}
+          </button>
+        </div>
       )}
 
       {viewContent}

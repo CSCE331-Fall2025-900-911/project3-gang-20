@@ -14,7 +14,7 @@ class CustomerReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
         # Explicitly list fields to control the API output
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'joined_date']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'joined_date', 'points']
 
 class EmployeeReadSerializer(serializers.ModelSerializer):
     """Serializes Employee data, hiding the legacy ID."""
@@ -121,7 +121,7 @@ class CustomerWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
         # 'id' is not included, it comes from the URL
-        fields = ['first_name', 'last_name', 'email', 'phone', 'joined_date']
+        fields = ['first_name', 'last_name', 'email', 'phone', 'joined_date', 'points']
 
 class EmployeeWriteSerializer(serializers.ModelSerializer):
     """Serializes Employee data for writing."""
