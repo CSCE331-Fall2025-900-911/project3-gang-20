@@ -1,289 +1,50 @@
 /*
   File: landing_page.jsx
-  Description: The landing page component serving as the main entry point for users.
-  Provides navigation to different portals (Kiosk, Menu, Manager, Cashier) and handles
-  user authentication (Login/Signup) via Clerk.
+  Description: Main entry point. Handles navigation, auth modals, and 
+  conditionally renders Employee portals based on Clerk Organization roles.
 */
 
 import { useState, useEffect } from 'react';
-import { Coffee, User, LogIn, ChevronRight, LogOut, Phone, Mail, Lock, User as UserIcon, X } from 'lucide-react';
-import { useUser, useClerk, useSignIn, useSignUp } from '@clerk/clerk-react';
+import { Coffee, LogOut, ChevronRight } from 'lucide-react';
+import { useUser, useClerk } from '@clerk/clerk-react';
+import { CustomSignIn, CustomSignUp } from './Auth'; 
 
 // --- Configuration ---
-// The API endpoint for our backend customer table. 
-// We use this to store permanent records of users alongside their Clerk auth data.
 const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
 
-// --- Styled Shared Components ---
-// Reusable components to ensure the Login/Signup forms match the specific "Amber/Orange" theme of the landing page.
-
-const InputField = ({ icon: Icon, ...props }) => (
-    <div style={{ position: 'relative', marginBottom: '16px' }}>
-        {/* Input Icon Positioned Absolute */}
-        <div style={{
-            position: 'absolute',
-            left: '16px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            color: '#d97706' // Amber-600
-        }}>
-            <Icon size={20} />
-        </div>
-        {/* Actual Input Element */}
-        <input
-            {...props}
-            style={{
-                width: '100%',
-                padding: '12px 16px 12px 48px', // Left padding accounts for the icon
-                borderRadius: '12px',
-                border: '2px solid #fed7aa', // Light orange border
-                fontSize: '1rem',
-                outline: 'none',
-                transition: 'all 0.2s',
-                backgroundColor: '#fffbeb', // Very light amber bg
-                color: '#78350f'
-            }}
-            // Highlight border on focus
-            onFocus={(e) => e.target.style.borderColor = '#d97706'}
-            onBlur={(e) => e.target.style.borderColor = '#fed7aa'}
-        />
-    </div>
-);
-
-const AuthButton = ({ children, onClick, isLoading }) => (
-    <button
-        onClick={onClick}
-        disabled={isLoading}
-        style={{
-            width: '100%',
-            padding: '14px',
-            borderRadius: '12px',
-            border: 'none',
-            backgroundColor: '#d97706',
-            color: 'white',
-            fontSize: '1.1rem',
-            fontWeight: 'bold',
-            cursor: isLoading ? 'wait' : 'pointer',
-            marginTop: '8px',
-            boxShadow: '0 4px 6px -1px rgba(217, 119, 6, 0.2)',
-            transition: 'transform 0.1s',
-            opacity: isLoading ? 0.7 : 1
-        }}
-        // Click animation effect
-        onMouseDown={(e) => !isLoading && (e.currentTarget.style.transform = 'scale(0.98)')}
-        onMouseUp={(e) => !isLoading && (e.currentTarget.style.transform = 'scale(1)')}
-    >
-        {isLoading ? 'Processing...' : children}
-    </button>
-);
-
-// --- Custom Auth Components ---
-
-/*
-  CustomSignIn:
-  Handles logging in existing users using Clerk.
-  Includes an "X" button to close the modal.
-*/
-function CustomSignIn({ onSuccess, onClose }) {
-    const { signIn, setActive, isLoaded } = useSignIn();
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [error, setError] = useState(null);
-    const [loading, setLoading] = useState(false);
-
-    const handleSignIn = async (e) => {
-        e.preventDefault();
-        if (!isLoaded) return;
-        setLoading(true);
-        setError(null);
-
-        try {
-            // Attempt to sign in with Clerk
-            const result = await signIn.create({
-                identifier: email,
-                password,
-            });
-
-            if (result.status === "complete") {
-                // Set the session active (this logs the user in on the frontend)
-                await setActive({ session: result.createdSessionId });
-                onSuccess(); // Close modal on success
-            } else {
-                console.log(result);
-            }
-        } catch (err) {
-            console.error("error", err.errors[0].longMessage);
-            setError(err.errors[0].longMessage);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div style={{ padding: '32px', background: 'white', borderRadius: '24px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
-
-            {/* Close Button (X) */}
-            <button
-                onClick={onClose}
-                aria-label="Close"
-                style={{
-                    position: 'absolute',
-                    top: '20px',
-                    right: '20px',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#78350f',
-                    padding: '4px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-                <X size={24} />
-            </button>
-
-            <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#78350f', marginBottom: '24px', textAlign: 'center' }}>Welcome Back</h2>
-            <form onSubmit={handleSignIn}>
-                <InputField type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} icon={Mail} required />
-                <InputField type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} icon={Lock} required />
-                {error && <p style={{ color: '#dc2626', marginBottom: '16px', fontSize: '0.9rem', textAlign: 'center' }}>{error}</p>}
-                <AuthButton isLoading={loading} onClick={handleSignIn}>Log In</AuthButton>
-            </form>
-        </div>
-    );
-}
-
-/*
-  CustomSignUp:
-  Handles new user registration.
-  Includes an "X" button to close the modal.
-*/
-function CustomSignUp({ onSuccess, onClose }) {
-    const { signUp, setActive, isLoaded } = useSignUp();
-
-    // Form States
-    const [firstName, setFirstName] = useState("");
-    const [lastName, setLastName] = useState("");
-    const [phone, setPhone] = useState(""); // Phone Number State
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-
-    const [error, setError] = useState(null);
-    const [loading, setLoading] = useState(false);
-
-    const handleSignUp = async (e) => {
-        e.preventDefault();
-        if (!isLoaded) return;
-        setLoading(true);
-        setError(null);
-
-        try {
-            // Step 1: Create User in Clerk (Frontend Auth)
-            const result = await signUp.create({
-                firstName,
-                lastName,
-                emailAddress: email,
-                password,
-            });
-
-            if (result.status === "complete") {
-                await setActive({ session: result.createdSessionId });
-
-                // Step 2: Add to Backend Database Table
-                try {
-                    const newCustomer = {
-                        first_name: firstName,
-                        last_name: lastName,
-                        email: email,
-                        phone: phone, // Pass the captured phone number here
-                        joined_date: new Date().toISOString().split('T')[0] // Format: YYYY-MM-DD
-                    };
-
-                    await fetch(CUSTOMERS_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(newCustomer)
-                    });
-                    console.log("Customer saved to backend with phone:", phone);
-                } catch (dbError) {
-                    // Note: We log the error but don't stop the UI because the user is technically signed in via Clerk
-                    console.error("Failed to save customer to DB:", dbError);
-                }
-
-                onSuccess(); // Close modal on success
-            } else {
-                console.log(result);
-            }
-        } catch (err) {
-            console.error("error", err.errors[0].longMessage);
-            setError(err.errors[0].longMessage);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div style={{ padding: '32px', background: 'white', borderRadius: '24px', width: '100%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
-
-            {/* Close Button (X) */}
-            <button
-                onClick={onClose}
-                aria-label="Close"
-                style={{
-                    position: 'absolute',
-                    top: '20px',
-                    right: '20px',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#78350f',
-                    padding: '4px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-                <X size={24} />
-            </button>
-
-            <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#78350f', marginBottom: '24px', textAlign: 'center' }}>Create Account</h2>
-            <form onSubmit={handleSignUp}>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <InputField type="text" placeholder="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} icon={UserIcon} required />
-                    <InputField type="text" placeholder="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} icon={UserIcon} required />
-                </div>
-                <InputField type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} icon={Mail} required />
-
-                {/* Phone Number Field (Only in Sign Up) */}
-                <InputField type="tel" placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} icon={Phone} required />
-
-                <InputField type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} icon={Lock} required />
-
-                {error && <p style={{ color: '#dc2626', marginBottom: '16px', fontSize: '0.9rem', textAlign: 'center' }}>{error}</p>}
-                <AuthButton isLoading={loading} onClick={handleSignUp}>Sign Up</AuthButton>
-            </form>
-        </div>
-    );
-}
-
-// --- Main LandingPage Component ---
+// *** UPDATE THESE SLUGS WITH YOUR EXACT CLERK VALUES ***
+const MANAGER_SLUG = 'manager-1762837696'; // <--- UPDATED WITH YOUR ID
+const CASHIER_SLUG = 'cashier'; // <--- CHECK YOUR CONSOLE FOR THE EXACT CASHIER ID (Likely has numbers too!)
 
 function LandingPage({ onNavigate }) {
-    // 'login', 'signup', or null (closed)
     const [authMode, setAuthMode] = useState(null);
     const { isSignedIn, user, isLoaded } = useUser();
     const { signOut } = useClerk();
 
-    // Theme constants matching the app's design
+    // --- Role / Permission Logic ---
+    const checkUserRole = (roleSlug) => {
+        if (!isLoaded || !isSignedIn || !user) return false;
+        
+        // Check if user belongs to the specific organization slug
+        return user.organizationMemberships.some(mem => mem.organization.slug === roleSlug);
+    };
+
+    const isManager = checkUserRole(MANAGER_SLUG);
+    const isCashier = checkUserRole(CASHIER_SLUG) || isManager; 
+    const isEmployee = isManager || isCashier;
+
+    // --- DEBUGGING: Help find the Cashier Slug ---
+    useEffect(() => {
+        if (isLoaded && isSignedIn && user.organizationMemberships.length > 0) {
+            console.log("------------------------------------------------");
+            console.log("YOUR ORGS:", user.organizationMemberships.map(m => 
+                `${m.organization.name} -> SLUG: ${m.organization.slug}`
+            ));
+            console.log("------------------------------------------------");
+        }
+    }, [isLoaded, isSignedIn, user]);
+
+    // --- Theme ---
     const theme = {
         primary: '#d97706',
         bg: 'linear-gradient(to bottom right, #fffbeb, #fed7aa)',
@@ -292,30 +53,28 @@ function LandingPage({ onNavigate }) {
         overlay: 'rgba(120, 53, 15, 0.4)',
     };
 
-    // --- Fallback Sync Logic ---
-    // If a user logs in (via Log In button), they might not be in our DB yet.
-    // This effect runs on load to check and add them if missing.
+    // --- Sync User to Database ---
     useEffect(() => {
         const syncUserToBackend = async () => {
-            if (isLoaded && isSignedIn && user) {
+            if (isLoaded && isSignedIn && user && user.primaryEmailAddress?.emailAddress) {
                 try {
-                    // 1. Fetch existing customers
+                    const userEmail = user.primaryEmailAddress.emailAddress.toLowerCase().trim();
+                    
                     const response = await fetch(CUSTOMERS_URL);
                     const customers = await response.json();
+                    const existingCustomer = customers.find(c => 
+                        c.email && c.email.toLowerCase().trim() === userEmail
+                    );
 
-                    // 2. Check if current user exists by email
-                    const userEmail = user.primaryEmailAddress?.emailAddress;
-                    const existingCustomer = customers.find(c => c.email === userEmail);
-
-                    // 3. If not found, add them (Silent Sync)
                     if (!existingCustomer) {
                         const newCustomer = {
                             first_name: user.firstName || "New",
                             last_name: user.lastName || "User",
                             email: userEmail,
-                            phone: "", // Note: Normal Login doesn't provide phone, so we leave it blank
+                            phone: "", 
                             joined_date: new Date().toISOString().split('T')[0]
                         };
+                        
                         await fetch(CUSTOMERS_URL, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -341,17 +100,17 @@ function LandingPage({ onNavigate }) {
             background: theme.bg,
             fontFamily: 'system-ui, -apple-system, sans-serif',
             color: theme.text,
-            overflow: 'hidden', // Prevent scrolling
+            overflow: 'hidden',
             position: 'relative'
         }}>
 
             {/* --- Navigation Bar --- */}
             <nav style={{
-                flexShrink: 0, // Don't shrink
+                flexShrink: 0,
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '1.5vh 40px', // Responsive padding
+                padding: '1.5vh 40px',
                 background: 'rgba(255, 255, 255, 0.8)',
                 backdropFilter: 'blur(10px)',
                 zIndex: 100,
@@ -375,7 +134,6 @@ function LandingPage({ onNavigate }) {
                     {isLoaded && (
                         <>
                             {isSignedIn ? (
-                                // --- Authenticated View ---
                                 <>
                                     <div style={{ display: 'flex', alignItems: 'center', color: theme.text, fontWeight: '600' }}>
                                         Hello, {user?.firstName || 'User'}
@@ -399,7 +157,6 @@ function LandingPage({ onNavigate }) {
                                     </button>
                                 </>
                             ) : (
-                                // --- Guest View ---
                                 <>
                                     <button
                                         onClick={() => setAuthMode('login')}
@@ -435,21 +192,21 @@ function LandingPage({ onNavigate }) {
                 </div>
             </nav>
 
-            {/* --- Main Content (Centers vertically) --- */}
+            {/* --- Main Content --- */}
             <main style={{
-                flex: 1, // Take up all remaining space
+                flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'center', // Center content vertically
+                justifyContent: 'center',
                 alignItems: 'center',
                 padding: '0 20px',
-                gap: '4vh' // Responsive gap between Hero and Portals
+                gap: '4vh'
             }}>
 
                 {/* --- Hero Section --- */}
                 <header style={{ textAlign: 'center', maxWidth: '1200px', width: '100%' }}>
                     <h1 style={{
-                        fontSize: 'clamp(3rem, 7vh, 5rem)', // Responsive font size based on viewport height
+                        fontSize: 'clamp(3rem, 7vh, 5rem)',
                         fontWeight: '900',
                         lineHeight: '1.1',
                         marginBottom: '1.5vh',
@@ -473,21 +230,31 @@ function LandingPage({ onNavigate }) {
                     </div>
                 </header>
 
-                {/* --- Employee Portals --- */}
-                <section style={{ textAlign: 'center', maxWidth: '1000px', width: '100%' }}>
-                    <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 2rem)', fontWeight: '800', marginBottom: '2vh', color: theme.text }}>Employee Portals</h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2vh' }}>
-                        <div onClick={() => onNavigate('manager')} style={{ background: 'white', padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', border: '2px solid transparent', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)', transition: 'transform 0.2s' }}>
-                            <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Manager Dashboard</h3>
-                            <p style={{ color: theme.textLight, fontSize: '0.95rem' }}>Access inventory, staff management, and sales reports.</p>
-                        </div>
+                {/* --- Employee Portals (CONDITIONAL RENDER) --- */}
+                {isEmployee && (
+                    <section style={{ textAlign: 'center', maxWidth: '1000px', width: '100%' }}>
+                        <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 2rem)', fontWeight: '800', marginBottom: '2vh', color: theme.text }}>Employee Portals</h2>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '2vh', flexWrap: 'wrap' }}>
+                            
+                            {/* Manager Button: Only for Managers */}
+                            {isManager && (
+                                <div onClick={() => onNavigate('manager')} style={{ background: 'white', padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)', transition: 'transform 0.2s' }}>
+                                    <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Manager Dashboard</h3>
+                                    <p style={{ color: theme.textLight, fontSize: '0.95rem' }}>Access inventory, staff management, and sales reports.</p>
+                                </div>
+                            )}
 
-                        <div onClick={() => onNavigate('cashier')} style={{ background: 'white', padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', border: '2px solid transparent', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)', transition: 'transform 0.2s' }}>
-                            <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Cashier POS</h3>
-                            <p style={{ color: theme.textLight, fontSize: '0.95rem' }}>Handle customer orders, process payments, and manage the till.</p>
+                            {/* Cashier Button: For Cashiers OR Managers */}
+                            {isCashier && (
+                                <div onClick={() => onNavigate('cashier')} style={{ background: 'white', padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)', transition: 'transform 0.2s' }}>
+                                    <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Cashier POS</h3>
+                                    <p style={{ color: theme.textLight, fontSize: '0.95rem' }}>Handle customer orders, process payments, and manage the till.</p>
+                                </div>
+                            )}
+
                         </div>
-                    </div>
-                </section>
+                    </section>
+                )}
 
             </main>
 
@@ -499,15 +266,11 @@ function LandingPage({ onNavigate }) {
             {(authMode === 'login' || authMode === 'signup') && (
                 <div onClick={handleCloseModal} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: theme.overlay, zIndex: 1000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', animation: 'fadeIn 0.3s ease-out', backdropFilter: 'blur(4px)' }}>
                     <div onClick={handleModalContentClick} style={{ animation: 'slideUp 0.3s ease-out' }}>
-
-                        {/* Switch between Sign In and Sign Up components based on state */}
                         {authMode === 'login' ? (
                             <CustomSignIn onSuccess={handleCloseModal} onClose={handleCloseModal} />
                         ) : (
                             <CustomSignUp onSuccess={handleCloseModal} onClose={handleCloseModal} />
                         )}
-
-                        {/* Toggle Button (Login <-> Signup) */}
                         <div style={{ marginTop: '20px', textAlign: 'center', color: 'white', fontWeight: '600', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
                             {authMode === 'login' ? "New here?" : "Already joined?"}{' '}
                             <button onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} style={{ background: 'none', border: 'none', color: '#fed7aa', fontWeight: 'bold', cursor: 'pointer', fontSize: 'inherit', textDecoration: 'underline' }}>
@@ -517,8 +280,6 @@ function LandingPage({ onNavigate }) {
                     </div>
                 </div>
             )}
-
-            {/* CSS Animation for floating elements and modal */}
             <style>{`
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
                 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
