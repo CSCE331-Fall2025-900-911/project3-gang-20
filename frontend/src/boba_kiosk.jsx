@@ -687,9 +687,10 @@ function BobaKioskContent({ onBack }) {
         } catch (err) {
           console.error("Error fetching customer:", err);
         }
-      };
-      fetchCustomer();
-    }, [isSignedIn, user]);
+      }
+    };
+    fetchCustomer();
+  }, [isSignedIn, user]);
 
 
   // Initialize Google Translate
