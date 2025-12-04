@@ -6,7 +6,7 @@
 */
 
 import { useState, useEffect, createContext, useContext } from 'react';
-import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star } from 'lucide-react';
+import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star, Gift } from 'lucide-react'; // Added Gift icon
 import { useUser } from '@clerk/clerk-react';
 
 // --- Accessibility Context & Theme ---
@@ -317,12 +317,12 @@ function AccessibilityControls() {
   );
 }
 
-// --- Main App Logic ---
+// --- Ordering Constants & Helpers (Moved to top) ---
 
 const MENU_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
 const ADDONS_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/';
 const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/orders/';
-const CUSTOMERS_URL = 'http://127.0.0.1:8000/api/customers/'; // 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
+const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
 
 const TAX_RATE = 0.0825; // 8.25% sales tax
 const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
@@ -361,17 +361,311 @@ const getDrinkDescription = (drink) => {
 };
 
 /*
+  NEW CUSTOM HOOK: useBobaOrdering
+  Manages all complex ordering state and logic, centralizing the bulk of the component's hooks
+  to fix the "Rules of Hooks" violation in the parent component.
+*/
+function useBobaOrdering(dbCustomer, setDbCustomer) {
+  const [currentView, setCurrentView] = useState('welcome');
+  const [menuItems, setMenuItems] = useState([]);
+  const [addOns, setAddOns] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [selectedDrink, setSelectedDrink] = useState(null);
+  const [selectedAddOns, setSelectedAddOns] = useState({
+    iceLevel: null,
+    sweetnessLevel: null,
+    toppings: []
+  });
+  const [cart, setCart] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [selectedPaymentType, setSelectedPaymentType] = useState(null);
+  
+  // NEW: State for selected point redemption
+  const [selectedRedemption, setSelectedRedemption] = useState(null); 
+
+  // NEW: Constants for redemption options
+  const REDEMPTION_OPTIONS = [
+    { points: 500, label: 'Free Drink', description: 'Any one drink free', value: 'free_drink' },
+    { points: 750, label: 'Free Drink + Free Toppings', description: 'Any one drink free, and all toppings free', value: 'free_drink_and_toppings' },
+  ];
+
+  // Data Fetching Effect (Moved from BobaKioskContent)
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [menuResponse, addOnsResponse] = await Promise.all([
+          fetch(MENU_ITEMS_URL),
+          fetch(ADDONS_ITEMS_URL)
+        ]);
+
+        if (!menuResponse.ok || !addOnsResponse.ok) throw new Error('Failed to fetch data');
+
+        const menuData = await menuResponse.json();
+        const addOnsData = await addOnsResponse.json();
+
+        setMenuItems(menuData);
+        setAddOns(addOnsData);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []); // Only runs on mount
+
+  const categories = [...new Set(menuItems.map(item => item.category))];
+
+  const getAddOnsByCategory = (category) => addOns.filter(addon => addon.category === category);
+
+  const calculateCustomizationPrice = () => {
+    let total = 0;
+    if (selectedAddOns.iceLevel) total += parseFloat(selectedAddOns.iceLevel.price);
+    if (selectedAddOns.sweetnessLevel) total += parseFloat(selectedAddOns.sweetnessLevel.price);
+    selectedAddOns.toppings.forEach(topping => total += parseFloat(topping.price));
+    return total;
+  };
+
+  const addToCart = (drink) => {
+    const customizationPrice = calculateCustomizationPrice();
+    const totalPrice = parseFloat(drink.base_price) + customizationPrice;
+
+    setCart([...cart, {
+      ...drink,
+      cartId: Date.now(),
+      customizations: { ...selectedAddOns },
+      customizationPrice,
+      totalPrice: totalPrice.toFixed(2)
+    }]);
+
+    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
+    setSelectedDrink(null);
+    setCurrentView('checkout');
+    setSelectedRedemption(null); // Reset redemption when adding new items
+  };
+
+  const removeFromCart = (cartId) => {
+    setCart(cart.filter(item => item.cartId !== cartId));
+    setSelectedRedemption(null); // Reset redemption if items are removed
+  }
+
+  // NEW: Calculate the discount based on selected redemption
+  const getDiscount = () => {
+    if (!selectedRedemption || cart.length === 0) return 0;
+
+    // We apply the discount to the most expensive item in the cart.
+    const sortedCart = [...cart].sort((a, b) => parseFloat(b.totalPrice) - parseFloat(a.totalPrice));
+    const mostExpensiveItem = sortedCart[0];
+
+    let discountAmount = 0;
+
+    if (selectedRedemption.value === 'free_drink' || selectedRedemption.value === 'free_drink_and_toppings') {
+        // Discount the item's base price + ice/sweetness level cost
+        discountAmount += parseFloat(mostExpensiveItem.base_price) + (
+            mostExpensiveItem.customizations.iceLevel ? parseFloat(mostExpensiveItem.customizations.iceLevel.price) : 0
+        ) + (
+            mostExpensiveItem.customizations.sweetnessLevel ? parseFloat(mostExpensiveItem.customizations.sweetnessLevel.price) : 0
+        );
+        
+        // If 750 points, also discount toppings price of that item
+        if (selectedRedemption.value === 'free_drink_and_toppings') {
+            const toppingPrice = mostExpensiveItem.customizations.toppings.reduce((sum, topping) => sum + parseFloat(topping.price), 0);
+            discountAmount += toppingPrice;
+        }
+    }
+
+    // Discount cannot exceed the price of the item
+    return Math.min(discountAmount, parseFloat(mostExpensiveItem.totalPrice));
+  };
+
+  const getSubtotal = () => {
+    let subtotal = cart.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
+    subtotal -= getDiscount(); // Apply discount
+    return Math.max(0, subtotal); // Subtotal cannot be negative
+  };
+
+  const getServiceCharge = () => {
+    if (selectedPaymentType === 'Card') {
+      return getSubtotal() * SERVICE_CHARGE_RATE;
+    }
+    return 0.0;
+  };
+
+  const getTax = () => (getSubtotal() + getServiceCharge()) * TAX_RATE;
+
+  const getTotal = () => getSubtotal() + getServiceCharge() + getTax();
+
+  const getCustomizationIDs = (cartItem) => {
+    const ids = [];
+    if (cartItem.customizations.iceLevel) ids.push(cartItem.customizations.iceLevel.id);
+    if (cartItem.customizations.sweetnessLevel) ids.push(cartItem.customizations.sweetnessLevel.id);
+    cartItem.customizations.toppings.forEach(topping => ids.push(topping.id));
+    return ids;
+  };
+
+  // NEW Helper: Calculate points earned based on total
+  const getPointsToEarn = () => {
+    // Points are earned on the discounted total
+    return Math.floor(getSubtotal() * POINTS_RATE);
+  };
+
+  const processPayment = async () => {
+    if (!selectedPaymentType) {
+      alert('Please select a payment method (Cash or Card)');
+      return;
+    }
+
+    setProcessingPayment(true);
+    try {
+      const itemsPayload = cart.map((cartItem) => ({
+        menu_item: cartItem.id,
+        quantity: 1,
+        customizations: getCustomizationIDs(cartItem)
+      }));
+
+      const orderData = {
+        payment_type: selectedPaymentType,
+        customer: dbCustomer ? dbCustomer.id : null, 
+        employee: null,
+        items: itemsPayload
+      };
+
+      const response = await fetch(ORDERS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server Error: ${errorText}`);
+      }
+
+      const newOrder = await response.json();
+      const finalTotal = getTotal();
+      
+      let pointsEarned = 0;
+      let pointsDeducted = 0;
+      let successMsg = `Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal.toFixed(2)}`;
+
+      if (dbCustomer) {
+        let newPointsTotal = dbCustomer.points || 0;
+        
+        if (selectedRedemption) {
+            // deduct points on redemption
+            pointsDeducted = selectedRedemption.points;
+            newPointsTotal -= pointsDeducted;
+            successMsg += `\n\n${selectedRedemption.label} applied! ${pointsDeducted} points redeemed.`;
+        } else {
+            // earn points (if no points were redeemed)
+            pointsEarned = getPointsToEarn();
+            newPointsTotal += pointsEarned;
+            if (pointsEarned > 0) {
+              successMsg += `\n\n🎉 You earned ${pointsEarned} points!`;
+            }
+        }
+
+        // Update customer points in DB
+        const updateResponse = await fetch(`${CUSTOMERS_URL}${dbCustomer.id}/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ points: newPointsTotal })
+        });
+
+        if (updateResponse.ok) {
+          const updatedCustomer = await updateResponse.json();
+          // Use the setter passed from the parent component
+          setDbCustomer(updatedCustomer); 
+          console.log(`Points updated! New Total: ${newPointsTotal}`);
+        } else {
+          console.error("Failed to update points via API");
+        }
+      }
+
+      setCart([]);
+      setSelectedPaymentType(null);
+      setSelectedRedemption(null); // NEW: Clear redemption state
+      
+      alert(successMsg);
+      setCurrentView('welcome');
+
+    } catch (err) {
+      console.error('Payment processing error:', err);
+      alert(`Order Failed: ${err.message}`);
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const toggleTopping = (topping) => {
+    const isSelected = selectedAddOns.toppings.some(t => t.id === topping.id);
+    if (isSelected) {
+      setSelectedAddOns({
+        ...selectedAddOns,
+        toppings: selectedAddOns.toppings.filter(t => t.id !== topping.id)
+      });
+    } else {
+      setSelectedAddOns({
+        ...selectedAddOns,
+        toppings: [...selectedAddOns.toppings, topping]
+      });
+    }
+  };
+
+  return {
+    currentView, setCurrentView,
+    menuItems, addOns, categories, activeFilter, setActiveFilter,
+    selectedCategory, setSelectedCategory,
+    selectedDrink, setSelectedDrink,
+    selectedAddOns, setSelectedAddOns,
+    cart, removeFromCart, addToCart,
+    loading, error,
+    processingPayment,
+    selectedPaymentType, setSelectedPaymentType,
+    REDEMPTION_OPTIONS, selectedRedemption, setSelectedRedemption, getDiscount, 
+
+    getAddOnsByCategory, calculateCustomizationPrice,
+    getSubtotal, getServiceCharge, getTax, getTotal, getPointsToEarn,
+    processPayment, toggleTopping
+  }
+}
+
+// --- Main App Logic ---
+
+/*
   Main Content Component for the Kiosk.
   Handles the entire ordering flow: Welcome -> Categories -> Customization -> Checkout -> Payment.
 */
 function BobaKioskContent({ onBack }) {
   const { theme, highContrast } = useAccessibility();
 
-
   const { user, isSignedIn } = useUser();
   const [dbCustomer, setDbCustomer] = useState(null);
 
-  // FIX: Added safety checks for email to prevent "Cannot read properties of null" error
+  // Use the new custom hook to get all ordering state and logic
+  const {
+    currentView, setCurrentView,
+    menuItems, addOns, categories, activeFilter, setActiveFilter,
+    selectedDrink, setSelectedDrink,
+    selectedAddOns, setSelectedAddOns,
+    cart, removeFromCart, addToCart,
+    loading, error,
+    processingPayment,
+    selectedPaymentType, setSelectedPaymentType,
+    // NEW: Loyalty Redemption Destructure
+    REDEMPTION_OPTIONS, selectedRedemption, setSelectedRedemption, getDiscount,
+
+    getAddOnsByCategory, calculateCustomizationPrice,
+    getSubtotal, getServiceCharge, getTax, getTotal, getPointsToEarn,
+    processPayment, toggleTopping
+  } = useBobaOrdering(dbCustomer, setDbCustomer);
+
   useEffect(() => {
       const fetchCustomer = async () => {
           if (isSignedIn && user) {
@@ -380,7 +674,6 @@ function BobaKioskContent({ onBack }) {
                   const customers = await response.json();
                   
                   const foundCustomer = customers.find(c => 
-                    // Safely check if customer email exists AND user email exists before comparing
                     c.email && 
                     user.primaryEmailAddress?.emailAddress && 
                     c.email.toLowerCase() === user.primaryEmailAddress.emailAddress.toLowerCase()
@@ -465,197 +758,6 @@ function BobaKioskContent({ onBack }) {
     };
   }, []);
 
-  const [currentView, setCurrentView] = useState('welcome');
-  const [menuItems, setMenuItems] = useState([]);
-  const [addOns, setAddOns] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [activeFilter, setActiveFilter] = useState('All'); // New filter state
-  const [selectedDrink, setSelectedDrink] = useState(null);
-  const [selectedAddOns, setSelectedAddOns] = useState({
-    iceLevel: null,
-    sweetnessLevel: null,
-    toppings: []
-  });
-  const [cart, setCart] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [processingPayment, setProcessingPayment] = useState(false);
-  const [selectedPaymentType, setSelectedPaymentType] = useState(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [menuResponse, addOnsResponse] = await Promise.all([
-          fetch(MENU_ITEMS_URL),
-          fetch(ADDONS_ITEMS_URL)
-        ]);
-
-        if (!menuResponse.ok || !addOnsResponse.ok) throw new Error('Failed to fetch data');
-
-        const menuData = await menuResponse.json();
-        const addOnsData = await addOnsResponse.json();
-
-        setMenuItems(menuData);
-        setAddOns(addOnsData);
-        setError(null);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
-  const categories = [...new Set(menuItems.map(item => item.category))];
-
-  const getAddOnsByCategory = (category) => addOns.filter(addon => addon.category === category);
-
-  const calculateCustomizationPrice = () => {
-    let total = 0;
-    if (selectedAddOns.iceLevel) total += parseFloat(selectedAddOns.iceLevel.price);
-    if (selectedAddOns.sweetnessLevel) total += parseFloat(selectedAddOns.sweetnessLevel.price);
-    selectedAddOns.toppings.forEach(topping => total += parseFloat(topping.price));
-    return total;
-  };
-
-  const addToCart = () => {
-    const customizationPrice = calculateCustomizationPrice();
-    const totalPrice = parseFloat(selectedDrink.base_price) + customizationPrice;
-
-    setCart([...cart, {
-      ...selectedDrink,
-      cartId: Date.now(),
-      customizations: { ...selectedAddOns },
-      customizationPrice,
-      totalPrice: totalPrice.toFixed(2)
-    }]);
-
-    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
-    setSelectedDrink(null);
-    setCurrentView('checkout');
-  };
-
-  const removeFromCart = (cartId) => setCart(cart.filter(item => item.cartId !== cartId));
-
-  const getSubtotal = () => cart.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
-
-  const getServiceCharge = () => {
-    if (selectedPaymentType === 'Card') {
-      return getSubtotal() * SERVICE_CHARGE_RATE;
-    }
-    return 0.0;
-  };
-
-  const getTax = () => (getSubtotal() + getServiceCharge()) * TAX_RATE;
-
-  const getTotal = () => getSubtotal() + getServiceCharge() + getTax();
-
-  const getTotalPrice = () => getTotal().toFixed(2);
-
-  const getCustomizationIDs = (cartItem) => {
-    const ids = [];
-    if (cartItem.customizations.iceLevel) ids.push(cartItem.customizations.iceLevel.id);
-    if (cartItem.customizations.sweetnessLevel) ids.push(cartItem.customizations.sweetnessLevel.id);
-    cartItem.customizations.toppings.forEach(topping => ids.push(topping.id));
-    return ids;
-  };
-
-  // NEW Helper: Calculate points earned based on total
-  const getPointsToEarn = () => {
-    return Math.floor(getTotal() * POINTS_RATE);
-  };
-
-  const processPayment = async () => {
-    if (!selectedPaymentType) {
-      alert('Please select a payment method (Cash or Card)');
-      return;
-    }
-
-    setProcessingPayment(true);
-    try {
-      const itemsPayload = cart.map((cartItem) => ({
-        menu_item: cartItem.id,
-        quantity: 1,
-        customizations: getCustomizationIDs(cartItem)
-      }));
-
-      const orderData = {
-        payment_type: selectedPaymentType,
-        customer: dbCustomer ? dbCustomer.id : null, 
-        employee: null,
-        items: itemsPayload
-      };
-
-      const response = await fetch(ORDERS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Server Error: ${errorText}`);
-      }
-
-      const newOrder = await response.json();
-      const finalTotal = getTotal();
-      const pointsEarned = getPointsToEarn();
-
-      if (dbCustomer) {
-        const newPointsTotal = (dbCustomer.points || 0) + pointsEarned;
-        
-        const updateResponse = await fetch(`${CUSTOMERS_URL}${dbCustomer.id}/`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ points: newPointsTotal })
-        });
-
-        if (updateResponse.ok) {
-          const updatedCustomer = await updateResponse.json();
-          setDbCustomer(updatedCustomer);
-          console.log(`Points updated! Earned: ${pointsEarned}, New Total: ${newPointsTotal}`);
-        } else {
-          console.error("Failed to update points via API");
-        }
-      }
-
-      setCart([]);
-      setSelectedPaymentType(null);
-      
-      let successMsg = `Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal.toFixed(2)}`;
-      if (dbCustomer) {
-        successMsg += `\n\n🎉 You earned ${pointsEarned} points!`;
-      }
-
-      alert(successMsg);
-      setCurrentView('welcome');
-
-    } catch (err) {
-      console.error('Payment processing error:', err);
-      alert(`Order Failed: ${err.message}`);
-    } finally {
-      setProcessingPayment(false);
-    }
-  };
-
-  const toggleTopping = (topping) => {
-    const isSelected = selectedAddOns.toppings.some(t => t.id === topping.id);
-    if (isSelected) {
-      setSelectedAddOns({
-        ...selectedAddOns,
-        toppings: selectedAddOns.toppings.filter(t => t.id !== topping.id)
-      });
-    } else {
-      setSelectedAddOns({
-        ...selectedAddOns,
-        toppings: [...selectedAddOns.toppings, topping]
-      });
-    }
-  };
-
   let viewContent = null;
 
   if (currentView === 'welcome') {
@@ -702,7 +804,7 @@ function BobaKioskContent({ onBack }) {
         minHeight: '100vh',
         background: theme.bg,
         padding: '32px',
-        paddingTop: '150px' // Increased space for fixed header/buttons
+        paddingTop: '150px'
       }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
 
@@ -714,7 +816,7 @@ function BobaKioskContent({ onBack }) {
             overflowX: 'auto',
             paddingBottom: '8px',
             justifyContent: 'center',
-            flexWrap: 'wrap' // Allow wrapping if many categories
+            flexWrap: 'wrap'
           }}>
             {allCategories.map(filter => (
               <KioskButton
@@ -741,7 +843,6 @@ function BobaKioskContent({ onBack }) {
             }}>
               {filteredItems.map((drink) => (
                 <button
-                  // FIX: Changed drink.menu_item_id to drink.id to resolve unique key prop warning
                   key={drink.id}
                   onClick={() => {
                     setSelectedDrink(drink);
@@ -828,9 +929,6 @@ function BobaKioskContent({ onBack }) {
       </div>
     );
   }
-
-  // Removed separate 'drinks' view as it's now merged with categories/filters
-
 
   if (currentView === 'customize') {
     const iceLevels = getAddOnsByCategory('Ice Level');
@@ -975,7 +1073,7 @@ function BobaKioskContent({ onBack }) {
               </span>
             </div>
             <KioskButton
-              onClick={addToCart}
+              onClick={() => addToCart(selectedDrink)} // Pass selectedDrink to the moved addToCart
               disabled={!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel}
               variant="success"
               style={{ width: '100%', fontSize: '1.5em', padding: '1em' }}
@@ -994,6 +1092,9 @@ function BobaKioskContent({ onBack }) {
   }
 
   if (currentView === 'checkout') {
+    const availablePoints = dbCustomer?.points || 0;
+    const canApplyDiscount = cart.length > 0;
+
     viewContent = (
       <div style={{
         minHeight: '100vh',
@@ -1020,6 +1121,7 @@ function BobaKioskContent({ onBack }) {
             </div>
           ) : (
             <>
+              {/* CART ITEMS SECTION (now first after header) */}
               <div style={{
                 backgroundColor: theme.cardBg,
                 borderRadius: highContrast ? '0' : '16px',
@@ -1065,6 +1167,63 @@ function BobaKioskContent({ onBack }) {
                   </div>
                 ))}
               </div>
+
+              {/* LOYALTY REDEMPTION SECTION (now second) */}
+              {dbCustomer && (
+                <div style={{
+                  backgroundColor: theme.cardBg,
+                  borderRadius: highContrast ? '0' : '16px',
+                  border: theme.border,
+                  padding: '24px',
+                  boxShadow: theme.shadow,
+                  marginBottom: '32px'
+                }}>
+                  <h3 style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text, marginBottom: '1em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Gift size={24} color={theme.primary} />
+                    Loyalty Redemption (You have {availablePoints} pts)
+                  </h3>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    {REDEMPTION_OPTIONS.map((option) => {
+                      const isDisabled = option.points > availablePoints || !canApplyDiscount;
+                      const isSelected = selectedRedemption?.points === option.points;
+
+                      const handleClick = () => {
+                        if (isSelected) {
+                          setSelectedRedemption(null);
+                        } else {
+                          setSelectedRedemption(option);
+                          setSelectedPaymentType(null); // Force re-selection of payment after discount change
+                        }
+                      }
+                      
+                      return (
+                        <KioskButton
+                          key={option.points}
+                          onClick={handleClick}
+                          disabled={isDisabled}
+                          variant={isSelected ? 'success' : 'secondary'}
+                          style={{ flexDirection: 'column', alignItems: 'flex-start', padding: '16px', minHeight: '80px' }}
+                        >
+                          <div style={{ fontSize: '1.1em', fontWeight: 'bold' }}>{option.label}</div>
+                          <div style={{ fontSize: '0.9em', opacity: 0.9 }}>
+                            {option.description}
+                          </div>
+                          <div style={{ fontSize: '0.9em', fontWeight: 'bold', marginTop: '4px' }}>
+                            {option.points} Points
+                          </div>
+                        </KioskButton>
+                      );
+                    })}
+                  </div>
+                  {!canApplyDiscount && (
+                    <p style={{ textAlign: 'center', color: theme.danger, fontSize: '1.0em', marginTop: '1em', fontWeight: 'bold' }}>
+                      ⚠ Add items to your cart to apply a redemption.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div style={{
                 marginTop: '24px',
                 paddingTop: '24px',
@@ -1074,9 +1233,26 @@ function BobaKioskContent({ onBack }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ color: theme.text }}>Subtotal:</span>
                     <span style={{ color: theme.text, fontWeight: 'bold' }}>
-                      ${getSubtotal().toFixed(2)}
+                      ${(getSubtotal() + getDiscount()).toFixed(2)} {/* Display original subtotal */}
                     </span>
                   </div>
+                  {selectedRedemption && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: theme.success, fontWeight: 'bold' }}>
+                      <span>Loyalty Discount ({selectedRedemption.label}):</span>
+                      <span>
+                        -${getDiscount().toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {/* Subtotal after discount is now conditional on selectedRedemption */}
+                  {selectedRedemption && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{ color: theme.text }}>Subtotal after discount:</span>
+                      <span style={{ color: theme.text, fontWeight: 'bold' }}>
+                        ${getSubtotal().toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                   {selectedPaymentType === 'Card' && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: theme.primary }}>
                       <span>Service Charge ({(SERVICE_CHARGE_RATE * 100).toFixed(1)}%):</span>
@@ -1100,11 +1276,15 @@ function BobaKioskContent({ onBack }) {
                     <div style={{ fontSize: '2em', fontWeight: 'bold', color: theme.success }}>
                       ${getTotal().toFixed(2)}
                     </div>
-                    {/* Points Earned Display */}
+                    {/* Points Earned/Redeemed Display */}
                     {dbCustomer && (
                        <div style={{ fontSize: '1rem', color: theme.primary, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', marginTop: '4px' }}>
                          <Star size={16} fill={theme.primary} />
-                         <span>+{getPointsToEarn()} Points</span>
+                         {selectedRedemption ? (
+                           <span>-{selectedRedemption.points} Points</span>
+                         ) : (
+                           <span>+{getPointsToEarn()} Points</span>
+                         )}
                        </div>
                     )}
                   </div>
