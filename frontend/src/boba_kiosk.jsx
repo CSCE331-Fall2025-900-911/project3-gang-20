@@ -6,7 +6,7 @@
 */
 
 import { useState, useEffect, createContext, useContext } from 'react';
-import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star } from 'lucide-react';
+import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star, ArrowLeft } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
 
 // --- Accessibility Context & Theme ---
@@ -52,7 +52,7 @@ function AccessibilityProvider({ children }) {
   const [fontSize, setFontSize] = useState(() => parseFloat(localStorage.getItem('kioskFontSize')) || 1.0);
   const [highContrast, setHighContrast] = useState(() => localStorage.getItem('kioskHighContrast') === 'true');
   const [ttsEnabled, setTtsEnabled] = useState(() => localStorage.getItem('kioskTtsEnabled') === 'true');
-  
+
   // New: Store available voices
   const [availableVoices, setAvailableVoices] = useState([]);
 
@@ -68,7 +68,7 @@ function AccessibilityProvider({ children }) {
       const voices = window.speechSynthesis.getVoices();
       if (voices.length > 0) setAvailableVoices(voices);
     };
-  
+
     // Retry loading voices for 1 second
     let intervalId = setInterval(() => {
       const voices = window.speechSynthesis.getVoices();
@@ -77,12 +77,12 @@ function AccessibilityProvider({ children }) {
         clearInterval(intervalId);
       }
     }, 200);
-  
+
     window.speechSynthesis.onvoiceschanged = loadVoices;
-  
+
     return () => clearInterval(intervalId);
   }, []);
-  
+
 
   const [ttsReady, setTtsReady] = useState(false);
 
@@ -102,7 +102,7 @@ function AccessibilityProvider({ children }) {
       clearTimeout(timer);
 
       const target = e.target;
-      
+
       // 1. Filter containers
       if (target.childElementCount > 3) return;
 
@@ -117,7 +117,7 @@ function AccessibilityProvider({ children }) {
       // 4. Tag check
       const relevantTags = ['BUTTON', 'H1', 'H2', 'H3', 'P', 'SPAN', 'A', 'LI', 'DIV'];
       if (!relevantTags.includes(target.tagName)) return;
-      
+
       // 5. Length check
       if (target.tagName === 'DIV' && textToRead.length > 60) return;
 
@@ -151,14 +151,14 @@ function AccessibilityProvider({ children }) {
 
     document.addEventListener('mouseover', handleMouseOver);
     document.addEventListener('mouseout', handleMouseLeave);
-    
+
     return () => {
       document.removeEventListener('mouseover', handleMouseOver);
       document.removeEventListener('mouseout', handleMouseLeave);
       clearTimeout(timer);
       window.speechSynthesis.cancel();
     };
-  // FIX: Watch .length instead of the array object to prevent dependency size errors
+    // FIX: Watch .length instead of the array object to prevent dependency size errors
   }, [ttsEnabled, ttsReady, availableVoices.length]);
 
   const increaseFontSize = () => setFontSize(prev => Math.min(prev + 0.25, 1.5));
@@ -261,12 +261,12 @@ function KioskButton({ onClick, children, variant = 'primary', style = {}, disab
 }
 
 function AccessibilityControls() {
-  const { 
-    fontSize, 
-    increaseFontSize, 
-    decreaseFontSize, 
-    toggleContrast, 
-    highContrast, 
+  const {
+    fontSize,
+    increaseFontSize,
+    decreaseFontSize,
+    toggleContrast,
+    highContrast,
     theme,
     toggleTts,     // Get new function
     ttsEnabled     // Get new state
@@ -295,19 +295,19 @@ function AccessibilityControls() {
         <Plus size={24} />
         <span style={{ fontSize: '1.2em' }}>A</span>
       </KioskButton>
-      
+
       <div style={{ width: '1px', backgroundColor: '#ccc' }}></div>
-      
+
       <KioskButton onClick={toggleContrast} aria-label="Toggle high contrast" variant="secondary" style={{ padding: '8px' }}>
         {highContrast ? <Sun size={24} /> : <Moon size={24} />}
         <span>{highContrast ? 'Normal' : 'Contrast'}</span>
       </KioskButton>
 
       {/* --- NEW SPEECH BUTTON --- */}
-      <KioskButton 
-        onClick={toggleTts} 
-        aria-label={ttsEnabled ? "Disable Text to Speech" : "Enable Text to Speech"} 
-        variant={ttsEnabled ? 'primary' : 'secondary'} 
+      <KioskButton
+        onClick={toggleTts}
+        aria-label={ttsEnabled ? "Disable Text to Speech" : "Enable Text to Speech"}
+        variant={ttsEnabled ? 'primary' : 'secondary'}
         style={{ padding: '8px' }}
       >
         {ttsEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
@@ -373,29 +373,29 @@ function BobaKioskContent({ onBack }) {
 
   // FIX: Added safety checks for email to prevent "Cannot read properties of null" error
   useEffect(() => {
-      const fetchCustomer = async () => {
-          if (isSignedIn && user) {
-              try {
-                  const response = await fetch(CUSTOMERS_URL);
-                  const customers = await response.json();
-                  
-                  const foundCustomer = customers.find(c => 
-                    // Safely check if customer email exists AND user email exists before comparing
-                    c.email && 
-                    user.primaryEmailAddress?.emailAddress && 
-                    c.email.toLowerCase() === user.primaryEmailAddress.emailAddress.toLowerCase()
-                  );
-                  
-                  if (foundCustomer) {
-                      setDbCustomer(foundCustomer);
-                      console.log("Customer Matched:", foundCustomer);
-                  }
-              } catch (err) {
-                  console.error("Error fetching customer:", err);
-              }
+    const fetchCustomer = async () => {
+      if (isSignedIn && user) {
+        try {
+          const response = await fetch(CUSTOMERS_URL);
+          const customers = await response.json();
+
+          const foundCustomer = customers.find(c =>
+            // Safely check if customer email exists AND user email exists before comparing
+            c.email &&
+            user.primaryEmailAddress?.emailAddress &&
+            c.email.toLowerCase() === user.primaryEmailAddress.emailAddress.toLowerCase()
+          );
+
+          if (foundCustomer) {
+            setDbCustomer(foundCustomer);
+            console.log("Customer Matched:", foundCustomer);
           }
-      };
-      fetchCustomer();
+        } catch (err) {
+          console.error("Error fetching customer:", err);
+        }
+      }
+    };
+    fetchCustomer();
   }, [isSignedIn, user]);
 
 
@@ -584,7 +584,7 @@ function BobaKioskContent({ onBack }) {
 
       const orderData = {
         payment_type: selectedPaymentType,
-        customer: dbCustomer ? dbCustomer.id : null, 
+        customer: dbCustomer ? dbCustomer.id : null,
         employee: null,
         items: itemsPayload
       };
@@ -606,7 +606,7 @@ function BobaKioskContent({ onBack }) {
 
       if (dbCustomer) {
         const newPointsTotal = (dbCustomer.points || 0) + pointsEarned;
-        
+
         const updateResponse = await fetch(`${CUSTOMERS_URL}${dbCustomer.id}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -624,7 +624,7 @@ function BobaKioskContent({ onBack }) {
 
       setCart([]);
       setSelectedPaymentType(null);
-      
+
       let successMsg = `Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal.toFixed(2)}`;
       if (dbCustomer) {
         successMsg += `\n\n🎉 You earned ${pointsEarned} points!`;
@@ -850,15 +850,7 @@ function BobaKioskContent({ onBack }) {
       }}>
 
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-            <KioskButton onClick={() => {
-              setSelectedDrink(null);
-              setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
-              setCurrentView('categories');
-            }}>
-              ← Back to Menu
-            </KioskButton>
-
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
             {cart.length > 0 && (
               <KioskButton onClick={() => setCurrentView('checkout')} variant="secondary">
                 Go to Cart ({cart.length}) →
@@ -1102,10 +1094,10 @@ function BobaKioskContent({ onBack }) {
                     </div>
                     {/* Points Earned Display */}
                     {dbCustomer && (
-                       <div style={{ fontSize: '1rem', color: theme.primary, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', marginTop: '4px' }}>
-                         <Star size={16} fill={theme.primary} />
-                         <span>+{getPointsToEarn()} Points</span>
-                       </div>
+                      <div style={{ fontSize: '1rem', color: theme.primary, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', marginTop: '4px' }}>
+                        <Star size={16} fill={theme.primary} />
+                        <span>+{getPointsToEarn()} Points</span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1173,7 +1165,9 @@ function BobaKioskContent({ onBack }) {
         }}
       />
 
-      {currentView !== 'welcome' && (
+      {/* Navigation Buttons */}
+      {currentView === 'welcome' ? (
+        // Logout Button - Only on Welcome Screen
         <button
           onClick={onBack}
           style={{
@@ -1198,11 +1192,41 @@ function BobaKioskContent({ onBack }) {
           <LogOut size={24} />
           Logout
         </button>
+      ) : (
+        // Back Button - On all other screens
+        <button
+          onClick={() => {
+            if (currentView === 'customize') setCurrentView('categories');
+            else if (currentView === 'checkout') setCurrentView('categories');
+            else setCurrentView('welcome');
+          }}
+          style={{
+            position: 'fixed',
+            top: '24px',
+            left: '24px',
+            backgroundColor: theme.secondary,
+            color: theme.text,
+            borderRadius: '12px',
+            padding: '16px 24px',
+            boxShadow: theme.shadow,
+            border: theme.border,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            zIndex: 50,
+            fontSize: '1.1em',
+            fontWeight: 'bold'
+          }}
+        >
+          <ArrowLeft size={24} />
+          Back
+        </button>
       )}
 
       {currentView !== 'welcome' && currentView !== 'checkout' && (
         <div style={{ position: 'fixed', top: '24px', right: '24px', display: 'flex', gap: '16px', zIndex: 50 }}>
-          
+
           {/* NEW: Points Badge */}
           {dbCustomer && (
             <div style={{

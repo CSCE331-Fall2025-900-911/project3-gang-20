@@ -6,7 +6,7 @@
 */
 
 import { useState, useEffect } from 'react';
-import { Trash2, LogOut } from 'lucide-react';
+import { Trash2, LogOut, Sun, Cloud, CloudRain, CloudSnow, CloudLightning } from 'lucide-react';
 
 // API Endpoints
 const API_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
@@ -16,6 +16,22 @@ const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/
 // Business logic constants
 const TAX_RATE = 0.0825; // 8.25% sales tax
 const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
+
+// --- Theme Constants (Matched to Kiosk) ---
+const theme = {
+  bg: 'linear-gradient(to bottom right, #fffbeb, #fed7aa)',
+  text: '#78350f',
+  textSecondary: '#92400e',
+  cardBg: 'white',
+  primary: '#d97706',
+  primaryText: 'white',
+  secondary: '#f3f4f6',
+  secondaryText: '#78350f',
+  danger: '#dc2626',
+  success: '#16a34a',
+  border: 'none',
+  shadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+};
 
 /*
   The main component for the cashier POS interface.
@@ -348,94 +364,190 @@ function BobaCashier({ onBack }) {
 
   // Converts a weather description string into an emoji.
   const getWeatherEmoji = (desc) => {
-    if (desc === "clear sky") return "☀️";
-    if (desc === "few clouds") return "⛅";
-    if (desc === "scattered clouds") return "🌥️";
-    if (desc === "broken clouds") return "☁️";
-    if (desc === "overcast clouds") return "☁️";
-    if (desc === "shower rain") return "🌦️";
-    if (desc === "rain") return "🌧️";
-    if (desc === "thunderstorm") return "⛈️";
-    if (desc === "snow") return "❄️";
-    return "🌞⛅" // Default
+    if (!desc) return <Sun size={24} />;
+    if (desc.includes("clear")) return <Sun size={24} />;
+    if (desc.includes("cloud")) return <Cloud size={24} />;
+    if (desc.includes("rain")) return <CloudRain size={24} />;
+    if (desc.includes("thunder")) return <CloudLightning size={24} />;
+    if (desc.includes("snow")) return <CloudSnow size={24} />;
+    return <Sun size={24} />;
   };
-
-  const weatherEmoji = getWeatherEmoji(description);
 
   // Loading screen
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-200 flex items-center justify-center">
-        <div className="text-3xl font-bold text-amber-900">Loading...</div>
+      <div style={{
+        minHeight: '100vh',
+        background: theme.bg,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: theme.text,
+        fontSize: '1.5rem',
+        fontWeight: 'bold'
+      }}>
+        Loading...
       </div>
     );
   }
 
   // Main component render
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-200 p-4">
+    <div style={{
+      minHeight: '100vh',
+      background: theme.bg,
+      padding: '20px',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      color: theme.text
+    }}>
       {/* Header Bar */}
-      <div className="bg-white rounded-lg shadow-lg p-4 mb-4 flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-amber-900">Cashier</h1>
+      <div style={{
+        background: theme.cardBg,
+        borderRadius: '24px',
+        padding: '24px 40px',
+        marginBottom: '24px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        boxShadow: theme.shadow
+      }}>
+        <h1 style={{ fontSize: '2.5rem', fontWeight: '800', color: theme.text }}>Cashier Portal</h1>
 
-        <div className="flex items-center gap-6">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
           {/* Weather Widget */}
-          <div className="flex items-center gap-2 text-lg font-semibold text-amber-800">
-            <span>{temperature}°F</span>
-            <span>{weatherEmoji}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '1.5rem', fontWeight: '600', color: theme.textSecondary }}>
+            <span>{temperature ? `${Math.round(temperature)}°F` : '--'}</span>
+            {getWeatherEmoji(description)}
           </div>
 
           {/* Logout Button */}
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-700"
+            style={{
+              background: theme.danger,
+              color: 'white',
+              padding: '16px 32px',
+              borderRadius: '20px',
+              fontWeight: 'bold',
+              fontSize: '1.2rem',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: '0 4px 6px rgba(220, 38, 38, 0.2)'
+            }}
           >
-            <LogOut size={20} />
+            <LogOut size={24} />
             Logout
           </button>
         </div>
       </div>
 
-      {/* Main 3-Column Layout */}
-      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-120px)]">
+      {/* Main Layout Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '250px 1fr 400px',
+        gap: '24px',
+        height: 'calc(100vh - 140px)'
+      }}>
 
         {/* Column 1: Categories Sidebar */}
-        <div className="col-span-2 bg-white rounded-lg shadow-lg p-4 overflow-y-auto">
-          <h2 className="text-xl font-bold text-amber-900 mb-4">Categories</h2>
-          <div className="space-y-2">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`w-full px-4 py-3 rounded-lg font-semibold transition-colors ${selectedCategory === category
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                  }`}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
+        <div style={{
+          background: theme.cardBg,
+          borderRadius: '24px',
+          padding: '24px',
+          boxShadow: theme.shadow,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '16px', color: theme.text }}>Categories</h2>
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              style={{
+                width: '100%',
+                padding: '20px',
+                borderRadius: '20px',
+                fontWeight: 'bold',
+                fontSize: '1.2rem',
+                textAlign: 'left',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: selectedCategory === category ? theme.primary : theme.secondary,
+                color: selectedCategory === category ? theme.primaryText : theme.secondaryText,
+                boxShadow: selectedCategory === category ? '0 4px 12px rgba(217, 119, 6, 0.3)' : 'none'
+              }}
+            >
+              {category}
+            </button>
+          ))}
         </div>
 
         {/* Column 2: Menu Items Grid */}
-        <div className="col-span-6 bg-white rounded-lg shadow-lg p-4 overflow-y-auto">
-          <h2 className="text-2xl font-bold text-amber-900 mb-4">
-            Items: {selectedCategory}
+        <div style={{
+          background: theme.cardBg,
+          borderRadius: '24px',
+          padding: '24px',
+          boxShadow: theme.shadow,
+          overflowY: 'auto'
+        }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '24px', color: theme.text }}>
+            {selectedCategory} Drinks
           </h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+            gap: '24px'
+          }}>
             {filteredDrinks.map((drink) => (
               <button
                 key={drink.id}
                 onClick={() => openCustomization(drink)}
-                className="bg-gray-100 hover:bg-amber-100 rounded-lg p-4 transition-colors border-2 border-gray-300 hover:border-amber-500"
+                style={{
+                  background: 'white',
+                  borderRadius: '24px',
+                  padding: '32px',
+                  minHeight: '200px',
+                  border: `2px solid ${theme.secondary}`,
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  gap: '12px',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
               >
-                <div className="text-center">
-                  <div className="text-4xl mb-2">🥤</div>
-                  <h3 className="font-semibold text-gray-800 mb-1 text-sm">
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  gap: '12px'
+                }}>
+                  <h3 style={{
+                    fontWeight: '800',
+                    color: theme.text,
+                    fontSize: '1.5rem',
+                    lineHeight: '1.2'
+                  }}>
                     {drink.name}
                   </h3>
-                  <p className="text-lg font-bold text-amber-700">
+                  <p style={{
+                    color: theme.primary,
+                    fontWeight: 'bold',
+                    fontSize: '1.8rem'
+                  }}>
                     ${parseFloat(drink.base_price).toFixed(2)}
                   </p>
                 </div>
@@ -445,85 +557,104 @@ function BobaCashier({ onBack }) {
         </div>
 
         {/* Column 3: Cart and Payment */}
-        <div className="col-span-4 bg-white rounded-lg shadow-lg p-4 flex flex-col">
-          <div className="mb-4">
-            <h2 className="text-2xl font-bold text-amber-900">Order #{orderNumber}</h2>
-            <h3 className="text-xl font-semibold text-gray-700 mt-2">Cart</h3>
+        <div style={{
+          background: theme.cardBg,
+          borderRadius: '24px',
+          padding: '24px',
+          boxShadow: theme.shadow,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          <div style={{ marginBottom: '20px' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: theme.text }}>Order #{orderNumber}</h2>
+            <p style={{ color: theme.textSecondary }}>Current Cart</p>
           </div>
 
           {/* Cart Items List */}
-          <div className="flex-1 overflow-y-auto mb-4">
+          <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {cart.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">
+              <div style={{ textAlign: 'center', color: '#9ca3af', marginTop: '40px' }}>
                 Cart is empty
               </div>
             ) : (
-              <div className="space-y-2">
-                {cart.map((item) => (
-                  <div
-                    key={item.cartId}
-                    className="bg-amber-50 rounded-lg p-3 border border-amber-200"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex-1">
-                        <h4 className="font-bold text-gray-800">{item.name}</h4>
-                        <p className="text-xs text-gray-600">{item.category}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-bold text-green-700">
-                          ${item.totalPrice}
-                        </p>
-                        <button
-                          onClick={() => removeFromCart(item.cartId)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
+              cart.map((item) => (
+                <div
+                  key={item.cartId}
+                  style={{
+                    background: theme.secondary,
+                    borderRadius: '16px',
+                    padding: '16px',
+                    border: '1px solid #fed7aa'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <div>
+                      <h4 style={{ fontWeight: 'bold', color: theme.text, fontSize: '1.1rem' }}>{item.name}</h4>
+                      <p style={{ fontSize: '1rem', color: theme.textSecondary }}>{item.category}</p>
                     </div>
-                    {/* Display customizations */}
-                    <div className="text-xs text-gray-600 space-y-1">
-                      {item.customizations.iceLevel && (
-                        <div>• Ice: {item.customizations.iceLevel.name}</div>
-                      )}
-                      {item.customizations.sweetnessLevel && (
-                        <div>• Sweet: {item.customizations.sweetnessLevel.name}</div>
-                      )}
-                      {item.customizations.toppings.length > 0 && (
-                        <div>• Toppings: {item.customizations.toppings.map(t => t.name).join(', ')}</div>
-                      )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span style={{ fontWeight: 'bold', color: theme.success, fontSize: '1.1rem' }}>${item.totalPrice}</span>
+                      <button
+                        onClick={() => removeFromCart(item.cartId)}
+                        style={{ color: theme.danger, background: 'none', border: 'none', cursor: 'pointer' }}
+                      >
+                        <Trash2 size={24} />
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
+                  {/* Display customizations */}
+                  <div style={{ fontSize: '0.95rem', color: '#6b7280', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {item.customizations.iceLevel && (
+                      <div>• Ice: {item.customizations.iceLevel.name}</div>
+                    )}
+                    {item.customizations.sweetnessLevel && (
+                      <div>• Sweet: {item.customizations.sweetnessLevel.name}</div>
+                    )}
+                    {item.customizations.toppings.length > 0 && (
+                      <div>• Toppings: {item.customizations.toppings.map(t => t.name).join(', ')}</div>
+                    )}
+                  </div>
+                </div>
+              ))
             )}
           </div>
 
           {/* Clear Cart Button */}
           <button
             onClick={clearCart}
-            className="w-full bg-pink-400 text-white py-3 rounded-lg font-bold mb-4 hover:bg-pink-500"
+            style={{
+              width: '100%',
+              background: '#f472b6', // Pink
+              color: 'white',
+              padding: '12px',
+              borderRadius: '12px',
+              fontWeight: 'bold',
+              border: 'none',
+              cursor: 'pointer',
+              marginBottom: '16px'
+            }}
           >
             Clear All
           </button>
 
           {/* Totals Section */}
-          <div className="border-t pt-4 space-y-2">
-            <div className="flex justify-between text-lg">
+          <div style={{ borderTop: `2px solid ${theme.secondary}`, paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', color: theme.text }}>
               <span>Subtotal:</span>
               <span>${getSubtotal().toFixed(2)}</span>
             </div>
             {selectedPaymentType === 'Card' && (
-              <div className="flex justify-between text-lg text-amber-700">
-                <span>Service Charge ({(SERVICE_CHARGE_RATE * 100).toFixed(1)}%):</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', color: theme.primary }}>
+                <span>Service Charge:</span>
                 <span>${getServiceCharge().toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between text-lg">
-              <span>Tax ({(TAX_RATE * 100).toFixed(2)}%):</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.25rem', color: theme.text }}>
+              <span>Tax:</span>
               <span>${getTax().toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-2xl font-bold text-amber-900 border-t pt-2">
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.8rem', fontWeight: 'bold', color: theme.text, marginTop: '8px' }}>
               <span>Total:</span>
               <span>${getTotal().toFixed(2)}</span>
             </div>
@@ -531,31 +662,46 @@ function BobaCashier({ onBack }) {
 
           {/* Transaction Message Area */}
           {transactionMessage && (
-            <div className={`mt-4 p-3 rounded-lg text-center font-bold ${transactionMessage.includes('Complete')
-              ? 'bg-green-100 text-green-800'
-              : 'bg-red-100 text-red-800'
-              }`}>
+            <div style={{
+              marginTop: '16px',
+              padding: '12px',
+              borderRadius: '12px',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              background: transactionMessage.includes('Complete') ? '#dcfce7' : '#fee2e2',
+              color: transactionMessage.includes('Complete') ? '#166534' : '#991b1b'
+            }}>
               {transactionMessage}
             </div>
           )}
 
           {/* Payment Type Selection */}
-          <div className="grid grid-cols-2 gap-2 mt-4">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '16px' }}>
             <button
               onClick={handleCashPayment}
-              className={`py-3 rounded-lg font-bold transition-colors ${selectedPaymentType === 'Cash'
-                ? 'bg-amber-600 text-white'
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                }`}
+              style={{
+                padding: '16px',
+                borderRadius: '16px',
+                fontWeight: 'bold',
+                border: 'none',
+                cursor: 'pointer',
+                background: selectedPaymentType === 'Cash' ? theme.primary : theme.secondary,
+                color: selectedPaymentType === 'Cash' ? theme.primaryText : theme.secondaryText
+              }}
             >
               Cash
             </button>
             <button
               onClick={handleCardPayment}
-              className={`py-3 rounded-lg font-bold transition-colors ${selectedPaymentType === 'Card'
-                ? 'bg-amber-600 text-white'
-                : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                }`}
+              style={{
+                padding: '16px',
+                borderRadius: '16px',
+                fontWeight: 'bold',
+                border: 'none',
+                cursor: 'pointer',
+                background: selectedPaymentType === 'Card' ? theme.primary : theme.secondary,
+                color: selectedPaymentType === 'Card' ? theme.primaryText : theme.secondaryText
+              }}
             >
               Card
             </button>
@@ -565,7 +711,19 @@ function BobaCashier({ onBack }) {
           <button
             onClick={completeTransaction}
             disabled={cart.length === 0}
-            className="w-full bg-black text-white py-3 rounded-lg font-bold mt-2 hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            style={{
+              width: '100%',
+              background: 'black',
+              color: 'white',
+              padding: '16px',
+              borderRadius: '16px',
+              fontWeight: 'bold',
+              fontSize: '1.1rem',
+              border: 'none',
+              cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
+              marginTop: '12px',
+              opacity: cart.length === 0 ? 0.5 : 1
+            }}
           >
             Complete Transaction
           </button>
@@ -574,28 +732,53 @@ function BobaCashier({ onBack }) {
 
       {/* Customization Modal */}
       {customizationModal && selectedDrink && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '24px',
+            width: '100%',
+            maxWidth: '700px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
             {/* Modal Header */}
-            <div className="bg-amber-600 text-white p-6">
-              <h2 className="text-2xl font-bold">Customize: {selectedDrink.name}</h2>
-              <p className="text-lg mt-1">Base Price: ${parseFloat(selectedDrink.base_price).toFixed(2)}</p>
+            <div style={{ background: theme.primary, color: 'white', padding: '24px' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Customize: {selectedDrink.name}</h2>
+              <p style={{ marginTop: '4px', opacity: 0.9 }}>Base Price: ${parseFloat(selectedDrink.base_price).toFixed(2)}</p>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-6">
+            <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
               {/* Ice Level */}
               <div>
-                <h3 className="text-xl font-bold text-amber-900 mb-3">Ice Level *</h3>
-                <div className="grid grid-cols-4 gap-2">
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: theme.text, marginBottom: '16px' }}>Ice Level *</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
                   {getCustomizationsByCategory('Ice Level').map((ice) => (
                     <button
                       key={ice.id}
                       onClick={() => setSelectedCustomizations({ ...selectedCustomizations, iceLevel: ice })}
-                      className={`px-4 py-3 rounded-lg font-semibold transition-all ${selectedCustomizations.iceLevel?.id === ice.id
-                        ? 'bg-amber-600 text-white'
-                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                        }`}
+                      style={{
+                        padding: '12px',
+                        borderRadius: '12px',
+                        fontWeight: 'bold',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: selectedCustomizations.iceLevel?.id === ice.id ? theme.primary : theme.secondary,
+                        color: selectedCustomizations.iceLevel?.id === ice.id ? theme.primaryText : theme.secondaryText
+                      }}
                     >
                       {ice.name}
                     </button>
@@ -605,16 +788,21 @@ function BobaCashier({ onBack }) {
 
               {/* Sweetness Level */}
               <div>
-                <h3 className="text-xl font-bold text-amber-900 mb-3">Sweetness Level *</h3>
-                <div className="grid grid-cols-4 gap-2">
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: theme.text, marginBottom: '16px' }}>Sweetness Level *</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
                   {getCustomizationsByCategory('Sweetness Level').map((sweet) => (
                     <button
                       key={sweet.id}
                       onClick={() => setSelectedCustomizations({ ...selectedCustomizations, sweetnessLevel: sweet })}
-                      className={`px-4 py-3 rounded-lg font-semibold transition-all ${selectedCustomizations.sweetnessLevel?.id === sweet.id
-                        ? 'bg-amber-600 text-white'
-                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                        }`}
+                      style={{
+                        padding: '12px',
+                        borderRadius: '12px',
+                        fontWeight: 'bold',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: selectedCustomizations.sweetnessLevel?.id === sweet.id ? theme.primary : theme.secondary,
+                        color: selectedCustomizations.sweetnessLevel?.id === sweet.id ? theme.primaryText : theme.secondaryText
+                      }}
                     >
                       {sweet.name}
                     </button>
@@ -624,21 +812,29 @@ function BobaCashier({ onBack }) {
 
               {/* Toppings */}
               <div>
-                <h3 className="text-xl font-bold text-amber-900 mb-3">Toppings (Optional)</h3>
-                <div className="grid grid-cols-2 gap-2">
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: theme.text, marginBottom: '16px' }}>Toppings (Optional)</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   {getCustomizationsByCategory('Toppings').map((topping) => {
                     const isSelected = selectedCustomizations.toppings.some(t => t.id === topping.id);
                     return (
                       <button
                         key={topping.id}
                         onClick={() => toggleTopping(topping)}
-                        className={`px-4 py-3 rounded-lg font-semibold transition-all text-left ${isSelected
-                          ? 'bg-amber-600 text-white'
-                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                          }`}
+                        style={{
+                          padding: '16px',
+                          borderRadius: '12px',
+                          fontWeight: 'bold',
+                          textAlign: 'left',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          background: isSelected ? theme.primary : theme.secondary,
+                          color: isSelected ? theme.primaryText : theme.secondaryText
+                        }}
                       >
-                        <div>{topping.name}</div>
-                        <div className="text-sm">+${parseFloat(topping.price).toFixed(2)}</div>
+                        <span>{topping.name}</span>
+                        <span style={{ opacity: 0.8 }}>+${parseFloat(topping.price).toFixed(2)}</span>
                       </button>
                     );
                   })}
@@ -646,33 +842,52 @@ function BobaCashier({ onBack }) {
               </div>
 
               {/* Modal Footer (Total and Actions) */}
-              <div className="border-t pt-4">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-2xl font-bold text-amber-900">Total:</span>
-                  <span className="text-3xl font-bold text-green-700">
+              <div style={{ borderTop: `2px solid ${theme.secondary}`, paddingTop: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: theme.text }}>Total:</span>
+                  <span style={{ fontSize: '2rem', fontWeight: 'bold', color: theme.success }}>
                     ${(parseFloat(selectedDrink.base_price) + calculateCustomizationPrice()).toFixed(2)}
                   </span>
                 </div>
 
                 {/* Validation Message */}
                 {(!selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel) && (
-                  <p className="text-red-600 text-center mb-3 font-semibold">
+                  <p style={{ color: theme.danger, textAlign: 'center', marginBottom: '16px', fontWeight: 'bold' }}>
                     * Please select ice level and sweetness level
                   </p>
                 )}
 
                 {/* Action Buttons */}
-                <div className="grid grid-cols-2 gap-3">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <button
                     onClick={() => setCustomizationModal(false)}
-                    className="bg-gray-500 text-white py-3 rounded-lg font-bold hover:bg-gray-600"
+                    style={{
+                      background: '#9ca3af',
+                      color: 'white',
+                      padding: '16px',
+                      borderRadius: '16px',
+                      fontWeight: 'bold',
+                      fontSize: '1.1rem',
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={addToCart}
                     disabled={!selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel}
-                    className="bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    style={{
+                      background: theme.success,
+                      color: 'white',
+                      padding: '16px',
+                      borderRadius: '16px',
+                      fontWeight: 'bold',
+                      fontSize: '1.1rem',
+                      border: 'none',
+                      cursor: (!selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel) ? 'not-allowed' : 'pointer',
+                      opacity: (!selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel) ? 0.5 : 1
+                    }}
                   >
                     Add to Cart
                   </button>
