@@ -322,7 +322,7 @@ function AccessibilityControls() {
 const MENU_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
 const ADDONS_ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/';
 const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/orders/';
-const CUSTOMERS_URL = 'http://127.0.0.1:8000/api/customers/'; // 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
+const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
 
 const TAX_RATE = 0.0825; // 8.25% sales tax
 const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
