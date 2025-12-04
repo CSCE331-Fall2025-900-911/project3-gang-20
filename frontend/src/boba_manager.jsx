@@ -1,2539 +1,1733 @@
 /*
   File: boba_manager.jsx
-  Description: The Manager Dashboard application.
-  Provides comprehensive management capabilities including:
-  - Menu Item management (CRUD, Recipe management)
-  - Inventory tracking (Ingredients, Stock levels)
-  - Employee management
-  - Sales and Inventory Reports (X-Report, Z-Report, Low Stock)
+  Description: Professional Manager Dashboard mimicking ManagerController.java logic.
+  Features:
+  - Strict Tax/Service Charge calculation parity with Java backend.
+  - Client-side data processing for complex reports (X/Z Reports, Product Usage, Sales).
+  - "Smooth" CRUD operations with dedicated Recipe Editor.
+  - Sortable columns & Robust Category Matching.
+  - UPDATED: Fixed Order History Date Logic (Uses Local Timezone explicitly to fix "Missing Today" bug).
 */
 
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Edit2, Trash2, Check, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  LayoutDashboard, 
+  Coffee, 
+  Package, 
+  Users, 
+  FileText, 
+  LogOut, 
+  Plus, 
+  Search, 
+  Trash2, 
+  Edit, 
+  Save, 
+  X, 
+  AlertTriangle, 
+  TrendingUp, 
+  Calendar, 
+  Clock, 
+  DollarSign, 
+  ChevronRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  ClipboardList
+} from 'lucide-react';
 
 // ============================================================================
-// CONSTANTS
+// CONFIGURATION & CONSTANTS
 // ============================================================================
 
 const API_BASE = 'https://project3-gang-20-810838872032.us-south1.run.app/api';
+
+// Logic Constants from ManagerController.java
+const TAX_RATE = 0.0825;
+const SERVICE_CHARGE_RATE = 0.025;
+
+// ============================================================================
+// UTILITIES & HOOKS
+// ============================================================================
+
+const formatCurrency = (val) => {
+  const num = parseFloat(val);
+  return isNaN(num) ? '$0.00' : `$${num.toFixed(2)}`;
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString();
+};
+
+const formatDateTime = (dateString) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleString();
+};
+
+// Helper to get YYYY-MM-DD in LOCAL time (not UTC)
+const getLocalDateString = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Hook for sorting tabular data.
+ * Usage: const { items, requestSort, sortConfig } = useSortableData(data);
+ */
+const useSortableData = (items, config = null) => {
+  const [sortConfig, setSortConfig] = useState(config);
+
+  const sortedItems = useMemo(() => {
+    let sortableItems = [...items];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        // Handle nulls
+        if (aValue === null) aValue = "";
+        if (bValue === null) bValue = "";
+
+        // Number comparison
+        if (!isNaN(parseFloat(aValue)) && !isNaN(parseFloat(bValue)) && typeof aValue !== 'string') {
+           // allow standard sort for numbers
+        } else {
+            // String comparison case-insensitive
+            if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+            if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [items, sortConfig]);
+
+  const requestSort = (key) => {
+    let direction = 'ascending';
+    if (
+      sortConfig &&
+      sortConfig.key === key &&
+      sortConfig.direction === 'ascending'
+    ) {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  return { items: sortedItems, requestSort, sortConfig };
+};
 
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
-/*
-  Main Manager Dashboard Component.
-  Orchestrates the different management views and handles initial data loading.
-*/
-function BobaManager({ onBack }) {
-  // Current view state
-  const [currentView, setCurrentView] = useState('menu'); // 'menu', 'inventory', 'employees', 'product-usage', 'sales-report', 'x-report', 'z-report'
-
-  // Data state
+export default function BobaManager({ onBack }) {
+  // Navigation State
+  const [activeTab, setActiveTab] = useState('menu'); // menu, inventory, employees, reports, orders, void
+  
+  // Data State
   const [menuItems, setMenuItems] = useState([]);
   const [ingredients, setIngredients] = useState([]);
   const [employees, setEmployees] = useState([]);
-  const [recipeItems, setRecipeItems] = useState([]);
+  const [recipes, setRecipes] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
-  const [menuCategories, setMenuCategories] = useState([]);
-
-  // UI state
+  
+  // Loading State
   const [loading, setLoading] = useState(false);
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [error, setError] = useState(null);
 
-  // ============================================================================
-  // DATA LOADING
-  // ============================================================================
-
+  // Initial Data Load
   useEffect(() => {
-    loadAllData();
+    refreshData();
   }, []);
 
-  const loadAllData = async () => {
-    try {
-      const [ingredientsRes, menuRes, employeesRes, recipesRes, unitsRes, categoriesRes] = await Promise.all([
-        fetch(`${API_BASE}/ingredients/`),
-        fetch(`${API_BASE}/menu-items/`),
-        fetch(`${API_BASE}/employees/`),
-        fetch(`${API_BASE}/recipe-items/`),
-        fetch(`${API_BASE}/units/`),
-        fetch(`${API_BASE}/menu-categories/`)
-      ]);
-
-      // Check for response errors
-      const checkResponse = async (res, name) => {
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error(`Failed to fetch ${name}:`, res.status, errorText);
-          throw new Error(`Failed to fetch ${name}: ${res.status} ${res.statusText}`);
-        }
-        return res.json();
-      };
-
-      const [ingredientsData, menuData, employeesData, recipesData, unitsData, categoriesData] = await Promise.all([
-        checkResponse(ingredientsRes, 'ingredients'),
-        checkResponse(menuRes, 'menu-items'),
-        checkResponse(employeesRes, 'employees'),
-        checkResponse(recipesRes, 'recipe-items'),
-        checkResponse(unitsRes, 'units'),
-        checkResponse(categoriesRes, 'menu-categories')
-      ]);
-
-      setIngredients(ingredientsData);
-      setMenuItems(menuData);
-      setEmployees(employeesData);
-      setRecipeItems(recipesData);
-      setUnits(unitsData);
-      setMenuCategories(categoriesData);
-
-      console.log('Data loaded successfully:', {
-        ingredients: ingredientsData.length,
-        menuItems: menuData.length,
-        employees: employeesData.length,
-        recipeItems: recipesData.length,
-        units: unitsData.length,
-        categories: categoriesData.length
-      });
-    } catch (error) {
-      console.error('Failed to load data:', error);
-      alert(`Error loading data: ${error.message}\n\nPlease check the browser console for details.`);
-    }
-  };
-
-  const reloadCurrentView = async () => {
+  const refreshData = async () => {
     setLoading(true);
     try {
-      if (currentView === 'menu') {
-        const [menuRes, recipesRes] = await Promise.all([
-          fetch(`${API_BASE}/menu-items/`),
-          fetch(`${API_BASE}/recipe-items/`)
-        ]);
+      const [menuRes, ingRes, empRes, recRes, catRes, unitRes] = await Promise.all([
+        fetch(`${API_BASE}/menu-items/`),
+        fetch(`${API_BASE}/ingredients/`),
+        fetch(`${API_BASE}/employees/`),
+        fetch(`${API_BASE}/recipe-items/`),
+        fetch(`${API_BASE}/menu-categories/`),
+        fetch(`${API_BASE}/units/`)
+      ]);
 
-        if (!menuRes.ok) throw new Error(`Failed to fetch menu items: ${menuRes.status}`);
-        if (!recipesRes.ok) throw new Error(`Failed to fetch recipes: ${recipesRes.status}`);
+      if (!menuRes.ok || !ingRes.ok) throw new Error("Failed to fetch core data");
 
-        setMenuItems(await menuRes.json());
-        setRecipeItems(await recipesRes.json());
-      } else if (currentView === 'inventory') {
-        const res = await fetch(`${API_BASE}/ingredients/`);
-        if (!res.ok) throw new Error(`Failed to fetch ingredients: ${res.status}`);
-        setIngredients(await res.json());
-      } else if (currentView === 'employees') {
-        const res = await fetch(`${API_BASE}/employees/`);
-        if (!res.ok) throw new Error(`Failed to fetch employees: ${res.status}`);
-        setEmployees(await res.json());
-      }
-    } catch (error) {
-      console.error('Failed to reload data:', error);
-      alert(`Error reloading data: ${error.message}`);
+      setMenuItems(await menuRes.json());
+      setIngredients(await ingRes.json());
+      setEmployees(await empRes.json());
+      setRecipes(await recRes.json());
+      setCategories(await catRes.json());
+      setUnits(await unitRes.json());
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load dashboard data. Please check connection.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  // ============================================================================
-  // HANDLERS
-  // ============================================================================
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'menu': return <MenuManager data={{ menuItems, ingredients, recipes, categories }} onRefresh={refreshData} />;
+      case 'inventory': return <InventoryManager data={{ ingredients, units }} onRefresh={refreshData} />;
+      case 'employees': return <EmployeeManager data={{ employees }} onRefresh={refreshData} />;
+      // FIX: Pass categories to reports so we can resolve ID -> Name
+      case 'reports': return <ReportsDashboard data={{ menuItems, ingredients, recipes, employees, categories }} />;
+      case 'orders': return <OrdersHistoryView />;
+      case 'void': return <VoidOrderManager onRefresh={refreshData} />;
+      default: return <div className="p-8">Select a tab</div>;
+    }
+  };
 
-  const handleAdd = () => {
-    setSelectedItem(null);
-    setShowAddDialog(true);
+  return (
+    <div className="flex h-screen bg-gray-100 font-sans text-slate-800">
+      {/* Sidebar */}
+      <aside className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-10">
+        <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+          <div className="bg-blue-600 p-2 rounded-lg">
+            <LayoutDashboard size={24} className="text-white" />
+          </div>
+          <div>
+            <h1 className="font-bold text-lg leading-tight">Manager</h1>
+            <p className="text-xs text-slate-400">Dashboard</p>
+          </div>
+        </div>
+
+        <nav className="flex-1 p-4 space-y-2">
+          <NavButton icon={Coffee} label="Menu Items" id="menu" active={activeTab} onClick={setActiveTab} />
+          <NavButton icon={Package} label="Inventory" id="inventory" active={activeTab} onClick={setActiveTab} />
+          <NavButton icon={Users} label="Employees" id="employees" active={activeTab} onClick={setActiveTab} />
+          <NavButton icon={ClipboardList} label="Order History" id="orders" active={activeTab} onClick={setActiveTab} />
+          <NavButton icon={TrendingUp} label="Reports" id="reports" active={activeTab} onClick={setActiveTab} />
+          <NavButton icon={AlertTriangle} label="Void Order" id="void" active={activeTab} onClick={setActiveTab} />
+        </nav>
+
+        <div className="p-4 border-t border-slate-800">
+          <button onClick={onBack} className="flex items-center gap-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+            <LogOut size={20} />
+            <span>Logout</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-hidden flex flex-col">
+        {/* Header */}
+        <header className="bg-white shadow-sm px-8 py-4 flex justify-between items-center z-10">
+          <h2 className="text-2xl font-bold text-slate-800">
+            {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Management
+          </h2>
+          {loading && (
+            <div className="flex items-center gap-2 text-blue-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <span className="text-sm font-medium">Syncing Data...</span>
+            </div>
+          )}
+        </header>
+
+        {/* Workspace */}
+        <div className="flex-1 overflow-auto p-8 relative">
+          {error && (
+            <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded shadow-sm flex items-start gap-3">
+              <AlertTriangle className="text-red-500 shrink-0" />
+              <p className="text-red-700">{error}</p>
+            </div>
+          )}
+          {renderContent()}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// ============================================================================
+// SUB-COMPONENTS: SHARED UI
+// ============================================================================
+
+function NavButton({ icon: Icon, label, id, active, onClick }) {
+  const isActive = active === id;
+  return (
+    <button
+      onClick={() => onClick(id)}
+      className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${
+        isActive 
+          ? 'bg-blue-600 text-white shadow-md translate-x-1' 
+          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+      }`}
+    >
+      <Icon size={20} />
+      <span className="font-medium">{label}</span>
+      {isActive && <ChevronRight size={16} className="ml-auto opacity-50" />}
+    </button>
+  );
+}
+
+function SortableHeader({ label, sortKey, sortConfig, requestSort, align = "left" }) {
+  const isActive = sortConfig && sortConfig.key === sortKey;
+  return (
+    <th 
+      className={`p-4 font-semibold cursor-pointer hover:bg-slate-100 transition-colors select-none text-${align}`}
+      onClick={() => requestSort(sortKey)}
+    >
+      <div className={`flex items-center gap-1 ${align === "right" ? "justify-end" : "justify-start"}`}>
+        {label}
+        {isActive ? (
+          sortConfig.direction === 'ascending' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+        ) : (
+          <ArrowUpDown size={14} className="opacity-30" />
+        )}
+      </div>
+    </th>
+  );
+}
+
+// ============================================================================
+// SUB-COMPONENTS: MENU MANAGEMENT
+// ============================================================================
+
+function MenuManager({ data, onRefresh }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  
+  // Use the sorting hook
+  const { items: sortedItems, requestSort, sortConfig } = useSortableData(data.menuItems, { key: 'name', direction: 'ascending' });
+
+  const handleEdit = (item) => {
+    // Reconstruct recipe for this item
+    const itemRecipe = data.recipes.filter(r => r.menu_item === item.id);
+    setEditingItem({ ...item, recipe: itemRecipe });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure? This will remove the item and its recipe.")) return;
+    try {
+      await fetch(`${API_BASE}/menu-items/${id}/`, { method: 'DELETE' });
+      onRefresh();
+    } catch (e) {
+      alert("Failed to delete item.");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="text-slate-500">Managing {data.menuItems.length} items</div>
+        <button 
+          onClick={() => { setEditingItem(null); setIsModalOpen(true); }}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
+        >
+          <Plus size={18} /> Add Menu Item
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm uppercase tracking-wider">
+              <SortableHeader label="Name" sortKey="name" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader label="Category" sortKey="category" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader label="Price" sortKey="base_price" sortConfig={sortConfig} requestSort={requestSort} />
+              <th className="p-4 font-semibold">Recipe Count</th>
+              <th className="p-4 font-semibold text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {sortedItems.map(item => {
+              const recipeCount = data.recipes.filter(r => r.menu_item === item.id).length;
+              
+              // FIX: Handle both String Names and ID references for Category
+              let categoryName = 'Unknown';
+              
+              if (item.category) {
+                // If it looks like a number, try to look it up by ID
+                if (!isNaN(parseFloat(item.category)) && isFinite(item.category)) {
+                   const foundCat = data.categories.find(c => c.id == item.category);
+                   if (foundCat) categoryName = foundCat.name;
+                } else {
+                   // Otherwise, assume the API returned the string name directly
+                   categoryName = item.category;
+                }
+              }
+              
+              return (
+                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-4 font-medium text-slate-800">{item.name}</td>
+                  <td className="p-4 text-slate-600">
+                    <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs border border-slate-200">
+                      {categoryName}
+                    </span>
+                  </td>
+                  <td className="p-4 text-slate-600 font-mono">{formatCurrency(item.base_price)}</td>
+                  <td className="p-4 text-slate-500 text-sm">{recipeCount} ingredients</td>
+                  <td className="p-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => handleEdit(item)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={16} /></button>
+                      <button onClick={() => handleDelete(item.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16} /></button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {isModalOpen && (
+        <MenuModal 
+          item={editingItem} 
+          data={data} 
+          onClose={() => setIsModalOpen(false)} 
+          onSuccess={() => { setIsModalOpen(false); onRefresh(); }} 
+        />
+      )}
+    </div>
+  );
+}
+
+function MenuModal({ item, data, onClose, onSuccess }) {
+  // FIX: Resolve category Name to ID for the select dropdown
+  const getInitialCategoryId = () => {
+    if (!item?.category) return '';
+    
+    // Case 1: item.category is already an ID (e.g., 1)
+    if (data.categories.some(c => c.id == item.category)) {
+      return item.category;
+    }
+    
+    // Case 2: item.category is a Name (e.g. "Milk Tea") -> Find the ID
+    const foundCat = data.categories.find(c => c.name === item.category);
+    return foundCat ? foundCat.id : '';
+  };
+
+  const [formData, setFormData] = useState({
+    name: item?.name || '',
+    category: getInitialCategoryId(),
+    base_price: item?.base_price || '',
+  });
+  
+  // FIX: Detect if API provided Name or ID, and map to ID for dropdown compatibility
+  const [recipeList, setRecipeList] = useState(
+    item?.recipe ? item.recipe.map(r => {
+      // 1. Try finding by ID (normal case)
+      let ing = data.ingredients.find(i => i.id === r.ingredient);
+      
+      // 2. Fallback: If 'r.ingredient' is a name (e.g. "Brown Sugar"), look up the ID
+      if (!ing) {
+        ing = data.ingredients.find(i => i.name === r.ingredient);
+      }
+
+      return {
+        // Use the resolved ingredient ID so the <select> value matches an <option>
+        ingredient_id: ing ? ing.id : '', 
+        quantity: r.quantity,
+        unit: ing?.unit || ''
+      };
+    }) : []
+  );
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      // 1. Save Menu Item
+      const url = item ? `${API_BASE}/menu-items/${item.id}/` : `${API_BASE}/menu-items/`;
+      const method = item ? 'PUT' : 'POST';
+      
+      const menuRes = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      if (!menuRes.ok) throw new Error("Failed to save menu item");
+      
+      const savedItem = await menuRes.json();
+      const itemId = savedItem.id;
+
+      // 2. Handle Recipe (Delete old if editing, then Add new)
+      if (item) {
+        // Find original recipe items to delete. In a real app, maybe do a diff.
+        // Here we delete all old recipe lines for this item and re-add.
+        const oldRecipes = data.recipes.filter(r => r.menu_item === item.id);
+        await Promise.all(oldRecipes.map(r => 
+          fetch(`${API_BASE}/recipe-items/${r.id}/`, { method: 'DELETE' })
+        ));
+      }
+
+      // 3. Add new recipe lines
+      await Promise.all(recipeList.map(r => 
+        fetch(`${API_BASE}/recipe-items/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            menu_item: itemId,
+            ingredient: r.ingredient_id, // FIX: Don't use parseInt, IDs might be strings
+            quantity: parseFloat(r.quantity)
+          })
+        })
+      ));
+
+      onSuccess();
+    } catch (err) {
+      alert("Error saving item: " + err.message);
+    }
+  };
+
+  const addIngredientRow = () => {
+    setRecipeList([...recipeList, { ingredient_id: '', quantity: 1, unit: '' }]);
+  };
+
+  const removeIngredientRow = (idx) => {
+    const newList = [...recipeList];
+    newList.splice(idx, 1);
+    setRecipeList(newList);
+  };
+
+  const updateIngredientRow = (idx, field, value) => {
+    const newList = [...recipeList];
+    newList[idx][field] = value;
+    if (field === 'ingredient_id') {
+      const ing = data.ingredients.find(i => i.id == value); // Loose equality for finding
+      newList[idx].unit = ing ? ing.unit : '';
+    }
+    setRecipeList(newList);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+          <h3 className="text-xl font-bold">{item ? 'Edit Menu Item' : 'New Menu Item'}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X /></button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="flex-1 overflow-auto p-6 space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">Item Name</label>
+              <input 
+                required 
+                className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                value={formData.name}
+                onChange={e => setFormData({...formData, name: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">Price ($)</label>
+              <input 
+                required type="number" step="0.01"
+                className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                value={formData.base_price}
+                onChange={e => setFormData({...formData, base_price: parseFloat(e.target.value)})}
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-1">Category</label>
+            <select 
+              required
+              className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+              value={formData.category}
+              onChange={e => setFormData({...formData, category: e.target.value})}
+            >
+              <option value="">Select Category...</option>
+              {data.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+
+          {/* Recipe Editor */}
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div className="flex justify-between items-center mb-3">
+              <label className="block text-sm font-bold text-slate-700">Recipe Configuration</label>
+              <button type="button" onClick={addIngredientRow} className="text-xs bg-white border border-slate-300 hover:bg-slate-100 px-3 py-1 rounded flex items-center gap-1">
+                <Plus size={12} /> Add Ingredient
+              </button>
+            </div>
+            
+            <div className="space-y-2">
+              {recipeList.length === 0 && <div className="text-center text-slate-400 text-sm py-4 italic">No ingredients added yet.</div>}
+              {recipeList.map((row, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <select 
+                    required
+                    className="flex-1 p-2 text-sm border border-slate-300 rounded"
+                    value={row.ingredient_id}
+                    onChange={e => updateIngredientRow(idx, 'ingredient_id', e.target.value)}
+                  >
+                    <option value="">Select Ingredient...</option>
+                    {data.ingredients.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                  </select>
+                  <input 
+                    required type="number" step="0.01" min="0.01"
+                    className="w-20 p-2 text-sm border border-slate-300 rounded"
+                    placeholder="Qty"
+                    value={row.quantity}
+                    onChange={e => updateIngredientRow(idx, 'quantity', e.target.value)}
+                  />
+                  <span className="w-12 text-xs text-slate-500 font-medium">{row.unit || '-'}</span>
+                  <button type="button" onClick={() => removeIngredientRow(idx)} className="text-red-400 hover:text-red-600 p-1"><X size={16} /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </form>
+
+        <div className="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-xl">
+          <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded font-medium">Cancel</button>
+          <button onClick={handleSubmit} className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded font-medium shadow-sm flex items-center gap-2">
+            <Save size={18} /> Save Item
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// SUB-COMPONENTS: INVENTORY & EMPLOYEES
+// ============================================================================
+
+function InventoryManager({ data, onRefresh }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+
+  // Logic to highlight low stock
+  // FIX: Force numeric conversion to avoid string comparison errors ("1000" < "20")
+  const isLowStock = (item) => {
+    const stock = parseFloat(item.stock_level);
+    const threshold = parseFloat(item.low_stock_threshold);
+    return !isNaN(stock) && !isNaN(threshold) && stock < threshold;
+  };
+  
+  // Create a separate list for Low Stock items
+  const lowStockItems = data.ingredients.filter(isLowStock);
+  
+  // Use sorting hook for the main table
+  const { items: sortedIngredients, requestSort, sortConfig } = useSortableData(data.ingredients, { key: 'name', direction: 'ascending' });
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure? This will delete the ingredient.")) return;
+    try {
+      await fetch(`${API_BASE}/ingredients/${id}/`, { method: 'DELETE' });
+      onRefresh();
+    } catch (e) {
+      alert("Failed to delete ingredient. It may be used in recipes.");
+    }
   };
 
   const handleEdit = (item) => {
-    setSelectedItem(item);
-    setShowEditDialog(true);
+    setEditingItem(item);
+    setIsModalOpen(true);
   };
 
-  const handleDelete = async (item) => {
-    const itemName = item.name || `${item.first_name} ${item.last_name}`;
-    if (!window.confirm(`Are you sure you want to delete: ${itemName}?\n\nThis action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      const endpoint = currentView === 'menu' ? 'menu-items' :
-        currentView === 'inventory' ? 'ingredients' : 'employees';
-
-      const res = await fetch(`${API_BASE}/${endpoint}/${item.id}/`, {
-        method: 'DELETE'
-      });
-
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error || 'Delete failed');
-      }
-
-      alert(`✓ Successfully deleted: ${itemName}`);
-      reloadCurrentView();
-    } catch (error) {
-      alert(`❌ Failed to delete: ${error.message}`);
-    }
+  const handleAdd = () => {
+    setEditingItem(null);
+    setIsModalOpen(true);
   };
-
-  const handleCloseDialogs = () => {
-    setShowAddDialog(false);
-    setShowEditDialog(false);
-    setSelectedItem(null);
-  };
-
-  // ============================================================================
-  // RENDER
-  // ============================================================================
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-gray-800 text-white p-4 shadow-md">
-        <div className="container mx-auto flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="p-2 rounded-full hover:bg-gray-700 transition-colors"
-            title="Go Back"
-          >
-            <ArrowLeft size={24} />
-          </button>
-          <h1 className="text-2xl font-bold">Manager Dashboard</h1>
-        </div>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="text-slate-500">Managing {data.ingredients.length} items</div>
+        <button 
+          onClick={handleAdd}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
+        >
+          <Plus size={18}/> Add Ingredient
+        </button>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="container mx-auto flex">
-          <button
-            onClick={() => setCurrentView('menu')}
-            className={`px-6 py-4 font-semibold ${currentView === 'menu'
-              ? 'border-b-4 border-blue-600 text-blue-600'
-              : 'text-gray-600 hover:text-blue-600'
-              }`}
-          >
-            Menu Items
-          </button>
-          <button
-            onClick={() => setCurrentView('inventory')}
-            className={`px-6 py-4 font-semibold ${currentView === 'inventory'
-              ? 'border-b-4 border-blue-600 text-blue-600'
-              : 'text-gray-600 hover:text-blue-600'
-              }`}
-          >
-            Inventory
-          </button>
-          <button
-            onClick={() => setCurrentView('employees')}
-            className={`px-6 py-4 font-semibold ${currentView === 'employees'
-              ? 'border-b-4 border-blue-600 text-blue-600'
-              : 'text-gray-600 hover:text-blue-600'
-              }`}
-          >
-            Employees
-          </button>
-          <button
-            onClick={() => setCurrentView('product-usage')}
-            className={`px-6 py-4 font-semibold ${currentView === 'product-usage'
-              ? 'border-b-4 border-blue-600 text-blue-600'
-              : 'text-gray-600 hover:text-blue-600'
-              }`}
-          >
-            Product Usage
-          </button>
-          <button
-            onClick={() => setCurrentView('sales-report')}
-            className={`px-6 py-4 font-semibold ${currentView === 'sales-report'
-              ? 'border-b-4 border-blue-600 text-blue-600'
-              : 'text-gray-600 hover:text-blue-600'
-              }`}
-          >
-            Sales Report
-          </button>
-          <button
-            onClick={() => setCurrentView('x-report')}
-            className={`px-6 py-4 font-semibold ${currentView === 'x-report'
-              ? 'border-b-4 border-blue-600 text-blue-600'
-              : 'text-gray-600 hover:text-blue-600'
-              }`}
-          >
-            X-Report
-          </button>
-          <button
-            onClick={() => setCurrentView('z-report')}
-            className={`px-6 py-4 font-semibold ${currentView === 'z-report'
-              ? 'border-b-4 border-red-600 text-red-600'
-              : 'text-gray-600 hover:text-red-600'
-              }`}
-          >
-            Z-Report
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="container mx-auto p-6 max-w-7xl">
-        {/* Actions Bar - Hide for Product Usage, Sales Report, X-Report, and Z-Report views */}
-        {currentView !== 'product-usage' && currentView !== 'sales-report' && currentView !== 'x-report' && currentView !== 'z-report' && (
-          <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-            <button
-              onClick={handleAdd}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700"
-            >
-              <Plus size={20} />
-              Add New {currentView === 'menu' ? 'Menu Item' : currentView === 'inventory' ? 'Ingredient' : 'Employee'}
-            </button>
+      {/* NEW: Dedicated Low Stock Dashboard */}
+      {lowStockItems.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-red-100 p-2 rounded-full">
+              <AlertTriangle className="text-red-600" size={24} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-red-900">Critical Stock Alerts</h3>
+              <p className="text-sm text-red-700">Action required: {lowStockItems.length} items are strictly below their threshold.</p>
+            </div>
           </div>
-        )}
-
-        {/* Data Table */}
-        {loading ? (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="text-lg text-gray-700 mt-4">Loading...</p>
+          
+          <div className="bg-white rounded-lg border border-red-200 overflow-hidden shadow-sm">
+            <table className="w-full text-left">
+              <thead className="bg-red-100 text-red-900 text-xs uppercase font-bold">
+                <tr>
+                  <th className="p-3">Item Name</th>
+                  <th className="p-3">Current Stock</th>
+                  <th className="p-3">Threshold</th>
+                  <th className="p-3">Unit</th>
+                  <th className="p-3 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-red-100">
+                {lowStockItems.map(item => (
+                  <tr key={item.id} className="hover:bg-red-50">
+                    <td className="p-3 font-bold text-slate-800">{item.name}</td>
+                    <td className="p-3 font-mono font-bold text-red-600">{item.stock_level}</td>
+                    <td className="p-3 font-mono text-slate-500">{item.low_stock_threshold}</td>
+                    <td className="p-3 text-slate-500">{item.unit}</td>
+                    <td className="p-3 text-right">
+                      <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold uppercase">Restock Now</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ) : currentView === 'menu' ? (
-          <MenuItemsTable items={menuItems} onEdit={handleEdit} onDelete={handleDelete} recipeItems={recipeItems} />
-        ) : currentView === 'inventory' ? (
-          <InventoryTable items={ingredients} onEdit={handleEdit} onDelete={handleDelete} />
-        ) : currentView === 'employees' ? (
-          <EmployeesTable items={employees} onEdit={handleEdit} onDelete={handleDelete} />
-        ) : currentView === 'product-usage' ? (
-          <ProductUsageView ingredients={ingredients} recipeItems={recipeItems} />
-        ) : currentView === 'sales-report' ? (
-          <SalesReportView menuItems={menuItems} />
-        ) : currentView === 'x-report' ? (
-          <XReportView />
-        ) : currentView === 'z-report' ? (
-          <ZReportView />
-        ) : null}
-      </div>
-
-      {/* Add Dialog */}
-      {showAddDialog && currentView === 'menu' && (
-        <AddMenuItemDialog
-          onClose={handleCloseDialogs}
-          onSuccess={() => { handleCloseDialogs(); reloadCurrentView(); }}
-          ingredients={ingredients}
-          menuCategories={menuCategories}
-        />
-      )}
-      {showAddDialog && currentView === 'inventory' && (
-        <AddIngredientDialog
-          onClose={handleCloseDialogs}
-          onSuccess={() => { handleCloseDialogs(); reloadCurrentView(); }}
-          units={units}
-        />
-      )}
-      {showAddDialog && currentView === 'employees' && (
-        <AddEmployeeDialog
-          onClose={handleCloseDialogs}
-          onSuccess={() => { handleCloseDialogs(); reloadCurrentView(); }}
-        />
+        </div>
       )}
 
-      {/* Edit Dialog */}
-      {showEditDialog && selectedItem && currentView === 'menu' && (
-        <EditMenuItemDialog
-          item={selectedItem}
-          onClose={handleCloseDialogs}
-          onSuccess={() => { handleCloseDialogs(); reloadCurrentView(); }}
-          ingredients={ingredients}
-          menuCategories={menuCategories}
-          recipeItems={recipeItems}
-        />
-      )}
-      {showEditDialog && selectedItem && currentView === 'inventory' && (
-        <EditIngredientDialog
-          item={selectedItem}
-          onClose={handleCloseDialogs}
-          onSuccess={() => { handleCloseDialogs(); reloadCurrentView(); }}
-          units={units}
-        />
-      )}
-      {showEditDialog && selectedItem && currentView === 'employees' && (
-        <EditEmployeeDialog
-          item={selectedItem}
-          onClose={handleCloseDialogs}
-          onSuccess={() => { handleCloseDialogs(); reloadCurrentView(); }}
-        />
-      )}
-    </div>
-  );
-}
-
-// ============================================================================
-// TABLE COMPONENTS
-// ============================================================================
-
-function MenuItemsTable({ items, onEdit, onDelete, recipeItems }) {
-  if (items.length === 0) {
-    return (
-      <div className="bg-white rounded-lg shadow-md p-12 text-center">
-        <p className="text-lg text-gray-700">No menu items found.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <table className="w-full">
-        <thead className="bg-gray-100 border-b">
-          <tr>
-            <th className="p-3 text-left font-semibold">ID</th>
-            <th className="p-3 text-left font-semibold">Name</th>
-            <th className="p-3 text-left font-semibold">Category</th>
-            <th className="p-3 text-left font-semibold">Price</th>
-            <th className="p-3 text-left font-semibold">Recipe</th>
-            <th className="p-3 text-center font-semibold">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => {
-            const recipes = recipeItems.filter(r => r.menu_item === item.id);
-            return (
-              <tr key={item.id} className="border-b hover:bg-gray-50">
-                <td className="p-3">{item.id}</td>
-                <td className="p-3 font-semibold">{item.name}</td>
-                <td className="p-3">{item.category || 'N/A'}</td>
-                <td className="p-3">${parseFloat(item.base_price).toFixed(2)}</td>
-                <td className="p-3">
-                  {recipes.length > 0 ? (
-                    <div className="text-sm">
-                      {recipes.map((r, idx) => (
-                        <div key={idx}>
-                          {r.ingredient}: {r.quantity} {r.unit}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-gray-400">No recipe</span>
-                  )}
-                </td>
-                <td className="p-3">
-                  <div className="flex justify-center gap-2">
-                    <button
-                      onClick={() => onEdit(item)}
-                      className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => onDelete(item)}
-                      className="p-2 bg-red-500 text-white rounded hover:bg-red-600"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function InventoryTable({ items, onEdit, onDelete }) {
-  if (items.length === 0) {
-    return (
-      <div className="bg-white rounded-lg shadow-md p-12 text-center">
-        <p className="text-lg text-gray-700">No ingredients found.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <table className="w-full">
-        <thead className="bg-gray-100 border-b">
-          <tr>
-            <th className="p-3 text-left font-semibold">ID</th>
-            <th className="p-3 text-left font-semibold">Name</th>
-            <th className="p-3 text-left font-semibold">Stock Level</th>
-            <th className="p-3 text-left font-semibold">Unit</th>
-            <th className="p-3 text-left font-semibold">Low Stock Threshold</th>
-            <th className="p-3 text-center font-semibold">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => {
-            const isLowStock = item.stock_level <= item.low_stock_threshold;
-            return (
-              <tr key={item.id} className={`border-b hover:bg-gray-50 ${isLowStock ? 'bg-red-50' : ''}`}>
-                <td className="p-3">{item.id}</td>
-                <td className="p-3 font-semibold">
-                  {item.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                </td>
-                <td className={`p-3 font-bold ${isLowStock ? 'text-red-600' : ''}`}>
-                  {item.stock_level}
-                </td>
-                <td className="p-3">{item.unit}</td>
-                <td className="p-3">{item.low_stock_threshold}</td>
-                <td className="p-3">
-                  <div className="flex justify-center gap-2">
-                    <button
-                      onClick={() => onEdit(item)}
-                      className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => onDelete(item)}
-                      className="p-2 bg-red-500 text-white rounded hover:bg-red-600"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function EmployeesTable({ items, onEdit, onDelete }) {
-  if (items.length === 0) {
-    return (
-      <div className="bg-white rounded-lg shadow-md p-12 text-center">
-        <p className="text-lg text-gray-700">No employees found.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <table className="w-full">
-        <thead className="bg-gray-100 border-b">
-          <tr>
-            <th className="p-3 text-left font-semibold">ID</th>
-            <th className="p-3 text-left font-semibold">First Name</th>
-            <th className="p-3 text-left font-semibold">Last Name</th>
-            <th className="p-3 text-left font-semibold">Position</th>
-            <th className="p-3 text-left font-semibold">Hire Date</th>
-            <th className="p-3 text-center font-semibold">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id} className="border-b hover:bg-gray-50">
-              <td className="p-3">{item.id}</td>
-              <td className="p-3">{item.first_name}</td>
-              <td className="p-3">{item.last_name}</td>
-              <td className="p-3">{item.position}</td>
-              <td className="p-3">{new Date(item.hire_date).toLocaleDateString()}</td>
-              <td className="p-3">
-                <div className="flex justify-center gap-2">
-                  <button
-                    onClick={() => onEdit(item)}
-                    className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  <button
-                    onClick={() => onDelete(item)}
-                    className="p-2 bg-red-500 text-white rounded hover:bg-red-600"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </td>
+      {/* Main Inventory Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b border-slate-100 bg-slate-50 font-semibold text-slate-600">
+          All Inventory Items
+        </div>
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm uppercase">
+            <tr>
+              <SortableHeader label="Name" sortKey="name" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader label="Stock" sortKey="stock_level" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader label="Unit" sortKey="unit" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader label="Threshold" sortKey="low_stock_threshold" sortConfig={sortConfig} requestSort={requestSort} />
+              <th className="p-4 text-right">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function ProductUsageView({ ingredients, recipeItems }) {
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [usageData, setUsageData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [hasCalculated, setHasCalculated] = useState(false);
-
-  const calculateUsage = async () => {
-    if (!startDate || !endDate) {
-      alert('Please select both start and end dates');
-      return;
-    }
-
-    if (new Date(startDate) > new Date(endDate)) {
-      alert('Start date must be before end date');
-      return;
-    }
-
-    setLoading(true);
-    setHasCalculated(false);
-
-    try {
-      // Fetch orders within the date range
-      const ordersRes = await fetch(`${API_BASE}/orders/`);
-
-      if (!ordersRes.ok) {
-        throw new Error(`Failed to fetch orders: ${ordersRes.status}`);
-      }
-
-      const allOrders = await ordersRes.json();
-
-      // Filter orders by date range
-      const filteredOrders = allOrders.filter(order => {
-        const orderDate = new Date(order.order_date_time);
-        return orderDate >= new Date(startDate) && orderDate <= new Date(endDate);
-      });
-
-      // Fetch order items for all filtered orders
-      const orderItemsRes = await fetch(`${API_BASE}/order-items/`);
-
-      if (!orderItemsRes.ok) {
-        throw new Error(`Failed to fetch order items: ${orderItemsRes.status}`);
-      }
-
-      const allOrderItems = await orderItemsRes.json();
-
-      // Calculate ingredient usage
-      const ingredientUsage = new Map();
-
-      for (const order of filteredOrders) {
-        // Get order items for this order
-        const orderItems = allOrderItems.filter(item => item.order === order.id);
-
-        for (const orderItem of orderItems) {
-          // Get recipes for this menu item
-          const recipes = recipeItems.filter(r => r.menu_item === orderItem.menu_item);
-
-          for (const recipe of recipes) {
-            // Calculate total usage (recipe quantity * order quantity)
-            const totalUsage = recipe.quantity * orderItem.quantity;
-
-            // Add to the map
-            const currentUsage = ingredientUsage.get(recipe.ingredient) || 0;
-            ingredientUsage.set(recipe.ingredient, currentUsage + totalUsage);
-          }
-        }
-      }
-
-      // Convert map to array for display
-      const usageArray = Array.from(ingredientUsage.entries()).map(([ingredientName, quantity]) => {
-        const ingredient = ingredients.find(i => i.name === ingredientName);
-        return {
-          ingredient: ingredientName,
-          quantity: quantity.toFixed(2),
-          unit: ingredient?.unit || 'N/A'
-        };
-      });
-
-      // Sort by ingredient name
-      usageArray.sort((a, b) => a.ingredient.localeCompare(b.ingredient));
-
-      setUsageData(usageArray);
-      setHasCalculated(true);
-
-      console.log('Product usage calculated:', {
-        ordersFound: filteredOrders.length,
-        ingredientsUsed: usageArray.length
-      });
-
-    } catch (error) {
-      console.error('Failed to calculate usage:', error);
-      alert(`Error calculating usage: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Date Range Selector */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-bold mb-4">Product Usage Report</h2>
-        <p className="text-gray-600 mb-4">
-          Select a date range to see how much inventory was used during that period.
-        </p>
-
-        <div className="flex gap-4 items-end">
-          <div className="flex-1">
-            <label className="block font-semibold mb-2">Start Date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div className="flex-1">
-            <label className="block font-semibold mb-2">End Date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <button
-            onClick={calculateUsage}
-            disabled={loading}
-            className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Calculating...' : 'Calculate Usage'}
-          </button>
-        </div>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {sortedIngredients.map(item => (
+              <tr key={item.id} className={isLowStock(item) ? "bg-red-50 hover:bg-red-100" : "hover:bg-slate-50"}>
+                <td className="p-4 font-medium">{item.name}</td>
+                <td className={`p-4 font-bold ${isLowStock(item) ? "text-red-600" : "text-green-600"}`}>{item.stock_level}</td>
+                <td className="p-4 text-slate-500">{item.unit}</td>
+                <td className="p-4 text-slate-500">{item.low_stock_threshold}</td>
+                <td className="p-4 text-right">
+                  <button onClick={() => handleEdit(item)} className="text-blue-600 p-2"><Edit size={16}/></button>
+                  <button onClick={() => handleDelete(item.id)} className="text-red-600 p-2"><Trash2 size={16}/></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Results Table */}
-      {loading ? (
-        <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="text-lg text-gray-700 mt-4">Calculating usage...</p>
-        </div>
-      ) : hasCalculated ? (
-        usageData.length > 0 ? (
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-4 bg-gray-100 border-b">
-              <h3 className="font-bold text-lg">
-                Usage from {new Date(startDate).toLocaleDateString()} to {new Date(endDate).toLocaleDateString()}
-              </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Found {usageData.length} ingredient{usageData.length !== 1 ? 's' : ''} used
-              </p>
-            </div>
-            <table className="w-full">
-              <thead className="bg-gray-100 border-b">
-                <tr>
-                  <th className="p-3 text-left font-semibold">Ingredient</th>
-                  <th className="p-3 text-left font-semibold">Quantity Used</th>
-                  <th className="p-3 text-left font-semibold">Unit</th>
-                </tr>
-              </thead>
-              <tbody>
-                {usageData.map((item, idx) => (
-                  <tr key={idx} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-semibold">
-                      {item.ingredient.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                    </td>
-                    <td className="p-3 text-lg font-bold text-blue-600">
-                      {item.quantity}
-                    </td>
-                    <td className="p-3 text-gray-600">
-                      {item.unit}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <p className="text-lg text-gray-700">No orders found in the selected date range.</p>
-            <p className="text-sm text-gray-500 mt-2">Try selecting a different time period.</p>
-          </div>
-        )
-      ) : (
-        <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <p className="text-lg text-gray-700">Select a date range and click "Calculate Usage" to see results.</p>
-        </div>
+      {isModalOpen && (
+        <InventoryModal 
+          item={editingItem} 
+          units={data.units}
+          onClose={() => setIsModalOpen(false)} 
+          onSuccess={() => { setIsModalOpen(false); onRefresh(); }} 
+        />
       )}
     </div>
   );
 }
 
-function SalesReportView({ menuItems }) {
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [salesData, setSalesData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [hasCalculated, setHasCalculated] = useState(false);
+function InventoryModal({ item, units, onClose, onSuccess }) {
+  // Try to find the matching unit ID from the string representation if editing
+  const initialUnitId = useMemo(() => {
+    if (!item?.unit) return '';
+    // If unit is already an ID (unlikely given ReadSerializer), return it
+    if (!isNaN(parseFloat(item.unit))) return item.unit;
+    // Otherwise match by abbreviation or name
+    const found = units.find(u => u.abbreviation === item.unit || u.name === item.unit);
+    return found ? found.id : '';
+  }, [item, units]);
 
-  const calculateSales = async () => {
-    if (!startDate || !endDate) {
-      alert('Please select both start and end dates');
-      return;
-    }
-
-    if (new Date(startDate) > new Date(endDate)) {
-      alert('Start date must be before end date');
-      return;
-    }
-
-    setLoading(true);
-    setHasCalculated(false);
-
-    try {
-      // Fetch orders within the date range
-      const ordersRes = await fetch(`${API_BASE}/orders/`);
-
-      if (!ordersRes.ok) {
-        throw new Error(`Failed to fetch orders: ${ordersRes.status}`);
-      }
-
-      const allOrders = await ordersRes.json();
-
-      // Filter orders by date range
-      const filteredOrders = allOrders.filter(order => {
-        const orderDate = new Date(order.order_date_time);
-        return orderDate >= new Date(startDate) && orderDate <= new Date(endDate);
-      });
-
-      // Fetch order items for all orders
-      const orderItemsRes = await fetch(`${API_BASE}/order-items/`);
-
-      if (!orderItemsRes.ok) {
-        throw new Error(`Failed to fetch order items: ${orderItemsRes.status}`);
-      }
-
-      const allOrderItems = await orderItemsRes.json();
-
-      // Calculate sales by menu item
-      const itemSales = new Map();
-
-      for (const order of filteredOrders) {
-        // Get order items for this order
-        const orderItems = allOrderItems.filter(item => item.order === order.id);
-
-        for (const orderItem of orderItems) {
-          const menuItemId = orderItem.menu_item;
-          const quantity = orderItem.quantity;
-          const price = parseFloat(orderItem.price || 0);
-          const totalRevenue = quantity * price;
-
-          if (itemSales.has(menuItemId)) {
-            const existing = itemSales.get(menuItemId);
-            itemSales.set(menuItemId, {
-              menuItemId,
-              quantity: existing.quantity + quantity,
-              revenue: existing.revenue + totalRevenue
-            });
-          } else {
-            itemSales.set(menuItemId, {
-              menuItemId,
-              quantity,
-              revenue: totalRevenue
-            });
-          }
-        }
-      }
-
-      // Convert map to array and add menu item names
-      const salesArray = Array.from(itemSales.values()).map(sale => {
-        const menuItem = menuItems.find(m => m.id === sale.menuItemId);
-        return {
-          menuItemId: sale.menuItemId,
-          menuItemName: menuItem?.name || 'Unknown Item',
-          quantitySold: sale.quantity,
-          totalRevenue: sale.revenue,
-          averagePrice: sale.quantity > 0 ? sale.revenue / sale.quantity : 0
-        };
-      });
-
-      // Sort by total revenue (highest first)
-      salesArray.sort((a, b) => b.totalRevenue - a.totalRevenue);
-
-      setSalesData(salesArray);
-      setHasCalculated(true);
-
-      console.log('Sales report calculated:', {
-        ordersFound: filteredOrders.length,
-        itemsFound: salesArray.length,
-        totalRevenue: salesArray.reduce((sum, item) => sum + item.totalRevenue, 0)
-      });
-
-    } catch (error) {
-      console.error('Failed to calculate sales:', error);
-      alert(`Error calculating sales: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatCurrency = (amount) => {
-    return `$${parseFloat(amount).toFixed(2)}`;
-  };
-
-  const totalRevenue = salesData.reduce((sum, item) => sum + item.totalRevenue, 0);
-  const totalQuantity = salesData.reduce((sum, item) => sum + item.quantitySold, 0);
-
-  return (
-    <div className="space-y-6">
-      {/* Date Range Selector */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-bold mb-4">Sales Report by Item</h2>
-        <p className="text-gray-600 mb-4">
-          Select a date range to see sales breakdown by menu item.
-        </p>
-
-        <div className="flex gap-4 items-end">
-          <div className="flex-1">
-            <label className="block font-semibold mb-2">Start Date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div className="flex-1">
-            <label className="block font-semibold mb-2">End Date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <button
-            onClick={calculateSales}
-            disabled={loading}
-            className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Calculating...' : 'Generate Report'}
-          </button>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      {hasCalculated && salesData.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-semibold text-gray-600 uppercase">Total Revenue</h3>
-            <p className="text-3xl font-bold text-green-600 mt-2">
-              {formatCurrency(totalRevenue)}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-semibold text-gray-600 uppercase">Total Items Sold</h3>
-            <p className="text-3xl font-bold text-blue-600 mt-2">
-              {totalQuantity}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-semibold text-gray-600 uppercase">Average Item Price</h3>
-            <p className="text-3xl font-bold text-purple-600 mt-2">
-              {totalQuantity > 0 ? formatCurrency(totalRevenue / totalQuantity) : '$0.00'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Results Table */}
-      {loading ? (
-        <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="text-lg text-gray-700 mt-4">Calculating sales...</p>
-        </div>
-      ) : hasCalculated ? (
-        salesData.length > 0 ? (
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-4 bg-gray-100 border-b">
-              <h3 className="font-bold text-lg">
-                Sales from {new Date(startDate).toLocaleDateString()} to {new Date(endDate).toLocaleDateString()}
-              </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Found {salesData.length} menu item{salesData.length !== 1 ? 's' : ''} sold
-              </p>
-            </div>
-            <table className="w-full">
-              <thead className="bg-gray-100 border-b">
-                <tr>
-                  <th className="p-3 text-left font-semibold">Menu Item</th>
-                  <th className="p-3 text-right font-semibold">Quantity Sold</th>
-                  <th className="p-3 text-right font-semibold">Avg Price</th>
-                  <th className="p-3 text-right font-semibold">Total Revenue</th>
-                </tr>
-              </thead>
-              <tbody>
-                {salesData.map((item, idx) => (
-                  <tr key={idx} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-semibold">
-                      {item.menuItemName}
-                    </td>
-                    <td className="p-3 text-right text-lg font-bold text-blue-600">
-                      {item.quantitySold}
-                    </td>
-                    <td className="p-3 text-right text-gray-600">
-                      {formatCurrency(item.averagePrice)}
-                    </td>
-                    <td className="p-3 text-right text-lg font-bold text-green-600">
-                      {formatCurrency(item.totalRevenue)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-gray-50 border-t-2 border-gray-300">
-                <tr className="font-bold">
-                  <td className="p-3">TOTAL</td>
-                  <td className="p-3 text-right text-lg text-blue-600">
-                    {totalQuantity}
-                  </td>
-                  <td className="p-3 text-right text-lg">
-                    {totalQuantity > 0 ? formatCurrency(totalRevenue / totalQuantity) : '$0.00'}
-                  </td>
-                  <td className="p-3 text-right text-xl text-green-600">
-                    {formatCurrency(totalRevenue)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <p className="text-lg text-gray-700">No sales found in the selected date range.</p>
-            <p className="text-sm text-gray-500 mt-2">Try selecting a different time period.</p>
-          </div>
-        )
-      ) : (
-        <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <p className="text-lg text-gray-700">Select a date range and click "Generate Report" to see sales by item.</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function XReportView() {
-  const [reportData, setReportData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [summary, setSummary] = useState({
-    totalSales: 0,
-    totalTransactions: 0,
-    paymentMethods: {}
+  const [formData, setFormData] = useState({
+    name: item?.name || '',
+    stock_level: item?.stock_level || '',
+    unit: initialUnitId,
+    low_stock_threshold: item?.low_stock_threshold || ''
   });
 
-  useEffect(() => {
-    generateReport();
-  }, []);
-
-  const generateReport = async () => {
-    setLoading(true);
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     try {
-      // Fetch today's orders
-      const ordersRes = await fetch(`${API_BASE}/orders/`);
-
-      if (!ordersRes.ok) {
-        throw new Error(`Failed to fetch orders: ${ordersRes.status}`);
-      }
-
-      const allOrders = await ordersRes.json();
-
-      // Get today's date range (midnight to current time)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const now = new Date();
-
-      // Filter orders for today only
-      const todaysOrders = allOrders.filter(order => {
-        const orderDate = new Date(order.order_date_time);
-        return orderDate >= today && orderDate <= now;
+      const url = item ? `${API_BASE}/ingredients/${item.id}/` : `${API_BASE}/ingredients/`;
+      const method = item ? 'PUT' : 'POST';
+      
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
       });
-
-      console.log('X-Report Debug:', {
-        totalOrdersFetched: allOrders.length,
-        todayStart: today.toISOString(),
-        todayEnd: now.toISOString(),
-        todaysOrdersFound: todaysOrders.length,
-        sampleOrderDates: allOrders.slice(0, 5).map(o => {
-          const d = new Date(o.order_date_time);
-          return {
-            id: o.id,
-            date: o.order_date_time,
-            isValid: !isNaN(d.getTime()),
-            parsed: !isNaN(d.getTime()) ? d.toISOString() : 'INVALID DATE'
-          };
-        })
-      });
-
-      // Group orders by hour (0-23)
-      const hourlyData = {};
-      for (let hour = 0; hour < 24; hour++) {
-        hourlyData[hour] = {
-          hour,
-          sales: 0,
-          transactions: 0,
-          returns: 0,
-          voids: 0,
-          discards: 0,
-          paymentMethods: {}
-        };
-      }
-
-      let totalSales = 0;
-      let totalTransactions = 0;
-      const allPaymentMethods = {};
-
-      // Process each order
-      for (const order of todaysOrders) {
-        const orderDate = new Date(order.order_date_time);
-        const hour = orderDate.getHours();
-
-        // Get the hourly bucket
-        const hourData = hourlyData[hour];
-
-        // Increment transaction count
-        hourData.transactions++;
-        totalTransactions++;
-
-        // Add to sales total
-        const orderTotal = parseFloat(order.total_price || 0);
-        hourData.sales += orderTotal;
-        totalSales += orderTotal;
-
-        // Track payment method
-        const paymentMethod = order.payment_method || 'Unknown';
-        hourData.paymentMethods[paymentMethod] = (hourData.paymentMethods[paymentMethod] || 0) + 1;
-        allPaymentMethods[paymentMethod] = (allPaymentMethods[paymentMethod] || 0) + 1;
-
-        // Note: returns, voids, discards would need to be tracked in the order status/type field
-        // For now, we're setting them to 0 as they're not in the current data model
-      }
-
-      // Convert to array and filter out hours with no activity
-      const reportArray = Object.values(hourlyData);
-
-      setReportData(reportArray);
-      setSummary({
-        totalSales,
-        totalTransactions,
-        paymentMethods: allPaymentMethods
-      });
-      setLastUpdated(new Date());
-
-      console.log('X-Report generated:', {
-        totalSales,
-        totalTransactions,
-        paymentMethods: allPaymentMethods
-      });
-
-    } catch (error) {
-      console.error('Failed to generate X-Report:', error);
-      alert(`Error generating report: ${error.message}`);
-    } finally {
-      setLoading(false);
+      
+      if (!res.ok) throw new Error("Failed to save ingredient");
+      onSuccess();
+    } catch (err) {
+      alert(err.message);
     }
   };
 
-  const formatHour = (hour) => {
-    const period = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${displayHour}:00 ${period}`;
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+          <h3 className="text-xl font-bold">{item ? 'Edit Ingredient' : 'New Ingredient'}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X /></button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-1">Name</label>
+            <input 
+              required 
+              className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+              value={formData.name}
+              onChange={e => setFormData({...formData, name: e.target.value})}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">Stock Level</label>
+              <input 
+                required type="number" step="0.01"
+                className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                value={formData.stock_level}
+                onChange={e => setFormData({...formData, stock_level: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">Unit</label>
+              <select 
+                required
+                className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                value={formData.unit}
+                onChange={e => setFormData({...formData, unit: e.target.value})}
+              >
+                <option value="">Select Unit...</option>
+                {units.map(u => <option key={u.id} value={u.id}>{u.name} ({u.abbreviation})</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-1">Low Stock Threshold</label>
+            <input 
+              required type="number" step="0.01"
+              className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+              value={formData.low_stock_threshold}
+              onChange={e => setFormData({...formData, low_stock_threshold: e.target.value})}
+            />
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded font-medium">Cancel</button>
+            <button type="submit" className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded font-medium shadow-sm flex items-center gap-2">
+              <Save size={18} /> Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EmployeeManager({ data, onRefresh }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+
+  // Use sorting hook
+  const { items: sortedEmployees, requestSort, sortConfig } = useSortableData(data.employees, { key: 'first_name', direction: 'ascending' });
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure? This will delete the employee record.")) return;
+    try {
+      await fetch(`${API_BASE}/employees/${id}/`, { method: 'DELETE' });
+      onRefresh();
+    } catch (e) {
+      alert("Failed to delete employee.");
+    }
   };
 
-  const formatCurrency = (amount) => {
-    return `$${parseFloat(amount).toFixed(2)}`;
+  const handleEdit = (item) => {
+    setEditingItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleAdd = () => {
+    setEditingItem(null);
+    setIsModalOpen(true);
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold">X-Report - Hourly Sales</h2>
-            <p className="text-gray-600 mt-1">
-              Current Day: {new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </p>
-            {lastUpdated && (
-              <p className="text-sm text-gray-500 mt-1">
-                Last updated: {lastUpdated.toLocaleTimeString()}
-              </p>
-            )}
-          </div>
-          <button
-            onClick={generateReport}
-            disabled={loading}
-            className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Refreshing...' : 'Refresh Report'}
-          </button>
-        </div>
-
-        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-800">
-            <strong>Note:</strong> This is a non-closing report (X-Report) that can be run multiple times throughout the day
-            without affecting the register. It shows real-time sales activities broken down by hour.
-          </p>
-        </div>
+      <div className="flex justify-between items-center">
+        <div className="text-slate-500">Managing Employees</div>
+        <button 
+          onClick={handleAdd}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
+        >
+          <Plus size={18}/> Add Employee
+        </button>
+      </div>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm uppercase">
+            <tr>
+              <SortableHeader label="First Name" sortKey="first_name" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader label="Last Name" sortKey="last_name" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader label="Position" sortKey="position" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader label="Hire Date" sortKey="hire_date" sortConfig={sortConfig} requestSort={requestSort} />
+              <th className="p-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {sortedEmployees.map(emp => (
+              <tr key={emp.id} className="hover:bg-slate-50">
+                <td className="p-4 font-medium">{emp.first_name}</td>
+                <td className="p-4 font-medium">{emp.last_name}</td>
+                <td className="p-4 text-slate-600">{emp.position}</td>
+                <td className="p-4 text-slate-500">{formatDate(emp.hire_date)}</td>
+                <td className="p-4 text-right">
+                   <button onClick={() => handleEdit(emp)} className="text-blue-600 p-2"><Edit size={16}/></button>
+                   <button onClick={() => handleDelete(emp.id)} className="text-red-600 p-2"><Trash2 size={16}/></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Summary Cards */}
-      {!loading && lastUpdated && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-semibold text-gray-600 uppercase">Total Sales</h3>
-            <p className="text-3xl font-bold text-green-600 mt-2">
-              {formatCurrency(summary.totalSales)}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-semibold text-gray-600 uppercase">Total Transactions</h3>
-            <p className="text-3xl font-bold text-blue-600 mt-2">
-              {summary.totalTransactions}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-sm font-semibold text-gray-600 uppercase">Avg Transaction</h3>
-            <p className="text-3xl font-bold text-purple-600 mt-2">
-              {summary.totalTransactions > 0
-                ? formatCurrency(summary.totalSales / summary.totalTransactions)
-                : '$0.00'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Hourly Breakdown Table */}
-      {loading ? (
-        <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="text-lg text-gray-700 mt-4">Generating report...</p>
-        </div>
-      ) : lastUpdated ? (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-4 bg-gray-100 border-b">
-            <h3 className="font-bold text-lg">Hourly Breakdown</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-100 border-b">
-                <tr>
-                  <th className="p-3 text-left font-semibold">Hour</th>
-                  <th className="p-3 text-right font-semibold">Sales</th>
-                  <th className="p-3 text-right font-semibold">Transactions</th>
-                  <th className="p-3 text-right font-semibold">Avg Sale</th>
-                  <th className="p-3 text-left font-semibold">Payment Methods</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportData.map((hourData) => {
-                  const hasActivity = hourData.transactions > 0;
-                  const avgSale = hasActivity ? hourData.sales / hourData.transactions : 0;
-
-                  // Only show hours with activity
-                  if (!hasActivity) return null;
-
-                  return (
-                    <tr key={hourData.hour} className="border-b hover:bg-gray-50">
-                      <td className="p-3 font-semibold">
-                        {formatHour(hourData.hour)}
-                      </td>
-                      <td className="p-3 text-right font-bold text-green-600">
-                        {formatCurrency(hourData.sales)}
-                      </td>
-                      <td className="p-3 text-right font-semibold">
-                        {hourData.transactions}
-                      </td>
-                      <td className="p-3 text-right text-gray-600">
-                        {formatCurrency(avgSale)}
-                      </td>
-                      <td className="p-3">
-                        {Object.entries(hourData.paymentMethods).map(([method, count]) => (
-                          <span key={method} className="inline-block mr-2 text-sm">
-                            <span className="font-semibold">{method}:</span> {count}
-                          </span>
-                        ))}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot className="bg-gray-50 border-t-2 border-gray-300">
-                <tr className="font-bold">
-                  <td className="p-3">TOTAL</td>
-                  <td className="p-3 text-right text-green-600 text-lg">
-                    {formatCurrency(summary.totalSales)}
-                  </td>
-                  <td className="p-3 text-right text-lg">
-                    {summary.totalTransactions}
-                  </td>
-                  <td className="p-3 text-right text-lg">
-                    {summary.totalTransactions > 0
-                      ? formatCurrency(summary.totalSales / summary.totalTransactions)
-                      : '$0.00'}
-                  </td>
-                  <td className="p-3">
-                    {Object.entries(summary.paymentMethods).map(([method, count]) => (
-                      <span key={method} className="inline-block mr-2 text-sm">
-                        <span className="font-semibold">{method}:</span> {count}
-                      </span>
-                    ))}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <p className="text-lg text-gray-700">Click "Refresh Report" to generate the X-Report.</p>
-        </div>
-      )}
-
-      {/* Payment Methods Summary */}
-      {!loading && lastUpdated && Object.keys(summary.paymentMethods).length > 0 && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="font-bold text-lg mb-4">Payment Methods Summary</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(summary.paymentMethods).map(([method, count]) => (
-              <div key={method} className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600 uppercase font-semibold">{method}</p>
-                <p className="text-2xl font-bold text-blue-600 mt-1">{count}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {((count / summary.totalTransactions) * 100).toFixed(1)}% of total
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
+      {isModalOpen && (
+        <EmployeeModal 
+          item={editingItem} 
+          onClose={() => setIsModalOpen(false)} 
+          onSuccess={() => { setIsModalOpen(false); onRefresh(); }} 
+        />
       )}
     </div>
   );
 }
 
-function ZReportView() {
-  const [reportData, setReportData] = useState(null);
+function EmployeeModal({ item, onClose, onSuccess }) {
+  const [formData, setFormData] = useState({
+    first_name: item?.first_name || '',
+    last_name: item?.last_name || '',
+    position: item?.position || '',
+    hire_date: item?.hire_date || ''
+  });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const url = item ? `${API_BASE}/employees/${item.id}/` : `${API_BASE}/employees/`;
+      const method = item ? 'PUT' : 'POST';
+      
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      
+      if (!res.ok) throw new Error("Failed to save employee");
+      onSuccess();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+          <h3 className="text-xl font-bold">{item ? 'Edit Employee' : 'New Employee'}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X /></button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">First Name</label>
+              <input 
+                required 
+                className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                value={formData.first_name}
+                onChange={e => setFormData({...formData, first_name: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">Last Name</label>
+              <input 
+                required 
+                className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                value={formData.last_name}
+                onChange={e => setFormData({...formData, last_name: e.target.value})}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-1">Position</label>
+            <input 
+              required 
+              className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+              value={formData.position}
+              onChange={e => setFormData({...formData, position: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-1">Hire Date</label>
+            <input 
+              required type="date"
+              className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+              value={formData.hire_date}
+              onChange={e => setFormData({...formData, hire_date: e.target.value})}
+            />
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded font-medium">Cancel</button>
+            <button type="submit" className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded font-medium shadow-sm flex items-center gap-2">
+              <Save size={18} /> Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// SUB-COMPONENTS: REPORTS
+// ============================================================================
+
+function ReportsDashboard({ data }) {
+  const [reportType, setReportType] = useState('x-report'); // sales, product, x-report, z-report
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [reportResult, setReportResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [canRunReport, setCanRunReport] = useState(true);
-  const [lastReportDate, setLastReportDate] = useState(null);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-
-  useEffect(() => {
-    checkIfCanRun();
-  }, []);
-
-  const checkIfCanRun = () => {
-    // Check if Z-report was already run today
-    const lastRun = localStorage.getItem('lastZReportDate');
-    if (lastRun) {
-      const lastRunDate = new Date(lastRun);
-      const today = new Date();
-
-      // Check if it's the same day
-      if (lastRunDate.toDateString() === today.toDateString()) {
-        setCanRunReport(false);
-        setLastReportDate(lastRunDate);
-      } else {
-        setCanRunReport(true);
-        setLastReportDate(null);
-      }
-    }
-  };
-
-  const confirmAndGenerate = () => {
-    if (!canRunReport) {
-      alert('Z-Report has already been run today. It can only be run once per day.');
-      return;
-    }
-    setShowConfirmDialog(true);
-  };
 
   const generateReport = async () => {
-    setShowConfirmDialog(false);
     setLoading(true);
-
+    setReportResult(null);
     try {
-      // Fetch today's orders
-      const ordersRes = await fetch(`${API_BASE}/orders/`);
-      if (!ordersRes.ok) {
-        throw new Error(`Failed to fetch orders: ${ordersRes.status}`);
+      // 1. Fetch Orders and OrderItems
+      const [ordersRes, orderItemsRes] = await Promise.all([
+        fetch(`${API_BASE}/orders/`),
+        fetch(`${API_BASE}/order-items/`)
+      ]);
+      const orders = await ordersRes.json();
+      const orderItems = await orderItemsRes.json();
+
+      let processedData = null;
+
+      // 2. Route to logic based on type
+      if (reportType === 'x-report') {
+        processedData = generateXReport(orders, orderItems, data.menuItems);
+      } else if (reportType === 'z-report') {
+        processedData = generateZReport(orders, orderItems, data.menuItems);
+      } else if (reportType === 'sales') {
+        // FIX: Pass all required data to sales report
+        processedData = generateSalesReport(orders, orderItems, data.menuItems, data.categories, dateRange);
+      } else if (reportType === 'product') {
+        processedData = generateProductUsage(orders, orderItems, data.recipes, dateRange);
+      } else if (reportType === 'low-stock') {
+        // FIX: Also force numeric conversion in reports
+        processedData = data.ingredients.filter(i => {
+           const stock = parseFloat(i.stock_level);
+           const threshold = parseFloat(i.low_stock_threshold);
+           return !isNaN(stock) && !isNaN(threshold) && stock < threshold;
+        });
       }
-      const allOrders = await ordersRes.json();
 
-      // Get today's date range (midnight to now)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const now = new Date();
+      setReportResult(processedData);
+    } catch (e) {
+      alert("Failed to generate report: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Filter orders for today
-      const todaysOrders = allOrders.filter(order => {
-        const orderDate = new Date(order.order_date_time);
-        return orderDate >= today && orderDate <= now;
-      });
+  // --- REPORT LOGIC IMPLEMENTATION (Matches ManagerController.java) ---
 
-      console.log('Z-Report Debug:', {
-        totalOrdersFetched: allOrders.length,
-        todayStart: today.toISOString(),
-        todayEnd: now.toISOString(),
-        todaysOrdersFound: todaysOrders.length,
-        sampleOrderDates: allOrders.slice(0, 5).map(o => {
-          const d = new Date(o.order_date_time);
-          return {
-            id: o.id,
-            date: o.order_date_time,
-            isValid: !isNaN(d.getTime()),
-            parsed: !isNaN(d.getTime()) ? d.toISOString() : 'INVALID DATE'
-          };
-        })
-      });
+  const generateXReport = (orders, orderItems, menuItems) => {
+    // Filter for TODAY
+    const todayStr = getLocalDateString();
+    const todaysOrders = orders.filter(o => {
+        const orderDateStr = getLocalDateString(new Date(o.order_date_time));
+        return orderDateStr === todayStr;
+    });
 
-      // Calculate comprehensive totals
-      let totalSales = 0;
-      let totalTax = 0;
-      let totalServiceCharge = 0;
-      let totalDiscounts = 0;
-      let totalVoids = 0;
-      let grossSales = 0;
-      const paymentMethods = {};
-      const employeeTransactions = {};
+    // Buckets for hours 0-23
+    const hours = Array(24).fill(0).map((_, i) => ({
+      hour: i, orders: 0, gross: 0, cash: 0, card: 0, voids: 0
+    }));
 
-      for (const order of todaysOrders) {
-        const orderTotal = parseFloat(order.total_price || 0);
-        const basePrice = parseFloat(order.base_price || orderTotal / 1.0825); // Assuming 8.25% tax
-        const tax = orderTotal - basePrice;
-        const serviceCharge = basePrice * 0.18; // 18% service charge
+    todaysOrders.forEach(o => {
+      const hour = new Date(o.order_date_time).getHours();
+      const hData = hours[hour];
+      
+      const total = parseFloat(o.total_price);
+      // NOTE: ManagerController.java Logic:
+      // "total_orders" counts ALL orders, even voids.
+      hData.orders += 1; 
 
-        grossSales += basePrice;
-        totalTax += tax;
-        totalServiceCharge += serviceCharge;
-        totalSales += orderTotal;
+      if (o.payment_method === 'VOID') {
+        hData.voids += total;
+      } else {
+        hData.gross += total;
+        if (o.payment_method === 'Cash') hData.cash += total;
+        else hData.card += total;
+      }
+    });
 
-        // Track payment methods
-        const paymentMethod = order.payment_method || 'Unknown';
-        paymentMethods[paymentMethod] = (paymentMethods[paymentMethod] || 0) + orderTotal;
+    return { type: 'x-report', rows: hours.filter(h => h.orders > 0), totals: calculateTotals(hours) };
+  };
 
-        // Track employee (if available)
-        if (order.employee_name) {
-          if (!employeeTransactions[order.employee_name]) {
-            employeeTransactions[order.employee_name] = {
-              count: 0,
-              total: 0
-            };
-          }
-          employeeTransactions[order.employee_name].count++;
-          employeeTransactions[order.employee_name].total += orderTotal;
+  const generateZReport = (orders, orderItems, menuItems) => {
+    const todayStr = getLocalDateString();
+    const todaysOrders = orders.filter(o => {
+        const orderDateStr = getLocalDateString(new Date(o.order_date_time));
+        return orderDateStr === todayStr;
+    });
+
+    let totalSalesPreTax = 0;
+    let cardSalesPreTax = 0;
+    let voidTotalValue = 0;
+    let cashCount = 0;
+    let cardCount = 0;
+    let voidCount = 0;
+
+    todaysOrders.forEach(o => {
+      // Re-calculate pre-tax from total (Reverse engineering tax: Total = Pre * (1+Rate))
+      const total = parseFloat(o.total_price);
+      const preTax = total / (1 + TAX_RATE);
+
+      if (o.payment_method === 'VOID') {
+        voidCount++;
+        voidTotalValue += total;
+      } else {
+        totalSalesPreTax += preTax;
+        if (o.payment_method === 'Cash') cashCount++;
+        else if (o.payment_method === 'Card') {
+          cardCount++;
+          cardSalesPreTax += preTax;
         }
       }
+    });
 
-      const netSales = totalSales - totalDiscounts - totalVoids;
+    const totalTax = totalSalesPreTax * TAX_RATE;
+    const serviceCharge = cardSalesPreTax * SERVICE_CHARGE_RATE;
 
-      const report = {
-        date: now.toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        }),
-        time: now.toLocaleTimeString(),
-        totalTransactions: todaysOrders.length,
-        grossSales,
+    return {
+      type: 'z-report',
+      data: {
+        totalSalesPreTax,
         totalTax,
-        totalServiceCharge,
-        totalDiscounts,
-        totalVoids,
-        netSales,
-        paymentMethods,
-        employeeTransactions
-      };
+        grossSales: totalSalesPreTax + totalTax,
+        cashCount, cardCount, voidCount,
+        voidTotalValue,
+        serviceCharge
+      }
+    };
+  };
 
-      setReportData(report);
+  const generateSalesReport = (orders, orderItems, menuItems, categories, dates) => {
+    // UPDATED: Strict local date string comparison
+    const validOrders = orders.filter(o => {
+      const orderDate = new Date(o.order_date_time);
+      
+      // Parse inputs as local parts
+      const [sy, sm, sd] = dates.start.split('-').map(Number);
+      const start = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+      
+      const [ey, em, ed] = dates.end.split('-').map(Number);
+      const end = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+      
+      return orderDate >= start && orderDate <= end && o.payment_method !== 'VOID';
+    });
 
-      // Mark Z-report as run for today
-      localStorage.setItem('lastZReportDate', now.toISOString());
-      setCanRunReport(false);
-      setLastReportDate(now);
+    const salesMap = {}; // MenuItemID -> { name, quantity, revenue }
 
-      console.log('Z-Report generated:', report);
+    validOrders.forEach(order => {
+      const items = orderItems.filter(oi => oi.order === order.id);
+      items.forEach(item => {
+        const menuItem = menuItems.find(m => m.id === item.menu_item);
+        if (!menuItem) return;
+        
+        if (!salesMap[item.menu_item]) {
+          // Resolve Category Name safely
+          let catName = menuItem.category || 'Uncategorized';
+          if (!isNaN(parseFloat(catName)) && isFinite(catName)) {
+             const c = categories.find(cat => cat.id == catName);
+             if (c) catName = c.name;
+          }
 
-      // In a real system, you would call an API endpoint here to:
-      // 1. Store the Z-report in the database
-      // 2. Reset daily counters
-      // 3. Mark the day as closed
+          salesMap[item.menu_item] = { 
+            name: menuItem.name, 
+            category: catName,
+            quantity: 0, 
+            revenue: 0 
+          };
+        }
+        
+        // Java logic uses base price for item sales report
+        const price = parseFloat(menuItem.base_price);
+        salesMap[item.menu_item].quantity += item.quantity;
+        salesMap[item.menu_item].revenue += (item.quantity * price);
+      });
+    });
 
-    } catch (error) {
-      console.error('Failed to generate Z-Report:', error);
-      alert(`Error generating report: ${error.message}`);
+    const salesList = Object.values(salesMap).sort((a, b) => b.revenue - a.revenue);
+    return { type: 'sales', data: salesList, period: { start: dates.start, end: dates.end } };
+  };
+
+  const generateProductUsage = (orders, orderItems, recipes, dates) => {
+    // UPDATED: Strict local date string comparison
+    const validOrders = orders.filter(o => {
+      const orderDate = new Date(o.order_date_time);
+      
+      const [sy, sm, sd] = dates.start.split('-').map(Number);
+      const start = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+      
+      const [ey, em, ed] = dates.end.split('-').map(Number);
+      const end = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+      
+      return orderDate >= start && orderDate <= end && o.payment_method !== 'VOID';
+    });
+
+    const usageMap = {}; // IngredientID -> Qty
+
+    validOrders.forEach(order => {
+      const items = orderItems.filter(oi => oi.order === order.id);
+      items.forEach(item => {
+        // Find recipe for this menu item
+        const itemRecipes = recipes.filter(r => r.menu_item === item.menu_item);
+        itemRecipes.forEach(r => {
+          const totalUsed = r.quantity * item.quantity;
+          usageMap[r.ingredient] = (usageMap[r.ingredient] || 0) + totalUsed;
+        });
+      });
+    });
+
+    return { type: 'product', data: usageMap };
+  };
+
+  // ------------------------------------------------------------------
+
+  return (
+    <div className="h-full flex flex-col gap-6">
+      {/* Controls */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-4 items-end">
+        <div>
+          <label className="block text-sm font-semibold text-slate-600 mb-1">Report Type</label>
+          <select 
+            className="p-2 border border-slate-300 rounded min-w-[200px]"
+            value={reportType} onChange={e => setReportType(e.target.value)}
+          >
+            <option value="x-report">X-Report (Hourly)</option>
+            <option value="z-report">Z-Report (End of Day)</option>
+            <option value="sales">Sales Report</option>
+            <option value="product">Product Usage</option>
+            <option value="low-stock">Low Stock Alert</option>
+          </select>
+        </div>
+        
+        {['sales', 'product'].includes(reportType) && (
+          <>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">Start Date</label>
+              <input type="date" className="p-2 border border-slate-300 rounded" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">End Date</label>
+              <input type="date" className="p-2 border border-slate-300 rounded" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} />
+            </div>
+          </>
+        )}
+
+        <button 
+          onClick={generateReport}
+          disabled={loading}
+          className="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
+        >
+          {loading ? "Processing..." : "Generate Report"}
+        </button>
+      </div>
+
+      {/* Results View */}
+      <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-auto p-6">
+        {!reportResult ? (
+          <div className="h-full flex flex-col items-center justify-center text-slate-400">
+            <FileText size={48} className="mb-4 opacity-50" />
+            <p>Select parameters and generate a report to view results.</p>
+          </div>
+        ) : (
+          <ReportViewer type={reportType} result={reportResult} meta={data} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReportViewer({ type, result, meta }) {
+  if (type === 'x-report') {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-xl font-bold border-b pb-4">X-Report: Hourly Breakdown</h3>
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
+            <tr>
+              <th className="p-3">Hour</th>
+              <th className="p-3">Orders</th>
+              <th className="p-3">Gross Sales</th>
+              <th className="p-3">Cash</th>
+              <th className="p-3">Card</th>
+              <th className="p-3">Voids</th>
+            </tr>
+          </thead>
+          <tbody>
+            {result.rows.map(r => (
+              <tr key={r.hour} className="border-b border-slate-50">
+                <td className="p-3 font-medium">{r.hour}:00 - {r.hour}:59</td>
+                <td className="p-3">{r.orders}</td>
+                <td className="p-3 font-mono">{formatCurrency(r.gross)}</td>
+                <td className="p-3 font-mono text-green-600">{formatCurrency(r.cash)}</td>
+                <td className="p-3 font-mono text-blue-600">{formatCurrency(r.card)}</td>
+                <td className="p-3 font-mono text-red-600">{formatCurrency(r.voids)}</td>
+              </tr>
+            ))}
+            <tr className="bg-slate-100 font-bold">
+              <td className="p-3">TOTAL</td>
+              <td className="p-3">{result.totals.orders}</td>
+              <td className="p-3">{formatCurrency(result.totals.gross)}</td>
+              <td className="p-3">{formatCurrency(result.totals.cash)}</td>
+              <td className="p-3">{formatCurrency(result.totals.card)}</td>
+              <td className="p-3">{formatCurrency(result.totals.voids)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  if (type === 'z-report') {
+    const { data } = result;
+    return (
+      <div className="max-w-xl mx-auto space-y-6">
+        <div className="text-center border-b pb-4">
+          <h2 className="text-2xl font-bold text-slate-900">Z-REPORT</h2>
+          <p className="text-slate-500">{new Date().toLocaleDateString()}</p>
+        </div>
+        
+        <div className="space-y-2">
+           <ReportRow label="Total Sales (Pre-Tax)" value={data.totalSalesPreTax} />
+           <ReportRow label={`Total Tax (${(TAX_RATE*100).toFixed(2)}%)`} value={data.totalTax} />
+           <div className="border-t border-slate-300 my-2"></div>
+           <ReportRow label="GROSS SALES (Incl Tax)" value={data.grossSales} bold />
+        </div>
+
+        <div className="bg-slate-50 p-4 rounded-lg space-y-2">
+          <ReportRow label="Cash Orders Count" value={data.cashCount} isCurrency={false} />
+          <ReportRow label="Card Orders Count" value={data.cardCount} isCurrency={false} />
+          <ReportRow label="Void Orders Count" value={data.voidCount} isCurrency={false} />
+        </div>
+
+        <div className="space-y-2">
+           <ReportRow label="Service Charges Collected" value={data.serviceCharge} />
+           <ReportRow label="Total Void Value" value={data.voidTotalValue} color="text-red-600" />
+        </div>
+
+        <div className="bg-yellow-50 border border-yellow-200 p-4 text-center text-sm text-yellow-800 rounded">
+          <strong>Note:</strong> Z-Report marks the end of day. Ensure all orders are finalized.
+        </div>
+      </div>
+    );
+  }
+
+  if (type === 'sales') {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-xl font-bold border-b pb-4">Sales Report ({formatDate(result.period.start)} - {formatDate(result.period.end)})</h3>
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
+            <tr>
+              <th className="p-3">Item</th>
+              <th className="p-3">Category</th>
+              <th className="p-3 text-right">Quantity</th>
+              <th className="p-3 text-right">Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {result.data.map((row, idx) => (
+              <tr key={idx} className="border-b border-slate-50">
+                <td className="p-3 font-medium">{row.name}</td>
+                <td className="p-3 text-slate-500">{row.category}</td>
+                <td className="p-3 text-right">{row.quantity}</td>
+                <td className="p-3 text-right font-mono">{formatCurrency(row.revenue)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  if (type === 'product') {
+    return (
+      <table className="w-full text-left">
+        <thead className="bg-slate-50"><tr><th className="p-3">Ingredient</th><th className="p-3">Quantity Used</th></tr></thead>
+        <tbody>
+          {Object.entries(result.data).map(([id, qty]) => {
+            const ing = meta.ingredients.find(i => i.id === parseInt(id));
+            return (
+              <tr key={id} className="border-b">
+                <td className="p-3">{ing ? ing.name : `ID: ${id}`}</td>
+                <td className="p-3 font-mono">{qty.toFixed(2)} {ing?.unit}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+  }
+
+  if (type === 'low-stock') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-red-600 border-b pb-4">
+           <AlertTriangle />
+           <h3 className="text-xl font-bold">Low Stock Alert</h3>
+        </div>
+        <table className="w-full text-left">
+          <thead className="bg-red-50 text-red-900 uppercase text-xs">
+            <tr>
+              <th className="p-3">Ingredient</th>
+              <th className="p-3">Current Stock</th>
+              <th className="p-3">Threshold</th>
+              <th className="p-3">Unit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {result.map(item => (
+              <tr key={item.id} className="border-b border-red-50 hover:bg-red-50">
+                <td className="p-3 font-medium text-slate-800">{item.name}</td>
+                <td className="p-3 font-bold text-red-600">{item.stock_level}</td>
+                <td className="p-3 text-slate-500">{item.low_stock_threshold}</td>
+                <td className="p-3 text-slate-500">{item.unit}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  return <div>Report view not implemented for this type yet.</div>;
+}
+
+function ReportRow({ label, value, bold, isCurrency = true, color = "text-slate-800" }) {
+  return (
+    <div className={`flex justify-between items-center ${bold ? 'font-bold text-lg' : 'text-sm'}`}>
+      <span className="text-slate-600">{label}</span>
+      <span className={`font-mono ${color}`}>{isCurrency ? formatCurrency(value) : value}</span>
+    </div>
+  );
+}
+
+function calculateTotals(rows) {
+  return rows.reduce((acc, r) => ({
+    orders: acc.orders + r.orders,
+    gross: acc.gross + r.gross,
+    cash: acc.cash + r.cash,
+    card: acc.card + r.card,
+    voids: acc.voids + r.voids
+  }), { orders: 0, gross: 0, cash: 0, card: 0, voids: 0 });
+}
+
+// ============================================================================
+// SUB-COMPONENTS: ORDER HISTORY
+// ============================================================================
+
+function OrdersHistoryView() {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState('week'); // 'week', 'month', 'custom'
+  
+  // FIX: Initialize with local time to avoid "yesterday's date" default
+  const [dateRange, setDateRange] = useState(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 7);
+    return {
+      start: getLocalDateString(start),
+      end: getLocalDateString(end)
+    };
+  });
+
+  // Use sorting hook for the table
+  const { items: sortedOrders, requestSort, sortConfig } = useSortableData(orders, { key: 'order_date_time', direction: 'descending' });
+
+  useEffect(() => {
+    fetchOrders();
+  }, [dateRange]); // Fetch when range changes
+
+  const setQuickRange = (type) => {
+    const end = new Date();
+    const start = new Date();
+    if (type === 'week') start.setDate(end.getDate() - 7);
+    if (type === 'month') start.setMonth(end.getMonth() - 1);
+    
+    setDateRange({
+      start: getLocalDateString(start),
+      end: getLocalDateString(end)
+    });
+    setFilter(type);
+  };
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+        const res = await fetch(`${API_BASE}/orders/`);
+        const all = await res.json();
+        
+        // Client side filtering with LOCAL Time logic
+        const filtered = all.filter(o => {
+            const orderDate = new Date(o.order_date_time);
+            
+            // Construct start date (Local 00:00:00)
+            const [sy, sm, sd] = dateRange.start.split('-').map(Number);
+            const start = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+            
+            // Construct end date (Local 23:59:59.999)
+            const [ey, em, ed] = dateRange.end.split('-').map(Number);
+            const end = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+            
+            return orderDate >= start && orderDate <= end;
+        });
+        setOrders(filtered);
+    } catch(e) {
+        alert("Error fetching orders");
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
-
-  const formatCurrency = (amount) => {
-    return `$${parseFloat(amount).toFixed(2)}`;
-  };
+  }
 
   return (
     <div className="space-y-6">
-      {/* Warning Header */}
-      <div className="bg-red-50 border-2 border-red-500 rounded-lg p-6">
-        <div className="flex items-start gap-4">
-          <div className="flex-shrink-0 w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
-            <span className="text-white text-2xl font-bold">!</span>
+      {/* Filters */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex flex-col md:flex-row gap-6 items-end">
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setQuickRange('week')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'week' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              Past Week
+            </button>
+            <button 
+              onClick={() => setQuickRange('month')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'month' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+            >
+              Past Month
+            </button>
           </div>
-          <div className="flex-1">
-            <h2 className="text-2xl font-bold text-red-900 mb-2">Z-Report (End of Day)</h2>
-            <div className="space-y-2 text-red-800">
-              <p className="font-semibold">⚠️ WARNING: This is a CLOSING report with permanent side effects!</p>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>Can only be run ONCE per day</li>
-                <li>Finalizes all daily transactions</li>
-                <li>Resets daily counters to zero</li>
-                <li>Marks the business day as closed</li>
-                <li>Cannot be undone</li>
-              </ul>
-              <p className="font-semibold mt-3">Only run this report at the end of the business day when you will have no more transactions!</p>
+          
+          <div className="flex gap-4 items-center flex-1">
+            <div className="flex flex-col">
+              <label className="text-xs font-semibold text-slate-500 mb-1">Start Date</label>
+              <input 
+                type="date" 
+                className="border p-2 rounded text-sm"
+                value={dateRange.start}
+                onChange={(e) => {
+                  setFilter('custom');
+                  setDateRange({ ...dateRange, start: e.target.value });
+                }}
+              />
+            </div>
+            <span className="text-slate-400 mt-4">to</span>
+            <div className="flex flex-col">
+              <label className="text-xs font-semibold text-slate-500 mb-1">End Date</label>
+              <input 
+                type="date" 
+                className="border p-2 rounded text-sm"
+                value={dateRange.end}
+                onChange={(e) => {
+                  setFilter('custom');
+                  setDateRange({ ...dateRange, end: e.target.value });
+                }}
+              />
             </div>
           </div>
+
+          <button 
+            onClick={fetchOrders}
+            disabled={loading}
+            className="bg-slate-800 text-white px-6 py-2 rounded-lg hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {loading ? "Loading..." : "Refresh List"}
+          </button>
         </div>
       </div>
 
-      {/* Status Card */}
-      <div className={`bg-white rounded-lg shadow-md p-6 ${!canRunReport ? 'border-2 border-red-500' : ''}`}>
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="text-lg font-bold">Report Status</h3>
-            {canRunReport ? (
-              <p className="text-green-600 font-semibold mt-1">✓ Z-Report can be generated</p>
+      {/* Orders Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b border-slate-100 bg-slate-50 font-semibold text-slate-600 flex justify-between">
+          <span>Orders ({sortedOrders.length})</span>
+          <span className="text-sm font-normal text-slate-500">
+            Total Value: {formatCurrency(sortedOrders.reduce((sum, o) => sum + parseFloat(o.total_price), 0))}
+          </span>
+        </div>
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm uppercase">
+            <tr>
+              <SortableHeader label="Order ID" sortKey="id" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader label="Date & Time" sortKey="order_date_time" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader label="Employee" sortKey="employee" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader label="Payment" sortKey="payment_type" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader label="Total" sortKey="total_price" sortConfig={sortConfig} requestSort={requestSort} align="right" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {sortedOrders.length === 0 ? (
+              <tr>
+                <td colSpan="5" className="p-8 text-center text-slate-400">No orders found for this period.</td>
+              </tr>
             ) : (
-              <div className="mt-2">
-                <p className="text-red-600 font-bold">✗ Z-Report already run today</p>
-                <p className="text-sm text-gray-600 mt-1">
-                  Last run: {lastReportDate?.toLocaleString()}
-                </p>
-                <p className="text-sm text-red-600 mt-1">
-                  You can run the next Z-Report tomorrow after midnight.
-                </p>
+              sortedOrders.map(order => (
+                <tr key={order.id} className="hover:bg-slate-50">
+                  <td className="p-4 font-mono text-slate-600">#{order.id}</td>
+                  <td className="p-4 text-slate-800">{formatDateTime(order.order_date_time)}</td>
+                  <td className="p-4 text-slate-600">{order.employee || '-'}</td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded text-xs font-bold ${
+                      order.payment_type === 'VOID' ? 'bg-red-100 text-red-700' : 
+                      order.payment_type === 'Card' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                    }`}>
+                      {order.payment_type}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right font-mono font-medium">{formatCurrency(order.total_price)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// SUB-COMPONENTS: VOID ORDER
+// ============================================================================
+
+function VoidOrderManager({ onRefresh }) {
+  const [orderId, setOrderId] = useState('');
+  const [orderData, setOrderData] = useState(null);
+  const [error, setError] = useState('');
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_BASE}/orders/`);
+      const allOrders = await res.json();
+      const found = allOrders.find(o => o.id === parseInt(orderId));
+      
+      if (!found) {
+        setError(`Order #${orderId} not found.`);
+        setOrderData(null);
+      } else {
+        setError(null);
+        setOrderData(found);
+      }
+    } catch (err) {
+      setError("Error fetching orders.");
+    }
+  };
+
+  const handleVoid = async () => {
+    if (!window.confirm(`Void Order #${orderData.id}? This cannot be undone.`)) return;
+    
+    // NOTE: In a real API, we'd PATCH. Assuming full PUT required or specific endpoint.
+    // Simulating Java logic: UPDATE orders SET payment_type = 'VOID'
+    try {
+      const updatedOrder = { ...orderData, payment_method: 'VOID' };
+      // Depending on API, might need PUT /orders/:id
+      const res = await fetch(`${API_BASE}/orders/${orderData.id}/`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedOrder)
+      });
+      
+      if (res.ok) {
+        alert("Order Voided Successfully.");
+        setOrderData(null);
+        setOrderId('');
+        onRefresh();
+      } else {
+        alert("Failed to update order.");
+      }
+    } catch (e) {
+      alert("Network error.");
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto mt-12 space-y-6">
+      <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-200 text-center">
+        <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+          <AlertTriangle className="text-red-500" size={32} />
+        </div>
+        <h2 className="text-2xl font-bold mb-2">Void Transaction</h2>
+        <p className="text-slate-500 mb-8">Enter the Order ID to void a transaction. This will remove it from net sales.</p>
+        
+        <form onSubmit={handleSearch} className="flex gap-2 mb-6">
+          <input 
+            className="flex-1 border p-3 rounded-lg text-lg text-center font-mono tracking-widest"
+            placeholder="ORDER ID"
+            value={orderId}
+            onChange={e => setOrderId(e.target.value)}
+          />
+          <button className="bg-slate-800 text-white p-3 rounded-lg"><Search /></button>
+        </form>
+
+        {error && <p className="text-red-500 font-medium">{error}</p>}
+
+        {orderData && (
+          <div className="bg-slate-50 p-4 rounded-lg text-left border border-slate-200 animate-in fade-in slide-in-from-bottom-4">
+            <div className="flex justify-between mb-2">
+              <span className="text-slate-500">Date:</span>
+              <span className="font-medium">{formatDateTime(orderData.order_date_time)}</span>
+            </div>
+            <div className="flex justify-between mb-2">
+              <span className="text-slate-500">Current Status:</span>
+              <span className={`font-bold ${orderData.payment_method === 'VOID' ? 'text-red-600' : 'text-green-600'}`}>
+                {orderData.payment_method}
+              </span>
+            </div>
+            <div className="flex justify-between mb-4">
+              <span className="text-slate-500">Total:</span>
+              <span className="font-bold text-lg">{formatCurrency(orderData.total_price)}</span>
+            </div>
+
+            {orderData.payment_method !== 'VOID' ? (
+              <button onClick={handleVoid} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg shadow transition-colors">
+                CONFIRM VOID
+              </button>
+            ) : (
+              <div className="text-center text-red-500 font-bold p-2 border-2 border-red-200 rounded">
+                ALREADY VOIDED
               </div>
             )}
           </div>
-          <button
-            onClick={confirmAndGenerate}
-            disabled={!canRunReport || loading}
-            className={`px-6 py-3 font-bold rounded-md transition-colors ${canRunReport && !loading
-              ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-          >
-            {loading ? 'Generating...' : 'Generate Z-Report'}
-          </button>
-        </div>
-      </div>
-
-      {/* Confirmation Dialog */}
-      {showConfirmDialog && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-red-900 mb-4">Confirm Z-Report Generation</h3>
-            <div className="space-y-3 mb-6">
-              <p className="text-gray-700">Are you sure you want to generate the Z-Report?</p>
-              <div className="bg-red-50 border border-red-300 rounded p-3">
-                <p className="text-sm text-red-800 font-semibold">This action will:</p>
-                <ul className="text-sm text-red-700 list-disc list-inside mt-2 space-y-1">
-                  <li>Close the business day</li>
-                  <li>Reset all daily counters</li>
-                  <li>Cannot be run again until tomorrow</li>
-                  <li>Cannot be undone</li>
-                </ul>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={generateReport}
-                className="flex-1 px-4 py-2 bg-red-600 text-white font-semibold rounded hover:bg-red-700"
-              >
-                Yes, Generate Report
-              </button>
-              <button
-                onClick={() => setShowConfirmDialog(false)}
-                className="flex-1 px-4 py-2 bg-gray-300 font-semibold rounded hover:bg-gray-400"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Report Display */}
-      {loading ? (
-        <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
-          <p className="text-lg text-gray-700 mt-4">Generating end-of-day report...</p>
-        </div>
-      ) : reportData ? (
-        <div className="space-y-6">
-          {/* Report Header */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="text-center border-b pb-4 mb-4">
-              <h2 className="text-3xl font-bold text-red-900">Z-REPORT</h2>
-              <p className="text-xl font-semibold mt-2">{reportData.date}</p>
-              <p className="text-gray-600">Closed at: {reportData.time}</p>
-            </div>
-
-            {/* Sales Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <h3 className="font-bold text-lg mb-3 border-b pb-2">Sales Summary</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Gross Sales:</span>
-                    <span className="font-mono">{formatCurrency(reportData.grossSales)}</span>
-                  </div>
-                  <div className="flex justify-between text-red-600">
-                    <span>Discounts:</span>
-                    <span className="font-mono">-{formatCurrency(reportData.totalDiscounts)}</span>
-                  </div>
-                  <div className="flex justify-between text-red-600">
-                    <span>Voids:</span>
-                    <span className="font-mono">-{formatCurrency(reportData.totalVoids)}</span>
-                  </div>
-                  <div className="flex justify-between border-t pt-2 font-bold">
-                    <span>Net Sales:</span>
-                    <span className="font-mono">{formatCurrency(reportData.netSales)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-bold text-lg mb-3 border-b pb-2">Tax & Charges</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Service Charge (18%):</span>
-                    <span className="font-mono">{formatCurrency(reportData.totalServiceCharge)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Sales Tax (8.25%):</span>
-                    <span className="font-mono">{formatCurrency(reportData.totalTax)}</span>
-                  </div>
-                  <div className="flex justify-between border-t pt-2 font-bold text-green-600">
-                    <span>Total Revenue:</span>
-                    <span className="font-mono text-xl">{formatCurrency(reportData.netSales)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Transaction Count */}
-            <div className="bg-blue-50 rounded p-4 mb-6">
-              <div className="flex justify-between items-center">
-                <span className="font-semibold">Total Transactions:</span>
-                <span className="text-3xl font-bold text-blue-600">{reportData.totalTransactions}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Payment Methods Breakdown */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="font-bold text-lg mb-4 border-b pb-2">Payment Methods</h3>
-            <div className="space-y-3">
-              {Object.entries(reportData.paymentMethods).map(([method, amount]) => (
-                <div key={method} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                  <span className="font-semibold">{method}</span>
-                  <span className="font-mono text-lg">{formatCurrency(amount)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Employee Breakdown */}
-          {Object.keys(reportData.employeeTransactions).length > 0 && (
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="font-bold text-lg mb-4 border-b pb-2">Employee Activity</h3>
-              <div className="space-y-3">
-                {Object.entries(reportData.employeeTransactions).map(([employee, data]) => (
-                  <div key={employee} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                    <div>
-                      <p className="font-semibold">{employee}</p>
-                      <p className="text-sm text-gray-600">{data.count} transactions</p>
-                    </div>
-                    <span className="font-mono text-lg">{formatCurrency(data.total)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Closing Notice */}
-          <div className="bg-green-50 border-2 border-green-500 rounded-lg p-6 text-center">
-            <p className="text-green-900 font-bold text-lg">✓ Business Day Closed Successfully</p>
-            <p className="text-green-700 mt-2">Daily counters have been reset. See you tomorrow!</p>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <p className="text-lg text-gray-700">Click "Generate Z-Report" to close the business day.</p>
-          <p className="text-sm text-gray-500 mt-2">Make sure all transactions for today are complete!</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================================================
-// DIALOG COMPONENTS - ADD
-// ============================================================================
-
-function AddMenuItemDialog({ onClose, onSuccess, ingredients, menuCategories }) {
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState('');
-  const [price, setPrice] = useState('');
-  const [selectedIngredients, setSelectedIngredients] = useState([]);
-
-  const addIngredient = () => {
-    setSelectedIngredients([...selectedIngredients, { ingredient_id: '', quantity: '' }]);
-  };
-
-  const removeIngredient = (index) => {
-    setSelectedIngredients(selectedIngredients.filter((_, i) => i !== index));
-  };
-
-  const updateIngredient = (index, field, value) => {
-    const updated = [...selectedIngredients];
-    updated[index][field] = value;
-    setSelectedIngredients(updated);
-  };
-
-  const handleSubmit = async () => {
-    // Validation
-    if (!name || !category || !price) {
-      alert('Please fill in all fields');
-      return;
-    }
-
-    if (selectedIngredients.length === 0) {
-      alert('Please add at least one ingredient to the recipe');
-      return;
-    }
-
-    for (const ing of selectedIngredients) {
-      if (!ing.ingredient_id || !ing.quantity || parseFloat(ing.quantity) <= 0) {
-        alert('All ingredients must have a valid quantity');
-        return;
-      }
-    }
-
-    try {
-      // Create menu item
-      const menuRes = await fetch(`${API_BASE}/menu-items/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          category: parseInt(category),
-          base_price: parseFloat(price)
-        })
-      });
-
-      if (!menuRes.ok) {
-        const error = await menuRes.json();
-        throw new Error(JSON.stringify(error));
-      }
-
-      const savedItem = await menuRes.json();
-
-      // Create recipe items
-      for (const ing of selectedIngredients) {
-        await fetch(`${API_BASE}/recipe-items/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            menu_item: savedItem.id,
-            ingredient: parseInt(ing.ingredient_id),
-            quantity: parseFloat(ing.quantity)
-          })
-        });
-      }
-
-      alert(`✓ Successfully added menu item: ${name}`);
-      onSuccess();
-    } catch (error) {
-      alert(`❌ Error: ${error.message}`);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white">
-          <h2 className="text-xl font-bold">Add New Menu Item</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block font-semibold mb-1">Name *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-              placeholder="e.g., Classic Milk Tea"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Category *</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            >
-              <option value="">Select Category</option>
-              {menuCategories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Price *</label>
-            <input
-              type="number"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-              placeholder="4.99"
-            />
-          </div>
-
-          <div className="border-t pt-4">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-bold">Recipe Ingredients *</h3>
-              <button
-                onClick={addIngredient}
-                className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                <Plus size={16} />
-                Add Ingredient
-              </button>
-            </div>
-
-            {selectedIngredients.map((ing, idx) => {
-              const ingredient = ingredients.find(i => i.id === parseInt(ing.ingredient_id));
-              return (
-                <div key={idx} className="flex gap-2 mb-2 items-center">
-                  <select
-                    value={ing.ingredient_id}
-                    onChange={(e) => updateIngredient(idx, 'ingredient_id', e.target.value)}
-                    className="flex-1 px-3 py-2 border rounded"
-                  >
-                    <option value="">Select Ingredient</option>
-                    {ingredients.map(i => (
-                      <option key={i.id} value={i.id}>
-                        {i.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} ({i.unit})
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={ing.quantity}
-                    onChange={(e) => updateIngredient(idx, 'quantity', e.target.value)}
-                    className="w-24 px-3 py-2 border rounded"
-                    placeholder="Qty"
-                  />
-                  <span className="w-12 text-sm">{ingredient?.unit || 'unit'}</span>
-                  <button
-                    onClick={() => removeIngredient(idx)}
-                    className="p-2 bg-red-500 text-white rounded hover:bg-red-600"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex gap-2 pt-4 border-t">
-            <button
-              onClick={handleSubmit}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
-            >
-              <Check size={20} />
-              Add Menu Item
-            </button>
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-300 font-semibold rounded hover:bg-gray-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
-
-function AddIngredientDialog({ onClose, onSuccess, units }) {
-  const [name, setName] = useState('');
-  const [stockLevel, setStockLevel] = useState('');
-  const [unit, setUnit] = useState('');
-  const [threshold, setThreshold] = useState('');
-
-  const handleSubmit = async () => {
-    if (!name || !stockLevel || !unit || !threshold) {
-      alert('Please fill in all fields');
-      return;
-    }
-
-    // Convert to snake_case
-    const snakeCaseName = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-
-    try {
-      const res = await fetch(`${API_BASE}/ingredients/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: snakeCaseName,
-          stock_level: parseFloat(stockLevel),
-          unit: parseInt(unit),
-          low_stock_threshold: parseFloat(threshold)
-        })
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(JSON.stringify(error));
-      }
-
-      alert(`✓ Successfully added ingredient: ${name} (saved as ${snakeCaseName})`);
-      onSuccess();
-    } catch (error) {
-      alert(`❌ Error: ${error.message}`);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full">
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-xl font-bold">Add New Ingredient</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div className="bg-blue-100 border border-blue-300 rounded p-3 text-sm">
-            <strong>Note:</strong> Ingredient names will be converted to snake_case (e.g., "Brown Sugar" → "brown_sugar")
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Name *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-              placeholder="e.g., Brown Sugar"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Stock Level *</label>
-            <input
-              type="number"
-              step="0.01"
-              value={stockLevel}
-              onChange={(e) => setStockLevel(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-              placeholder="100.0"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Unit *</label>
-            <select
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            >
-              <option value="">Select Unit</option>
-              {units.map(u => (
-                <option key={u.id} value={u.id}>{u.name} ({u.abbreviation})</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Low Stock Threshold *</label>
-            <input
-              type="number"
-              step="0.01"
-              value={threshold}
-              onChange={(e) => setThreshold(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-              placeholder="10.0"
-            />
-          </div>
-
-          <div className="flex gap-2 pt-4 border-t">
-            <button
-              onClick={handleSubmit}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
-            >
-              <Check size={20} />
-              Add Ingredient
-            </button>
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-300 font-semibold rounded hover:bg-gray-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AddEmployeeDialog({ onClose, onSuccess }) {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [position, setPosition] = useState('');
-  const [hireDate, setHireDate] = useState('');
-
-  const handleSubmit = async () => {
-    if (!firstName || !lastName || !position || !hireDate) {
-      alert('Please fill in all fields');
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/employees/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          first_name: firstName,
-          last_name: lastName,
-          position,
-          hire_date: hireDate
-        })
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(JSON.stringify(error));
-      }
-
-      alert(`✓ Successfully added employee: ${firstName} ${lastName}`);
-      onSuccess();
-    } catch (error) {
-      alert(`❌ Error: ${error.message}`);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full">
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-xl font-bold">Add New Employee</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block font-semibold mb-1">First Name *</label>
-            <input
-              type="text"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Last Name *</label>
-            <input
-              type="text"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Position *</label>
-            <input
-              type="text"
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-              placeholder="e.g., Cashier"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Hire Date *</label>
-            <input
-              type="date"
-              value={hireDate}
-              onChange={(e) => setHireDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div className="flex gap-2 pt-4 border-t">
-            <button
-              onClick={handleSubmit}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
-            >
-              <Check size={20} />
-              Add Employee
-            </button>
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-300 font-semibold rounded hover:bg-gray-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// DIALOG COMPONENTS - EDIT
-// ============================================================================
-
-function EditMenuItemDialog({ item, onClose, onSuccess, ingredients, menuCategories, recipeItems }) {
-  // Find category ID from name
-  const categoryId = menuCategories.find(c => c.name === item.category)?.id || '';
-
-  const [name, setName] = useState(item.name);
-  const [category, setCategory] = useState(categoryId);
-  const [price, setPrice] = useState(item.base_price);
-
-  // Load existing recipe
-  const existingRecipes = recipeItems.filter(r => r.menu_item === item.id);
-  const ingredientNameToId = new Map(ingredients.map(i => [i.name, i.id]));
-
-  const [selectedIngredients, setSelectedIngredients] = useState(
-    existingRecipes.map(r => ({
-      ingredient_id: ingredientNameToId.get(r.ingredient) || '',
-      quantity: r.quantity
-    }))
-  );
-
-  const addIngredient = () => {
-    setSelectedIngredients([...selectedIngredients, { ingredient_id: '', quantity: '' }]);
-  };
-
-  const removeIngredient = (index) => {
-    setSelectedIngredients(selectedIngredients.filter((_, i) => i !== index));
-  };
-
-  const updateIngredient = (index, field, value) => {
-    const updated = [...selectedIngredients];
-    updated[index][field] = value;
-    setSelectedIngredients(updated);
-  };
-
-  const handleSubmit = async () => {
-    if (!name || !category || !price) {
-      alert('Please fill in all fields');
-      return;
-    }
-
-    if (selectedIngredients.length === 0) {
-      alert('Please add at least one ingredient to the recipe');
-      return;
-    }
-
-    for (const ing of selectedIngredients) {
-      if (!ing.ingredient_id || !ing.quantity || parseFloat(ing.quantity) <= 0) {
-        alert('All ingredients must have a valid quantity');
-        return;
-      }
-    }
-
-    try {
-      // Update menu item
-      const menuRes = await fetch(`${API_BASE}/menu-items/${item.id}/`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          category: parseInt(category),
-          base_price: parseFloat(price)
-        })
-      });
-
-      if (!menuRes.ok) {
-        const error = await menuRes.json();
-        throw new Error(JSON.stringify(error));
-      }
-
-      // Delete old recipes
-      for (const recipe of existingRecipes) {
-        await fetch(`${API_BASE}/recipe-items/${recipe.id}/`, { method: 'DELETE' });
-      }
-
-      // Create new recipes
-      for (const ing of selectedIngredients) {
-        await fetch(`${API_BASE}/recipe-items/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            menu_item: item.id,
-            ingredient: parseInt(ing.ingredient_id),
-            quantity: parseFloat(ing.quantity)
-          })
-        });
-      }
-
-      alert(`✓ Successfully updated menu item: ${name}`);
-      onSuccess();
-    } catch (error) {
-      alert(`❌ Error: ${error.message}`);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white">
-          <h2 className="text-xl font-bold">Edit Menu Item: {item.name}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block font-semibold mb-1">Name *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Category *</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            >
-              <option value="">Select Category</option>
-              {menuCategories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Price *</label>
-            <input
-              type="number"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div className="border-t pt-4">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-bold">Recipe Ingredients *</h3>
-              <button
-                onClick={addIngredient}
-                className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                <Plus size={16} />
-                Add Ingredient
-              </button>
-            </div>
-
-            {selectedIngredients.map((ing, idx) => {
-              const ingredient = ingredients.find(i => i.id === parseInt(ing.ingredient_id));
-              return (
-                <div key={idx} className="flex gap-2 mb-2 items-center">
-                  <select
-                    value={ing.ingredient_id}
-                    onChange={(e) => updateIngredient(idx, 'ingredient_id', e.target.value)}
-                    className="flex-1 px-3 py-2 border rounded"
-                  >
-                    <option value="">Select Ingredient</option>
-                    {ingredients.map(i => (
-                      <option key={i.id} value={i.id}>
-                        {i.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} ({i.unit})
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={ing.quantity}
-                    onChange={(e) => updateIngredient(idx, 'quantity', e.target.value)}
-                    className="w-24 px-3 py-2 border rounded"
-                    placeholder="Qty"
-                  />
-                  <span className="w-12 text-sm">{ingredient?.unit || 'unit'}</span>
-                  <button
-                    onClick={() => removeIngredient(idx)}
-                    className="p-2 bg-red-500 text-white rounded hover:bg-red-600"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex gap-2 pt-4 border-t">
-            <button
-              onClick={handleSubmit}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
-            >
-              <Check size={20} />
-              Update Menu Item
-            </button>
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-300 font-semibold rounded hover:bg-gray-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EditIngredientDialog({ item, onClose, onSuccess, units }) {
-  // Find unit ID from abbreviation
-  const unitId = units.find(u => u.abbreviation === item.unit)?.id || '';
-
-  const [stockLevel, setStockLevel] = useState(item.stock_level);
-  const [unit, setUnit] = useState(unitId);
-  const [threshold, setThreshold] = useState(item.low_stock_threshold);
-
-  const handleSubmit = async () => {
-    if (!stockLevel || !unit || !threshold) {
-      alert('Please fill in all fields');
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/ingredients/${item.id}/`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: item.name, // Name doesn't change
-          stock_level: parseFloat(stockLevel),
-          unit: parseInt(unit),
-          low_stock_threshold: parseFloat(threshold)
-        })
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(JSON.stringify(error));
-      }
-
-      alert(`✓ Successfully updated ingredient`);
-      onSuccess();
-    } catch (error) {
-      alert(`❌ Error: ${error.message}`);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full">
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-xl font-bold">Edit Ingredient</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block font-semibold mb-1">Name</label>
-            <input
-              type="text"
-              value={item.name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-              disabled
-              className="w-full px-3 py-2 border rounded bg-gray-100"
-            />
-            <p className="text-sm text-gray-600 mt-1">Name cannot be changed</p>
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Stock Level *</label>
-            <input
-              type="number"
-              step="0.01"
-              value={stockLevel}
-              onChange={(e) => setStockLevel(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Unit *</label>
-            <select
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            >
-              <option value="">Select Unit</option>
-              {units.map(u => (
-                <option key={u.id} value={u.id}>{u.name} ({u.abbreviation})</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Low Stock Threshold *</label>
-            <input
-              type="number"
-              step="0.01"
-              value={threshold}
-              onChange={(e) => setThreshold(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div className="flex gap-2 pt-4 border-t">
-            <button
-              onClick={handleSubmit}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
-            >
-              <Check size={20} />
-              Update Ingredient
-            </button>
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-300 font-semibold rounded hover:bg-gray-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EditEmployeeDialog({ item, onClose, onSuccess }) {
-  const [firstName, setFirstName] = useState(item.first_name);
-  const [lastName, setLastName] = useState(item.last_name);
-  const [position, setPosition] = useState(item.position);
-  const [hireDate, setHireDate] = useState(item.hire_date);
-
-  const handleSubmit = async () => {
-    if (!firstName || !lastName || !position || !hireDate) {
-      alert('Please fill in all fields');
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/employees/${item.id}/`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          first_name: firstName,
-          last_name: lastName,
-          position,
-          hire_date: hireDate
-        })
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(JSON.stringify(error));
-      }
-
-      alert(`✓ Successfully updated employee: ${firstName} ${lastName}`);
-      onSuccess();
-    } catch (error) {
-      alert(`❌ Error: ${error.message}`);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full">
-        <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-xl font-bold">Edit Employee</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="block font-semibold mb-1">First Name *</label>
-            <input
-              type="text"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Last Name *</label>
-            <input
-              type="text"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Position *</label>
-            <input
-              type="text"
-              value={position}
-              onChange={(e) => setPosition(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1">Hire Date *</label>
-            <input
-              type="date"
-              value={hireDate}
-              onChange={(e) => setHireDate(e.target.value)}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-
-          <div className="flex gap-2 pt-4 border-t">
-            <button
-              onClick={handleSubmit}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded hover:bg-blue-700"
-            >
-              <Check size={20} />
-              Update Employee
-            </button>
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-300 font-semibold rounded hover:bg-gray-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default BobaManager;
