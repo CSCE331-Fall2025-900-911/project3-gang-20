@@ -486,6 +486,13 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     setCurrentView('checkout');
   };
 
+  const cancelEdit = () => {
+    setEditingCartItem(null);
+    setSelectedDrink(null);
+    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
+    setCurrentView('checkout');
+  };
+
   // Add Mystery Item to Cart with DYNAMIC cost (base + rerolls)
   const addMysteryToCart = (drink, extraCost = 0) => {
     const finalPrice = MYSTERY_PRICE + extraCost;
@@ -635,9 +642,9 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
 
         if (updateResponse.ok) {
           const updatedCustomer = await updateResponse.json();
-          // Use the setter passed from the parent component
+          // Update the local state so the UI shows the new total immediately
           setDbCustomer(updatedCustomer); 
-          console.log(`Points updated! New Total: ${newPointsTotal}`);
+          console.log(`Points successfully updated! New Total: ${newPointsTotal}`);
         } else {
           console.error("Failed to update points via API");
         }
@@ -674,7 +681,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
   };
 
   return {
-    editingCartItem, startEditing, saveCartChanges,
+    editingCartItem, startEditing, saveCartChanges, cancelEdit,
     currentView, setCurrentView,
     menuItems, addOns, categories, activeFilter, setActiveFilter,
     selectedCategory, setSelectedCategory,
@@ -706,7 +713,7 @@ function BobaKioskContent({ onBack }) {
 
   // Use the new custom hook to get all ordering state and logic
   const {
-    editingCartItem, startEditing, saveCartChanges,
+    editingCartItem, startEditing, saveCartChanges, cancelEdit,
     currentView, setCurrentView,
     menuItems, addOns, categories, activeFilter, setActiveFilter,
     selectedDrink, setSelectedDrink,
@@ -949,6 +956,53 @@ function BobaKioskContent({ onBack }) {
               </KioskButton>
             ))}
           </div>
+
+          <button
+            onClick={() => {
+              setMysteryCategory(null);
+              setMysteryResult(null);
+              setDisplayItem(null);
+              setIsRolling(false);
+              setRerollCount(0);
+              setCurrentView('mystery');
+            }}
+            style={{
+              width: '100%',
+              // Use a distinctive purple gradient for visibility (unless in high contrast mode)
+              background: highContrast ? theme.cardBg : 'linear-gradient(135deg, #9333ea 0%, #4f46e5 100%)',
+              color: highContrast ? theme.text : 'white',
+              padding: '32px',
+              borderRadius: highContrast ? '0' : '24px',
+              border: highContrast ? '4px solid #000' : 'none',
+              marginBottom: '40px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '32px',
+              boxShadow: theme.shadow,
+              cursor: 'pointer',
+              transition: 'transform 0.2s',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            <div style={{ 
+              background: highContrast ? 'transparent' : 'rgba(255,255,255,0.2)', 
+              padding: '16px', 
+              borderRadius: '50%',
+              border: highContrast ? '2px solid #000' : 'none'
+            }}>
+              <Dice6 size={48} color={highContrast ? theme.text : "white"} />
+            </div>
+            <div style={{ textAlign: 'left' }}>
+              <h2 style={{ fontSize: '2em', fontWeight: 'bold', marginBottom: '8px' }}>
+                Feeling Lucky?
+              </h2>
+              <p style={{ fontSize: '1.2em', opacity: 0.9 }}>
+                Spin for a Mystery Drink - Only ${MYSTERY_PRICE}
+              </p>
+            </div>
+          </button>
 
           {loading && <p style={{ textAlign: 'center', fontSize: '1.5em', color: theme.text }}>Loading menu...</p>}
           {error && <p style={{ textAlign: 'center', fontSize: '1.5em', color: theme.danger }}>Error: {error}</p>}
@@ -1259,13 +1313,13 @@ function BobaKioskContent({ onBack }) {
             {cart.length > 0 && (
               <KioskButton 
                 onClick={() => {
-                  // Allows user to cancel edit mode if they navigate away manually
                   if (editingCartItem) {
-                      setEditingCartItem(null); 
-                      setSelectedDrink(null);
-                      setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
+                      // Use the hook function to safely reset state
+                      cancelEdit();
+                  } else {
+                      // Standard navigation for non-edit mode
+                      setCurrentView('checkout');
                   }
-                  setCurrentView('checkout');
                 }} 
                 variant="secondary"
               >
@@ -1822,38 +1876,6 @@ function BobaKioskContent({ onBack }) {
                 {cart.length}
               </span>
             )}
-          </button>
-          
-          {/* Mystery Game Button */}
-          <button
-            onClick={() => {
-              setMysteryCategory(null);
-              setMysteryResult(null);
-              setDisplayItem(null);
-              setIsRolling(false);
-              setRerollCount(0);
-              setCurrentView('mystery');
-            }}
-            style={{
-              position: 'fixed',
-              bottom: '24px',
-              right: '24px',
-              width: '70px',
-              height: '70px',
-              borderRadius: '50%',
-              backgroundColor: theme.primary,
-              color: theme.primaryText,
-              border: theme.border,
-              boxShadow: theme.shadow,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              zIndex: 1000,
-              fontSize: '1.2em'
-            }}
-          >
-            <Dice6 size={32} />
           </button>
         </div>
       )}
