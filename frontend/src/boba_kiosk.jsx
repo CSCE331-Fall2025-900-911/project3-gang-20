@@ -2,11 +2,11 @@
   File: boba_kiosk.jsx
   Description: The self-service kiosk application for customers.
   Features a high-contrast accessibility mode, multi-language support via Google Translate,
-  and a complete ordering flow from menu selection to payment with Loyalty Points integration.
+  a complete ordering flow, and a "Mystery Drink" gamification mode.
 */
 
-import { useState, useEffect, createContext, useContext } from 'react';
-import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star, Gift } from 'lucide-react'; // Added Gift icon
+import { useState, useEffect, useRef, createContext, useContext } from 'react';
+import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star, Gift, Dice6, RotateCcw, Check } from 'lucide-react'; 
 import { useUser } from '@clerk/clerk-react';
 
 // --- Accessibility Context & Theme ---
@@ -327,6 +327,7 @@ const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/a
 const TAX_RATE = 0.0825; // 8.25% sales tax
 const SERVICE_CHARGE_RATE = 0.025; // 2.5% service charge for card payments
 const POINTS_RATE = 10; // 10 points per $1
+const MYSTERY_PRICE = 3.99; // Fixed price for mystery drinks
 
 // Helper to format recipe ingredients for display
 const getDrinkDescription = (drink) => {
@@ -448,6 +449,23 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     setSelectedDrink(null);
     setCurrentView('checkout');
     setSelectedRedemption(null); // Reset redemption when adding new items
+  };
+
+  // NEW: Add Mystery Item to Cart with fixed price
+  const addMysteryToCart = (drink) => {
+    const mysteryItem = {
+      ...drink,
+      name: `🎲 ${drink.name}`, // Add icon to indicate mystery
+      cartId: Date.now(),
+      base_price: MYSTERY_PRICE, // Override database price
+      customizations: { iceLevel: null, sweetnessLevel: null, toppings: [] }, // Defaults (none)
+      customizationPrice: 0,
+      totalPrice: MYSTERY_PRICE.toFixed(2)
+    };
+    
+    setCart([...cart, mysteryItem]);
+    setCurrentView('checkout');
+    setSelectedRedemption(null);
   };
 
   const removeFromCart = (cartId) => {
@@ -624,7 +642,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     selectedCategory, setSelectedCategory,
     selectedDrink, setSelectedDrink,
     selectedAddOns, setSelectedAddOns,
-    cart, removeFromCart, addToCart,
+    cart, removeFromCart, addToCart, addMysteryToCart, // Added specific function
     loading, error,
     processingPayment,
     selectedPaymentType, setSelectedPaymentType,
@@ -654,7 +672,7 @@ function BobaKioskContent({ onBack }) {
     menuItems, addOns, categories, activeFilter, setActiveFilter,
     selectedDrink, setSelectedDrink,
     selectedAddOns, setSelectedAddOns,
-    cart, removeFromCart, addToCart,
+    cart, removeFromCart, addToCart, addMysteryToCart,
     loading, error,
     processingPayment,
     selectedPaymentType, setSelectedPaymentType,
@@ -665,6 +683,12 @@ function BobaKioskContent({ onBack }) {
     getSubtotal, getServiceCharge, getTax, getTotal, getPointsToEarn,
     processPayment, toggleTopping
   } = useBobaOrdering(dbCustomer, setDbCustomer);
+
+  // Mystery Mode State
+  const [mysteryCategory, setMysteryCategory] = useState(null);
+  const [isRolling, setIsRolling] = useState(false);
+  const [mysteryResult, setMysteryResult] = useState(null);
+  const [displayItem, setDisplayItem] = useState(null); // The item currently showing during animation
 
   useEffect(() => {
       const fetchCustomer = async () => {
@@ -757,6 +781,58 @@ function BobaKioskContent({ onBack }) {
       document.head.removeChild(style);
     };
   }, []);
+
+  // --- Mystery Game Logic ---
+  const handleMysteryRoll = () => {
+    if (!mysteryCategory) return;
+    
+    setIsRolling(true);
+    setMysteryResult(null);
+
+    // Filter items by category
+    const candidates = menuItems.filter(item => item.category === mysteryCategory);
+    if (candidates.length === 0) {
+      alert("No drinks found in this category!");
+      setIsRolling(false);
+      return;
+    }
+
+    // Determine the winner immediately
+    const winnerIndex = Math.floor(Math.random() * candidates.length);
+    const winner = candidates[winnerIndex];
+
+    // Animation variables
+    let iteration = 0;
+    const maxIterations = 25; // How many times it flips
+    let delay = 50; // Initial speed (ms)
+    
+    const animate = () => {
+      // Pick a random item just for visual display
+      const randomIndex = Math.floor(Math.random() * candidates.length);
+      setDisplayItem(candidates[randomIndex]);
+
+      iteration++;
+
+      if (iteration < maxIterations) {
+        // Slow down logic: Increase delay as we get closer to the end
+        if (iteration > maxIterations - 8) {
+          delay += 40;
+        } else if (iteration > maxIterations - 15) {
+          delay += 10;
+        }
+        setTimeout(animate, delay);
+      } else {
+        // Final state: Show the actual winner
+        setDisplayItem(winner);
+        setMysteryResult(winner);
+        setIsRolling(false);
+        // Play sound effect could go here
+      }
+    };
+
+    animate();
+  };
+
 
   let viewContent = null;
 
@@ -929,6 +1005,158 @@ function BobaKioskContent({ onBack }) {
       </div>
     );
   }
+
+  // --- MYSTERY VIEW ---
+  if (currentView === 'mystery') {
+     // Use categories from existing data
+     const mysteryCategories = [...new Set(menuItems.map(item => item.category))];
+
+     viewContent = (
+      <div style={{
+        minHeight: '100vh',
+        background: theme.bg,
+        padding: '32px',
+        paddingTop: '100px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+      }}>
+        <div style={{ maxWidth: '800px', width: '100%', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '3em', fontWeight: 'bold', color: theme.text, marginBottom: '0.5em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+            <Dice6 size={64} color={theme.primary} />
+            Mystery Drink
+          </h2>
+          <p style={{ fontSize: '1.5em', color: theme.textSecondary, marginBottom: '1.5em' }}>
+            Pick a category, roll the dice, and get a drink for only <span style={{fontWeight: 'bold', color: theme.success}}>${MYSTERY_PRICE}</span>!
+          </p>
+
+          {/* STEP 1: CATEGORY SELECTION */}
+          {!mysteryResult && !isRolling && (
+            <div style={{ marginBottom: '32px' }}>
+              <h3 style={{ fontSize: '1.2em', color: theme.text, marginBottom: '16px' }}>Select Category:</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'center' }}>
+                {mysteryCategories.map(cat => (
+                  <KioskButton
+                    key={cat}
+                    onClick={() => setMysteryCategory(cat)}
+                    variant={mysteryCategory === cat ? 'primary' : 'secondary'}
+                    style={{ fontSize: '1.2em' }}
+                  >
+                    {cat}
+                  </KioskButton>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: SLOT MACHINE VISUAL */}
+          {mysteryCategory && (
+            <div style={{
+              backgroundColor: theme.cardBg,
+              borderRadius: '24px',
+              border: `8px solid ${theme.primary}`,
+              padding: '32px',
+              margin: '0 auto 32px auto',
+              width: '100%',
+              maxWidth: '500px',
+              minHeight: '400px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: theme.shadow,
+              position: 'relative'
+            }}>
+              {/* Display Area */}
+              {displayItem ? (
+                <>
+                  <div style={{
+                    width: '200px',
+                    height: '200px',
+                    marginBottom: '24px',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    background: '#f3f4f6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {displayItem.image ? (
+                      <img src={displayItem.image} alt="Mystery" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ) : (
+                       <span style={{ fontSize: '4em' }}>🧋</span>
+                    )}
+                  </div>
+                  <h3 style={{ fontSize: '2em', fontWeight: 'bold', color: theme.text }}>
+                    {displayItem.name}
+                  </h3>
+                  {mysteryResult && (
+                    <p style={{ fontSize: '1.2em', color: theme.success, fontWeight: 'bold', marginTop: '8px' }}>
+                      Price: ${MYSTERY_PRICE}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div style={{ opacity: 0.5 }}>
+                  <Dice6 size={100} color={theme.primary} />
+                  <p style={{ fontSize: '1.5em', marginTop: '16px' }}>Ready to Roll?</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 3: ACTIONS */}
+          <div style={{ display: 'flex', gap: '24px', justifyContent: 'center' }}>
+            {/* Initial Roll Button */}
+            {!isRolling && !mysteryResult && mysteryCategory && (
+              <KioskButton
+                onClick={handleMysteryRoll}
+                variant="success"
+                style={{ fontSize: '1.5em', padding: '1em 2em' }}
+              >
+                ROLL NOW
+              </KioskButton>
+            )}
+
+            {/* Rolling State */}
+            {isRolling && (
+              <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.primary }}>Rolling...</p>
+            )}
+
+            {/* Result State */}
+            {!isRolling && mysteryResult && (
+              <>
+                 <KioskButton
+                  onClick={handleMysteryRoll}
+                  variant="secondary"
+                  style={{ fontSize: '1.2em', padding: '1em 2em' }}
+                >
+                  <RotateCcw size={24} />
+                  Roll Again
+                </KioskButton>
+                <KioskButton
+                  onClick={() => addMysteryToCart(mysteryResult)}
+                  variant="success"
+                  style={{ fontSize: '1.2em', padding: '1em 2em' }}
+                >
+                  <Check size={24} />
+                  Add to Cart
+                </KioskButton>
+              </>
+            )}
+          </div>
+          
+          <div style={{ marginTop: '32px' }}>
+            <KioskButton onClick={() => setCurrentView('categories')} variant="secondary">
+               Cancel & Return to Menu
+            </KioskButton>
+          </div>
+
+        </div>
+      </div>
+     );
+  }
+
 
   if (currentView === 'customize') {
     const iceLevels = getAddOnsByCategory('Ice Level');
@@ -1439,6 +1667,37 @@ function BobaKioskContent({ onBack }) {
                 {cart.length}
               </span>
             )}
+          </button>
+          
+          {/* Mystery Game Button (Wired Up) */}
+          <button
+            onClick={() => {
+              setMysteryCategory(null);
+              setMysteryResult(null);
+              setDisplayItem(null);
+              setIsRolling(false);
+              setCurrentView('mystery');
+            }}
+            style={{
+              position: 'fixed',
+              bottom: '24px',
+              right: '24px',
+              width: '70px',
+              height: '70px',
+              borderRadius: '50%',
+              backgroundColor: theme.primary,
+              color: theme.primaryText,
+              border: theme.border,
+              boxShadow: theme.shadow,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              zIndex: 1000,
+              fontSize: '1.2em'
+            }}
+          >
+            <Dice6 size={32} />
           </button>
         </div>
       )}
