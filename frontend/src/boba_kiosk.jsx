@@ -1655,7 +1655,7 @@ function BobaKioskContent({ onBack }) {
           }}
         >
           <LogOut size={24} />
-          Logout
+          Exit
         </button>
       ) : (
         (currentView !== 'mystery' || (!mysteryResult && !isRolling)) && (

@@ -219,7 +219,7 @@ export default function BobaManager({ onBack }) {
         <div className="p-4 border-t border-slate-800">
           <button onClick={onBack} className="flex items-center gap-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
             <LogOut size={20} />
-            <span>Logout</span>
+            <span>Exit</span>
           </button>
         </div>
       </aside>

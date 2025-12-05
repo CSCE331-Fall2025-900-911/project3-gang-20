@@ -463,7 +463,7 @@ function BobaCashier({ onBack }) {
             }}
           >
             <LogOut size={24} />
-            Logout
+            Exit
           </button>
         </div>
       </div>
