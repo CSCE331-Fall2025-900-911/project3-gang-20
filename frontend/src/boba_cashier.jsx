@@ -311,7 +311,8 @@ function BobaCashier({ onBack }) {
         payment_type: selectedPaymentType,
         employee: currentEmployeeId,
         customer: null,
-        items: formattedItems
+        items: formattedItems,
+        sub_total: getSubtotal().toFixed(2)
       };
 
       console.log('Sending complete order payload:', orderData);

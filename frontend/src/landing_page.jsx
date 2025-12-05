@@ -12,9 +12,8 @@ import { CustomSignIn, CustomSignUp } from './Auth';
 // --- Configuration ---
 const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
 
-// *** UPDATE THESE SLUGS WITH YOUR EXACT CLERK VALUES ***
-const MANAGER_SLUG = 'manager-1762837696'; // <--- UPDATED WITH YOUR ID
-const CASHIER_SLUG = 'cashier'; // <--- CHECK YOUR CONSOLE FOR THE EXACT CASHIER ID (Likely has numbers too!)
+const MANAGER_SLUG = 'manager-1762837696';
+const CASHIER_SLUG = 'cashier-1763751666';
 
 function LandingPage({ onNavigate }) {
     const [authMode, setAuthMode] = useState(null);
