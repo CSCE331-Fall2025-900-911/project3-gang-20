@@ -2,11 +2,11 @@
   File: boba_kiosk.jsx
   Description: The self-service kiosk application for customers.
   Features a high-contrast accessibility mode, multi-language support via Google Translate,
-  a complete ordering flow, and a "Mystery Drink" gamification mode with paid re-rolls.
+  a complete ordering flow, cart editing, and a "Mystery Drink" gamification mode.
 */
 
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
-import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star, Gift, Dice6, RotateCcw, Check, Lock, ArrowLeft } from 'lucide-react'; 
+import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star, Gift, Dice6, RotateCcw, Check, Lock, ArrowLeft, Pencil } from 'lucide-react'; 
 import { useUser } from '@clerk/clerk-react';
 
 // --- Accessibility Context & Theme ---
@@ -53,7 +53,7 @@ function AccessibilityProvider({ children }) {
   const [highContrast, setHighContrast] = useState(() => localStorage.getItem('kioskHighContrast') === 'true');
   const [ttsEnabled, setTtsEnabled] = useState(() => localStorage.getItem('kioskTtsEnabled') === 'true');
   
-  // New: Store available voices
+  // Store available voices for TTS
   const [availableVoices, setAvailableVoices] = useState([]);
 
   useEffect(() => {
@@ -62,14 +62,14 @@ function AccessibilityProvider({ children }) {
     localStorage.setItem('kioskTtsEnabled', ttsEnabled);
   }, [fontSize, highContrast, ttsEnabled]);
 
-  // --- 1. Load Voices Properly ---
+  // Load browser voices asynchronously
   useEffect(() => {
     const loadVoices = () => {
       const voices = window.speechSynthesis.getVoices();
       if (voices.length > 0) setAvailableVoices(voices);
     };
   
-    // Retry loading voices for 1 second
+    // Retry loading voices for 1 second to handle browser race conditions
     let intervalId = setInterval(() => {
       const voices = window.speechSynthesis.getVoices();
       if (voices.length > 0) {
@@ -83,16 +83,15 @@ function AccessibilityProvider({ children }) {
     return () => clearInterval(intervalId);
   }, []);
   
-
   const [ttsReady, setTtsReady] = useState(false);
 
+  // Initialize audio context on first user interaction
   useEffect(() => {
     const enableAudio = () => setTtsReady(true);
     window.addEventListener("click", enableAudio, { once: true });
   }, []);
 
-
-  // --- 2. TTS Logic (Fixed Dependencies) ---
+  // Text-to-Speech Hover Logic
   useEffect(() => {
     if (!ttsEnabled || !ttsReady) return;
 
@@ -103,22 +102,22 @@ function AccessibilityProvider({ children }) {
 
       const target = e.target;
       
-      // 1. Filter containers
+      // Filter out complex containers to avoid reading entire blocks
       if (target.childElementCount > 3) return;
 
-      // 2. Get text
+      // Determine text to read
       let textToRead = target.getAttribute('aria-label') || target.innerText;
 
-      // 3. Clean text
+      // Clean text
       if (!textToRead) return;
       textToRead = textToRead.replace(/\s+/g, ' ').trim();
       if (textToRead.length === 0) return;
 
-      // 4. Tag check
+      // Only read specific interactive or text tags
       const relevantTags = ['BUTTON', 'H1', 'H2', 'H3', 'P', 'SPAN', 'A', 'LI', 'DIV'];
       if (!relevantTags.includes(target.tagName)) return;
       
-      // 5. Length check
+      // Prevent reading long paragraphs on hover
       if (target.tagName === 'DIV' && textToRead.length > 60) return;
 
       timer = setTimeout(() => {
@@ -136,7 +135,7 @@ function AccessibilityProvider({ children }) {
         utterance.rate = 1.0;
         utterance.volume = 1.0;
 
-        // Prevent Garbage Collection bug
+        // Prevent Garbage Collection bug in some browsers
         window.utteranceReference = utterance;
         utterance.onend = () => { window.utteranceReference = null; };
 
@@ -146,7 +145,6 @@ function AccessibilityProvider({ children }) {
 
     const handleMouseLeave = () => {
       clearTimeout(timer);
-      // We do not cancel here to prevent audio cutting out too aggressively
     };
 
     document.addEventListener('mouseover', handleMouseOver);
@@ -158,7 +156,6 @@ function AccessibilityProvider({ children }) {
       clearTimeout(timer);
       window.speechSynthesis.cancel();
     };
-  // FIX: Watch .length instead of the array object to prevent dependency size errors
   }, [ttsEnabled, ttsReady, availableVoices.length]);
 
   const increaseFontSize = () => setFontSize(prev => Math.min(prev + 0.25, 1.5));
@@ -268,8 +265,8 @@ function AccessibilityControls() {
     toggleContrast, 
     highContrast, 
     theme,
-    toggleTts,     // Get new function
-    ttsEnabled     // Get new state
+    toggleTts,
+    ttsEnabled
   } = useAccessibility();
 
   return (
@@ -303,7 +300,6 @@ function AccessibilityControls() {
         <span>{highContrast ? 'Normal' : 'Contrast'}</span>
       </KioskButton>
 
-      {/* --- NEW SPEECH BUTTON --- */}
       <KioskButton 
         onClick={toggleTts} 
         aria-label={ttsEnabled ? "Disable Text to Speech" : "Enable Text to Speech"} 
@@ -362,7 +358,7 @@ const getDrinkDescription = (drink) => {
 };
 
 /*
-  NEW CUSTOM HOOK: useBobaOrdering
+  CUSTOM HOOK: useBobaOrdering
   Manages all complex ordering state and logic, centralizing the bulk of the component's hooks
   to fix the "Rules of Hooks" violation in the parent component.
 */
@@ -384,10 +380,13 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [selectedPaymentType, setSelectedPaymentType] = useState(null);
   
-  // NEW: State for selected point redemption
+  // State for selected point redemption
   const [selectedRedemption, setSelectedRedemption] = useState(null); 
 
-  // NEW: Constants for redemption options
+  // State to track which item is currently being edited
+  const [editingCartItem, setEditingCartItem] = useState(null);
+
+  // Constants for redemption options
   const REDEMPTION_OPTIONS = [
     { points: 500, label: 'Free Drink', description: 'Any one drink free', value: 'free_drink' },
     { points: 750, label: 'Free Drink + Free Toppings', description: 'Any one drink free, and all toppings free', value: 'free_drink_and_toppings' },
@@ -451,7 +450,43 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     setSelectedRedemption(null); // Reset redemption when adding new items
   };
 
-  // NEW: Add Mystery Item to Cart with DYNAMIC cost (base + rerolls)
+  // Prepares the state for editing an existing cart item
+  const startEditing = (cartItem) => {
+    setEditingCartItem(cartItem);
+    setSelectedDrink(cartItem); // Cart items contain the drink data
+    setSelectedAddOns(cartItem.customizations); // Pre-fill selections
+    setCurrentView('customize'); // Redirect to customization screen
+    setSelectedRedemption(null); // Reset redemption to ensure price recalc is correct
+  };
+
+  // Commits the changes made to the editingCartItem back to the cart array
+  const saveCartChanges = () => {
+    if (!editingCartItem) return;
+
+    const customizationPrice = calculateCustomizationPrice();
+    // Use the base_price stored on the item (important for Mystery items to keep their special price)
+    const totalPrice = parseFloat(editingCartItem.base_price) + customizationPrice;
+
+    setCart(prevCart => prevCart.map(item => {
+      if (item.cartId === editingCartItem.cartId) {
+        return {
+          ...item,
+          customizations: { ...selectedAddOns },
+          customizationPrice,
+          totalPrice: totalPrice.toFixed(2)
+        };
+      }
+      return item;
+    }));
+
+    // Cleanup and reset state
+    setEditingCartItem(null);
+    setSelectedDrink(null);
+    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
+    setCurrentView('checkout');
+  };
+
+  // Add Mystery Item to Cart with DYNAMIC cost (base + rerolls)
   const addMysteryToCart = (drink, extraCost = 0) => {
     const finalPrice = MYSTERY_PRICE + extraCost;
 
@@ -475,7 +510,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     setSelectedRedemption(null); // Reset redemption if items are removed
   }
 
-  // NEW: Calculate the discount based on selected redemption
+  // Calculate the discount based on selected redemption
   const getDiscount = () => {
     if (!selectedRedemption || cart.length === 0) return 0;
 
@@ -529,7 +564,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     return ids;
   };
 
-  // NEW Helper: Calculate points earned based on total
+  // Calculate points earned based on total
   const getPointsToEarn = () => {
     // Points are earned on the discounted total
     return Math.floor(getSubtotal() * POINTS_RATE);
@@ -610,7 +645,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
 
       setCart([]);
       setSelectedPaymentType(null);
-      setSelectedRedemption(null); // NEW: Clear redemption state
+      setSelectedRedemption(null); // Clear redemption state
       
       alert(successMsg);
       setCurrentView('welcome');
@@ -639,12 +674,13 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
   };
 
   return {
+    editingCartItem, startEditing, saveCartChanges,
     currentView, setCurrentView,
     menuItems, addOns, categories, activeFilter, setActiveFilter,
     selectedCategory, setSelectedCategory,
     selectedDrink, setSelectedDrink,
     selectedAddOns, setSelectedAddOns,
-    cart, removeFromCart, addToCart, addMysteryToCart, // Added specific function
+    cart, removeFromCart, addToCart, addMysteryToCart,
     loading, error,
     processingPayment,
     selectedPaymentType, setSelectedPaymentType,
@@ -670,6 +706,7 @@ function BobaKioskContent({ onBack }) {
 
   // Use the new custom hook to get all ordering state and logic
   const {
+    editingCartItem, startEditing, saveCartChanges,
     currentView, setCurrentView,
     menuItems, addOns, categories, activeFilter, setActiveFilter,
     selectedDrink, setSelectedDrink,
@@ -678,7 +715,7 @@ function BobaKioskContent({ onBack }) {
     loading, error,
     processingPayment,
     selectedPaymentType, setSelectedPaymentType,
-    // NEW: Loyalty Redemption Destructure
+    // Loyalty Redemption Destructure
     REDEMPTION_OPTIONS, selectedRedemption, setSelectedRedemption, getDiscount,
 
     getAddOnsByCategory, calculateCustomizationPrice,
@@ -887,7 +924,6 @@ function BobaKioskContent({ onBack }) {
       <div style={{
         minHeight: '100vh',
         background: theme.bg,
-        // FIX: Replaced padding: '32px', paddingTop: '150px' with shorthand
         padding: '150px 32px 32px 32px', 
       }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
@@ -1029,7 +1065,6 @@ function BobaKioskContent({ onBack }) {
       <div style={{
         minHeight: '100vh',
         background: theme.bg,
-        // FIX: Replaced padding: '32px', paddingTop: '100px' with shorthand
         padding: '100px 32px 32px 32px',
         display: 'flex',
         flexDirection: 'column',
@@ -1214,16 +1249,27 @@ function BobaKioskContent({ onBack }) {
       <div style={{
         minHeight: '100vh',
         background: theme.bg,
-        // FIX: Replaced padding: '32px', paddingTop: '100px' with shorthand
         padding: '100px 32px 32px 32px',
         overflowY: 'auto'
       }}>
+        {/* NEW: Wrapper div to constrain width and center content (Restores original size) */}
+        <div style={{ maxWidth: '800px', width: '100%', margin: '0 auto' }}>
 
-        <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
             {cart.length > 0 && (
-              <KioskButton onClick={() => setCurrentView('checkout')} variant="secondary">
-                Go to Cart ({cart.length}) →
+              <KioskButton 
+                onClick={() => {
+                  // Allows user to cancel edit mode if they navigate away manually
+                  if (editingCartItem) {
+                      setEditingCartItem(null); 
+                      setSelectedDrink(null);
+                      setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
+                  }
+                  setCurrentView('checkout');
+                }} 
+                variant="secondary"
+              >
+                {editingCartItem ? "Cancel Edit" : `Go to Cart (${cart.length}) →`}
               </KioskButton>
             )}
           </div>
@@ -1279,7 +1325,8 @@ function BobaKioskContent({ onBack }) {
             <h3 style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text, marginBottom: '1em' }}>
               Sweetness Level
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px' }}>
+            {/* FIX: Changed minmax from 140px to 120px to match Ice Level and fit better in the constrained width */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
               {sweetnessLevels.map((sweet) => (
                 <KioskButton
                   key={sweet.id}
@@ -1336,13 +1383,26 @@ function BobaKioskContent({ onBack }) {
                 ${totalPrice.toFixed(2)}
               </span>
             </div>
+            {/* Primary Action Button: Handles both adding new items and saving edits */}
             <KioskButton
-              onClick={() => addToCart(selectedDrink)} // Pass selectedDrink to the moved addToCart
+              onClick={() => {
+                if (editingCartItem) {
+                  saveCartChanges();
+                } else {
+                  addToCart(selectedDrink);
+                }
+              }}
               disabled={!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel}
               variant="success"
               style={{ width: '100%', fontSize: '1.5em', padding: '1em' }}
             >
-              Add to Cart
+              {editingCartItem ? (
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                  <Check size={24} /> Save Changes
+                </span>
+              ) : (
+                "Add to Cart"
+              )}
             </KioskButton>
             {(!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel) && (
               <p style={{ textAlign: 'center', color: theme.danger, fontSize: '1.2em', marginTop: '1em', fontWeight: 'bold' }}>
@@ -1350,7 +1410,9 @@ function BobaKioskContent({ onBack }) {
               </p>
             )}
           </div>
+        
         </div>
+        {/* End of wrapper div */}
       </div>
     );
   }
@@ -1363,7 +1425,6 @@ function BobaKioskContent({ onBack }) {
       <div style={{
         minHeight: '100vh',
         background: theme.bg,
-        // FIX: Replaced padding: '32px', paddingTop: '100px' with shorthand
         padding: '100px 32px 32px 32px',
         display: 'flex',
         alignItems: 'center',
@@ -1421,13 +1482,25 @@ function BobaKioskContent({ onBack }) {
                           {item.category}
                         </p>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.success }}>
                           ${item.totalPrice}
                         </p>
+                        
+                        {/* Edit Button: Triggers edit mode for this specific item */}
+                        <KioskButton
+                          onClick={() => startEditing(item)}
+                          variant="secondary"
+                          aria-label={`Edit ${item.name}`}
+                          style={{ fontSize: '1em', padding: '0.8em', minHeight: '50px' }}
+                        >
+                          <Pencil size={20} />
+                        </KioskButton>
+
                         <KioskButton
                           onClick={() => removeFromCart(item.cartId)}
                           variant="danger"
+                          aria-label={`Remove ${item.name}`}
                           style={{ fontSize: '1em', padding: '0.8em 1.5em', minHeight: '50px' }}
                         >
                           Remove
