@@ -1398,7 +1398,7 @@ function BobaKioskContent({ onBack }) {
             </div>
           ) : (
             <>
-              {/* CART ITEMS SECTION (now first after header) */}
+              {/* CART ITEMS SECTION */}
               <div style={{
                 backgroundColor: theme.cardBg,
                 borderRadius: highContrast ? '0' : '16px',
@@ -1445,7 +1445,7 @@ function BobaKioskContent({ onBack }) {
                 ))}
               </div>
 
-              {/* LOYALTY REDEMPTION SECTION (now second) */}
+              {/* LOYALTY REDEMPTION SECTION */}
               {dbCustomer && (
                 <div style={{
                   backgroundColor: theme.cardBg,
@@ -1619,8 +1619,8 @@ function BobaKioskContent({ onBack }) {
         id="google_translate_element"
         style={{
           position: 'fixed',
-          bottom: '24px', // Moved to bottom
-          left: '24px',   // Moved to left to balance UI
+          bottom: '24px',
+          left: '24px',
           zIndex: 1000,
           backgroundColor: theme.cardBg,
           padding: '8px',
@@ -1632,7 +1632,7 @@ function BobaKioskContent({ onBack }) {
 
       {/* Navigation Buttons */}
       {currentView === 'welcome' ? (
-        // Logout Button - Only on Welcome Screen
+        // Logout Button
         <button
           onClick={onBack}
           style={{
@@ -1658,8 +1658,6 @@ function BobaKioskContent({ onBack }) {
           Logout
         </button>
       ) : (
-        // Back Button - On all other screens
-        // HIDE BACK BUTTON IF MYSTERY GAME IS LOCKED
         (currentView !== 'mystery' || (!mysteryResult && !isRolling)) && (
           <button
             onClick={() => {
@@ -1691,14 +1689,11 @@ function BobaKioskContent({ onBack }) {
           </button>
         )
       )}
-
-      {/* FIX: Removed 'currentView !== 'checkout'' from the visibility condition 
-        so the main navigation buttons (Cart, Points, Dice) remain visible on the checkout screen.
-      */}
+      
       {currentView !== 'welcome' && (currentView !== 'mystery' || (!mysteryResult && !isRolling)) && (
         <div style={{ position: 'fixed', top: '24px', right: '24px', display: 'flex', gap: '16px', zIndex: 50 }}>
           
-          {/* NEW: Points Badge */}
+          {/* Points Badge */}
           {dbCustomer && (
             <div style={{
               backgroundColor: theme.cardBg,
@@ -1723,7 +1718,7 @@ function BobaKioskContent({ onBack }) {
             style={{
               backgroundColor: theme.primary,
               color: theme.primaryText,
-              borderRadius: '50px', // Pill shape
+              borderRadius: '50px',
               padding: '16px 32px',
               boxShadow: theme.shadow,
               border: theme.border,
@@ -1756,14 +1751,14 @@ function BobaKioskContent({ onBack }) {
             )}
           </button>
           
-          {/* Mystery Game Button (Wired Up) */}
+          {/* Mystery Game Button */}
           <button
             onClick={() => {
               setMysteryCategory(null);
               setMysteryResult(null);
               setDisplayItem(null);
               setIsRolling(false);
-              setRerollCount(0); // Reset cost
+              setRerollCount(0);
               setCurrentView('mystery');
             }}
             style={{
