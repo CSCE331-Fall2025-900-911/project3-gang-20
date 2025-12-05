@@ -244,5 +244,24 @@ class OrderWriteSerializer(serializers.ModelSerializer):
             order_item = OrderItem.objects.create(order=order, **item_data)
             # Set the many-to-many customizations for the item
             order_item.customizations.set(customizations_data)
+
+            # --- Update Inventory ---
+            # 1. Deduct based on base recipe
+            menu_item = order_item.menu_item
+            recipe_items = RecipeItem.objects.filter(menu_item=menu_item)
+            
+            for recipe in recipe_items:
+                ingredient = recipe.ingredient
+                deduction_amount = recipe.quantity * order_item.quantity
+                ingredient.stock_level -= deduction_amount
+                ingredient.save()
+
+            # 2. Deduct based on customizations (toppings, etc.)
+            for customization in customizations_data:
+                if customization.ingredient:
+                    ingredient = customization.ingredient
+                    deduction_amount = customization.quantity * order_item.quantity
+                    ingredient.stock_level -= deduction_amount
+                    ingredient.save()
                 
         return order
