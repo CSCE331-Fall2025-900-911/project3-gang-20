@@ -108,7 +108,7 @@ class OrderReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'order_date_time', 'payment_type', 
+            'id', 'order_date_time', 'sub_total', 'payment_type', 
             'customer', 'employee', 'items'
         ]
 
