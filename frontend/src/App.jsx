@@ -11,7 +11,7 @@ import { useUser } from '@clerk/clerk-react';
 import BobaKiosk from './boba_kiosk';
 import BobaManager from './boba_manager';
 import BobaCashier from './boba_cashier';
-import MenuBoardApp from './menu_board/menu_board_app';
+import BobaMenuBoard from './boba_menu_board';
 import LandingPage from './landing_page';
 
 /*
@@ -96,7 +96,7 @@ function App() {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         ctx.resume();
-      } catch (e) {}
+      } catch (e) { }
 
       const u = new SpeechSynthesisUtterance(".");
       u.volume = 0.01;
@@ -144,7 +144,7 @@ function App() {
 
   // Menu Board (Public View)
   if (currentPage === 'menu_board') {
-    return <MenuBoardApp onBack={() => setCurrentPage('landing')} showWeather={true} />;
+    return <BobaMenuBoard onBack={() => setCurrentPage('landing')} />;
   }
 
   // Landing Page (Default View)
