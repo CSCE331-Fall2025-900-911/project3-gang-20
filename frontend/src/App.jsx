@@ -97,15 +97,15 @@ function App() {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         ctx.resume();
       } catch (e) {}
-  
+
       const u = new SpeechSynthesisUtterance(".");
-      u.volume = 0.01; 
+      u.volume = 0.01;
       speechSynthesis.speak(u);
-  
+
       console.log("🔓 Audio unlocked");
       window.removeEventListener("click", unlockAudio);
     };
-  
+
     window.addEventListener("click", unlockAudio);
   }, []);
 
@@ -144,7 +144,7 @@ function App() {
 
   // Menu Board (Public View)
   if (currentPage === 'menu_board') {
-    return <MenuBoardApp onBack={() => setCurrentPage('landing')} />;
+    return <MenuBoardApp onBack={() => setCurrentPage('landing')} showWeather={true} />;
   }
 
   // Landing Page (Default View)

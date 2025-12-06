@@ -6,7 +6,7 @@
 */
 
 import { useState, useEffect } from 'react';
-import { Trash2, LogOut, Sun, Cloud, CloudRain, CloudSnow, CloudLightning } from 'lucide-react';
+import { Trash2, LogOut, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Edit } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
 
 // API Endpoints
@@ -51,6 +51,7 @@ function BobaCashier({ onBack }) {
   // State for the customization modal
   const [customizationModal, setCustomizationModal] = useState(false);
   const [selectedDrink, setSelectedDrink] = useState(null);
+  const [editingItem, setEditingItem] = useState(null); // Track if we are editing an existing item
   const [selectedCustomizations, setSelectedCustomizations] = useState({
     iceLevel: null,
     sweetnessLevel: null,
@@ -59,6 +60,7 @@ function BobaCashier({ onBack }) {
 
   // State for loading and transaction status
   const [loading, setLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false); // New state for transaction loading
   const [orderNumber, setOrderNumber] = useState(1); // Display order number
   const [transactionMessage, setTransactionMessage] = useState('');
 
@@ -179,18 +181,35 @@ function BobaCashier({ onBack }) {
     return total;
   };
 
-  // Adds the currently customized drink from the modal to the cart.
+  // Adds or Updates the currently customized drink in the cart.
   const addToCart = () => {
     const customizationPrice = calculateCustomizationPrice();
     const totalPrice = parseFloat(selectedDrink.base_price) + customizationPrice;
 
-    setCart([...cart, {
-      ...selectedDrink,
-      cartId: Date.now(), // Unique ID for cart item removal
-      customizations: { ...selectedCustomizations },
-      customizationPrice,
-      totalPrice: totalPrice.toFixed(2)
-    }]);
+    if (editingItem) {
+      // Update existing item
+      setCart(cart.map(item => {
+        if (item.cartId === editingItem.cartId) {
+          return {
+            ...item,
+            customizations: { ...selectedCustomizations },
+            customizationPrice,
+            totalPrice: totalPrice.toFixed(2)
+          };
+        }
+        return item;
+      }));
+      setEditingItem(null);
+    } else {
+      // Add new item
+      setCart([...cart, {
+        ...selectedDrink,
+        cartId: Date.now(), // Unique ID for cart item removal
+        customizations: { ...selectedCustomizations },
+        customizationPrice,
+        totalPrice: totalPrice.toFixed(2)
+      }]);
+    }
 
     // Reset and close modal
     setCustomizationModal(false);
@@ -200,6 +219,14 @@ function BobaCashier({ onBack }) {
       sweetnessLevel: null,
       toppings: []
     });
+  };
+
+  // Prepares an item for editing
+  const startEditing = (item) => {
+    setEditingItem(item); // Track which item we are editing
+    setSelectedDrink(item); // Load the drink details
+    setSelectedCustomizations(item.customizations); // Load its customizations
+    setCustomizationModal(true); // Open the modal
   };
 
   // Removes an item from the cart.
@@ -269,6 +296,8 @@ function BobaCashier({ onBack }) {
       setTransactionMessage('Please select payment method (Cash or Card)');
       return;
     }
+
+    setIsProcessing(true); // Start loading feedback
 
     try {
       // 2. PREPARE THE ITEMS DATA FIRST
@@ -347,6 +376,8 @@ function BobaCashier({ onBack }) {
     } catch (err) {
       console.error('Error completing transaction:', err);
       setTransactionMessage(`Transaction Failed: ${err.message}`);
+    } finally {
+      setIsProcessing(false); // End loading feedback
     }
   };
 
@@ -621,8 +652,16 @@ function BobaCashier({ onBack }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <span style={{ fontWeight: 'bold', color: theme.success, fontSize: '1.1rem' }}>${item.totalPrice}</span>
                       <button
+                        onClick={() => startEditing(item)}
+                        style={{ color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer' }}
+                        title="Edit Item"
+                      >
+                        <Edit size={24} />
+                      </button>
+                      <button
                         onClick={() => removeFromCart(item.cartId)}
                         style={{ color: theme.danger, background: 'none', border: 'none', cursor: 'pointer' }}
+                        title="Remove Item"
                       >
                         <Trash2 size={24} />
                       </button>
@@ -735,23 +774,45 @@ function BobaCashier({ onBack }) {
           {/* Complete Transaction Button */}
           <button
             onClick={completeTransaction}
-            disabled={cart.length === 0}
+            disabled={cart.length === 0 || isProcessing}
             style={{
               width: '100%',
-              background: 'black',
+              background: isProcessing ? '#9ca3af' : 'black', // Gray out if processing
               color: 'white',
               padding: '16px',
               borderRadius: '16px',
               fontWeight: 'bold',
               fontSize: '1.1rem',
               border: 'none',
-              cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
+              cursor: (cart.length === 0 || isProcessing) ? 'not-allowed' : 'pointer',
               marginTop: '12px',
-              opacity: cart.length === 0 ? 0.5 : 1
+              opacity: (cart.length === 0 || isProcessing) ? 0.5 : 1,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '10px'
             }}
           >
-            Complete Transaction
+            {isProcessing ? (
+              <>
+                <div className="spinner-border" style={{
+                  width: '20px',
+                  height: '20px',
+                  border: '3px solid white',
+                  borderTop: '3px solid transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }}></div>
+                Processing...
+              </>
+            ) : "Complete Transaction"}
           </button>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
         </div>
       </div>
 
@@ -914,7 +975,7 @@ function BobaCashier({ onBack }) {
                       opacity: (!selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel) ? 0.5 : 1
                     }}
                   >
-                    Add to Cart
+                    {editingItem ? 'Update Cart' : 'Add to Cart'}
                   </button>
                 </div>
               </div>
