@@ -595,7 +595,8 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
         payment_type: selectedPaymentType,
         customer: dbCustomer ? dbCustomer.id : null, 
         employee: null,
-        items: itemsPayload
+        items: itemsPayload,
+        sub_total: getSubtotal()
       };
 
       const response = await fetch(ORDERS_URL, {

@@ -120,8 +120,8 @@ class CustomerWriteSerializer(serializers.ModelSerializer):
     """Serializes Customer data for writing."""
     class Meta:
         model = Customer
-        # 'id' is not included, it comes from the URL
-        fields = ['first_name', 'last_name', 'email', 'phone', 'joined_date', 'points']
+        # 'id' is not required in the input (URL handles it) but IS required in the response for points
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'joined_date', 'points']
 
 class EmployeeWriteSerializer(serializers.ModelSerializer):
     """Serializes Employee data for writing."""
