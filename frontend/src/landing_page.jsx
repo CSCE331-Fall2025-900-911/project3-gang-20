@@ -81,8 +81,7 @@ function LandingPage({ onNavigate }) {
     const handleModalContentClick = (e) => e.stopPropagation();
 
     return (
-        <AccessibilityProvider>
-            <AccessibilityControls />
+        <>
             <div style={{
                 height: '100vh',
                 display: 'flex',
@@ -291,7 +290,7 @@ function LandingPage({ onNavigate }) {
                     }
                 `}</style>
             </div>
-        </AccessibilityProvider>
+        </>
     );
 }
 
