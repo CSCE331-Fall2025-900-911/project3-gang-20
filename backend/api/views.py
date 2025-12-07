@@ -86,7 +86,8 @@ class MenuCategoryViewSet(viewsets.ModelViewSet):
 
 class IngredientViewSet(viewsets.ModelViewSet):
     """API endpoint for Ingredients."""
-    queryset = Ingredient.objects.all()
+    # Optimize query by selecting related unit
+    queryset = Ingredient.objects.all().select_related('unit')
     
     def get_serializer_class(self):
         """Use WriteSerializer for create/update, ReadSerializer otherwise."""
@@ -96,7 +97,8 @@ class IngredientViewSet(viewsets.ModelViewSet):
 
 class CustomizationOptionViewSet(viewsets.ModelViewSet):
     """API endpoint for Customization Options."""
-    queryset = CustomizationOption.objects.all()
+    # Optimize query by selecting related category and ingredient
+    queryset = CustomizationOption.objects.all().select_related('category', 'ingredient')
     
     def get_serializer_class(self):
         """Use WriteSerializer for create/update, ReadSerializer otherwise."""
@@ -108,10 +110,8 @@ class MenuItemViewSet(viewsets.ModelViewSet):
     """API endpoint for Menu Items."""
     # Use prefetch_related to optimize queries by fetching all
     # related data (recipes, units, etc.) in a single batch.
-    queryset = MenuItem.objects.all().prefetch_related(
-        'recipeitem_set__ingredient__unit', 
-        # 'available_customizations', 
-        'category'
+    queryset = MenuItem.objects.all().select_related('category').prefetch_related(
+        'recipeitem_set__ingredient__unit'
     )
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['category'] # Allows filtering by /api/menu-items/?category=1
@@ -124,7 +124,8 @@ class MenuItemViewSet(viewsets.ModelViewSet):
 
 class RecipeItemViewSet(viewsets.ModelViewSet):
     """API endpoint for Recipe Items."""
-    queryset = RecipeItem.objects.all()
+    # Optimize query by selecting related menu_item and ingredient (and its unit)
+    queryset = RecipeItem.objects.all().select_related('menu_item', 'ingredient__unit')
     
     def get_serializer_class(self):
         """Use WriteSerializer for create/update, ReadSerializer otherwise."""
@@ -134,7 +135,8 @@ class RecipeItemViewSet(viewsets.ModelViewSet):
 
 class OrderItemViewSet(viewsets.ModelViewSet):
     """API endpoint for individual Order Items."""
-    queryset = OrderItem.objects.all()
+    # Optimize query by selecting related menu_item and prefetching customizations
+    queryset = OrderItem.objects.all().select_related('menu_item').prefetch_related('customizations')
     
     def get_serializer_class(self):
         """Use WriteSerializer for create/update, ReadSerializer otherwise."""
@@ -145,11 +147,14 @@ class OrderItemViewSet(viewsets.ModelViewSet):
 class OrdersViewSet(viewsets.ModelViewSet):
     """API endpoint for Orders."""
     # Prefetch related data for efficiency
-    queryset = Order.objects.all().order_by('-order_date_time').prefetch_related(
-        'items__menu_item',
-        'items__customizations',
+    # Use select_related for ForeignKeys (customer, employee)
+    # Use prefetch_related for ManyToMany/Reverse ForeignKeys (items -> menu_item, customizations)
+    queryset = Order.objects.all().order_by('-order_date_time').select_related(
         'customer',
         'employee'
+    ).prefetch_related(
+        'items__menu_item',
+        'items__customizations'
     )
     
     pagination_class = LimitOffsetPagination
