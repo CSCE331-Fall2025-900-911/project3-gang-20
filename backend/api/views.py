@@ -1,4 +1,6 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, filters
+from rest_framework.pagination import LimitOffsetPagination
+
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import (
     Customer, Employee, Ingredient, CustomizationCategory,
@@ -26,6 +28,10 @@ from .serializers import (
 class CustomerViewSet(viewsets.ModelViewSet):
     """API endpoint for Customers."""
     queryset = Customer.objects.all()
+    
+    """Enable email filterting for faster account lookup."""
+    filter_backends = [DjangoFilterBackend] 
+    filterset_fields = ['email']
     
     def get_serializer_class(self):
         """Use WriteSerializer for create/update, ReadSerializer otherwise."""
@@ -145,6 +151,12 @@ class OrdersViewSet(viewsets.ModelViewSet):
         'customer',
         'employee'
     )
+    
+    pagination_class = LimitOffsetPagination
+    
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter] 
+    filterset_fields = ['customer']          
+    ordering_fields = ['order_date_time']
     
     def get_serializer_class(self):
         """

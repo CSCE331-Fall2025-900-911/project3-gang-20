@@ -1,17 +1,16 @@
 /*
   File: landing_page.jsx
-  Description: Main entry point. Handles navigation, auth modals, and 
-  conditionally renders Employee portals based on Clerk Organization roles.
+  Description: Updated to ensure navigation buttons remain visible on smaller screens.
 */
 
 import { useState, useEffect } from 'react';
-import { Coffee, LogOut, ChevronRight } from 'lucide-react';
+import { Coffee, LogOut, ChevronRight, User } from 'lucide-react'; 
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { CustomSignIn, CustomSignUp } from './Auth'; 
 
 // --- Configuration ---
 const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
-
+// Used for Role Based Access Control
 const MANAGER_SLUG = 'manager-1762837696';
 const CASHIER_SLUG = 'cashier-1763751666';
 
@@ -23,25 +22,12 @@ function LandingPage({ onNavigate }) {
     // --- Role / Permission Logic ---
     const checkUserRole = (roleSlug) => {
         if (!isLoaded || !isSignedIn || !user) return false;
-        
-        // Check if user belongs to the specific organization slug
         return user.organizationMemberships.some(mem => mem.organization.slug === roleSlug);
     };
 
     const isManager = checkUserRole(MANAGER_SLUG);
     const isCashier = checkUserRole(CASHIER_SLUG) || isManager; 
     const isEmployee = isManager || isCashier;
-
-    // --- DEBUGGING: Help find the Cashier Slug ---
-    useEffect(() => {
-        if (isLoaded && isSignedIn && user.organizationMemberships.length > 0) {
-            console.log("------------------------------------------------");
-            console.log("YOUR ORGS:", user.organizationMemberships.map(m => 
-                `${m.organization.name} -> SLUG: ${m.organization.slug}`
-            ));
-            console.log("------------------------------------------------");
-        }
-    }, [isLoaded, isSignedIn, user]);
 
     // --- Theme ---
     const theme = {
@@ -59,9 +45,14 @@ function LandingPage({ onNavigate }) {
                 try {
                     const userEmail = user.primaryEmailAddress.emailAddress.toLowerCase().trim();
                     
+                    // Using the new filter logic if backend supports it, otherwise fetches all
                     const response = await fetch(CUSTOMERS_URL);
                     const customers = await response.json();
-                    const existingCustomer = customers.find(c => 
+                    
+                    // Handle both list and paginated response
+                    const results = Array.isArray(customers) ? customers : (customers.results || []);
+                    
+                    const existingCustomer = results.find(c => 
                         c.email && c.email.toLowerCase().trim() === userEmail
                     );
 
@@ -109,7 +100,7 @@ function LandingPage({ onNavigate }) {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '1.5vh 40px',
+                padding: '1.5vh 20px', // Reduced side padding slightly for mobile
                 background: 'rgba(255, 255, 255, 0.8)',
                 backdropFilter: 'blur(10px)',
                 zIndex: 100,
@@ -119,22 +110,33 @@ function LandingPage({ onNavigate }) {
                     <div style={{ background: theme.primary, padding: '8px', borderRadius: '12px', color: 'white' }}>
                         <Coffee size={24} />
                     </div>
-                    <span style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.5px' }}>
+                    {/* Hide the text "BobaSpot" on very small screens if needed, or keep it */}
+                    <span style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>
                         Boba<span style={{ color: theme.primary }}>Spot</span>
                     </span>
                 </div>
 
-                <div className="hidden md:flex" style={{ gap: '32px', fontWeight: '600', alignItems: 'center' }}>
+                {/* --- CENTER LINKS: Removed 'hidden md:flex' so they always show --- */}
+                <div style={{ 
+                    display: 'flex', 
+                    gap: '20px', // Reduced gap slightly to fit smaller screens
+                    fontWeight: '600', 
+                    alignItems: 'center' 
+                }}>
                     <button onClick={() => onNavigate('home')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Home</button>
                     <button onClick={() => onNavigate('menu_board')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Menu</button>
+                    {isSignedIn && (
+                        <button onClick={() => onNavigate('account')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Account</button>
+                    )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '16px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     {isLoaded && (
                         <>
                             {isSignedIn ? (
                                 <>
-                                    <div style={{ display: 'flex', alignItems: 'center', color: theme.text, fontWeight: '600' }}>
+                                    {/* Hide Greeting on small screens to save space */}
+                                    <div className="hidden md:block" style={{ color: theme.text, fontWeight: '600', marginRight: '8px' }}>
                                         Hello, {user?.firstName || 'User'}
                                     </div>
                                     <button
@@ -143,7 +145,7 @@ function LandingPage({ onNavigate }) {
                                             background: 'transparent',
                                             border: `2px solid ${theme.primary}`,
                                             color: theme.primary,
-                                            padding: '8px 20px',
+                                            padding: '8px 16px',
                                             borderRadius: '50px',
                                             fontWeight: 'bold',
                                             cursor: 'pointer',
@@ -152,7 +154,7 @@ function LandingPage({ onNavigate }) {
                                             gap: '6px'
                                         }}>
                                         <LogOut size={18} />
-                                        Log Out
+                                        <span className="hidden md:inline">Log Out</span>
                                     </button>
                                 </>
                             ) : (
@@ -163,7 +165,7 @@ function LandingPage({ onNavigate }) {
                                             background: 'transparent',
                                             border: `2px solid ${theme.primary}`,
                                             color: theme.primary,
-                                            padding: '8px 20px',
+                                            padding: '8px 16px',
                                             borderRadius: '50px',
                                             fontWeight: 'bold',
                                             cursor: 'pointer'
@@ -176,7 +178,7 @@ function LandingPage({ onNavigate }) {
                                             background: theme.primary,
                                             border: 'none',
                                             color: 'white',
-                                            padding: '10px 24px',
+                                            padding: '10px 20px',
                                             borderRadius: '50px',
                                             fontWeight: 'bold',
                                             cursor: 'pointer',
@@ -235,7 +237,6 @@ function LandingPage({ onNavigate }) {
                         <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 2rem)', fontWeight: '800', marginBottom: '2vh', color: theme.text }}>Employee Portals</h2>
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '2vh', flexWrap: 'wrap' }}>
                             
-                            {/* Manager Button: Only for Managers */}
                             {isManager && (
                                 <div onClick={() => onNavigate('manager')} style={{ background: 'white', padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)', transition: 'transform 0.2s' }}>
                                     <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Manager Dashboard</h3>
@@ -243,7 +244,6 @@ function LandingPage({ onNavigate }) {
                                 </div>
                             )}
 
-                            {/* Cashier Button: For Cashiers OR Managers */}
                             {isCashier && (
                                 <div onClick={() => onNavigate('cashier')} style={{ background: 'white', padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)', transition: 'transform 0.2s' }}>
                                     <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Cashier POS</h3>
@@ -282,6 +282,13 @@ function LandingPage({ onNavigate }) {
             <style>{`
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
                 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+                /* Helper utility for explicit hiding */
+                .hidden { display: none !important; }
+                @media (min-width: 768px) {
+                    .md\\:block { display: block !important; }
+                    .md\\:inline { display: inline !important; }
+                    .md\\:flex { display: flex !important; }
+                }
             `}</style>
         </div>
     );

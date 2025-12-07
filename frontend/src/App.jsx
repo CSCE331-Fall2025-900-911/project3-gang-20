@@ -13,84 +13,55 @@ import BobaManager from './boba_manager';
 import BobaCashier from './boba_cashier';
 import BobaMenuBoard from './boba_menu_board';
 import LandingPage from './landing_page';
+import BobaAccount from './boba_account';
 
 /*
   Wrapper component to enforce organization membership for portal access.
-  Checks if the signed-in user belongs to any of the required organizations.
 */
 const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage, onBack }) => {
   const { isLoaded, isSignedIn, user } = useUser();
 
   if (!isLoaded) {
-    return (
-      <div style={{ padding: '50px', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '2em' }}>Loading...</h1>
-      </div>
-    );
+    return <div style={{ padding: '50px', textAlign: 'center' }}><h1>Loading...</h1></div>;
   }
 
   if (!isSignedIn) {
     return (
       <div style={{ padding: '50px', textAlign: 'center', backgroundColor: '#fed7aa', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
         <h1 style={{ fontSize: '2em', color: '#78350f', marginBottom: '1em' }}>🔒 Access Denied</h1>
-        <p style={{ fontSize: '1.2em', color: '#92400e', marginBottom: '2em' }}>
-          You must be signed in to access this employee portal.
-        </p>
-        <button
-          onClick={onBack}
-          style={{ padding: '10px 20px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          Back
-        </button>
+        <p style={{ fontSize: '1.2em', color: '#92400e', marginBottom: '2em' }}>You must be signed in to access this employee portal.</p>
+        <button onClick={onBack} style={{ padding: '10px 20px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Back</button>
       </div>
     );
   }
 
   const hasRequiredRole = requiredGroups.some(requiredOrgName =>
-    user.organizationMemberships?.some(
-      (membership) => membership.organization.name === requiredOrgName
-    )
+    user.organizationMemberships?.some((membership) => membership.organization.name === requiredOrgName)
   );
 
   if (!hasRequiredRole) {
     return (
       <div style={{ padding: '50px', textAlign: 'center', backgroundColor: '#fed7aa', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
         <h1 style={{ fontSize: '2em', color: '#dc2626', marginBottom: '1em' }}>🛑 Unauthorized</h1>
-        <p style={{ fontSize: '1.2em', color: '#92400e', marginBottom: '2em', fontWeight: 'bold' }}>
-          {unauthorizedMessage}
-        </p>
-        <button
-          onClick={onBack}
-          style={{ padding: '10px 20px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-        >
-          Go Back
-        </button>
+        <p style={{ fontSize: '1.2em', color: '#92400e', marginBottom: '2em', fontWeight: 'bold' }}>{unauthorizedMessage}</p>
+        <button onClick={onBack} style={{ padding: '10px 20px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Go Back</button>
       </div>
     );
   }
 
-
   return children;
 };
 
-// Main
-
 // Main application component. Handles initial loading state and routing.
 function App() {
-  // --- STATE MANAGEMENT: Session Storage ---
-  // 1. Lazy Initialization: This runs ONCE when the app starts.
-  //    If it's a refresh, it pulls from session.
-  //    If it's a new tab/window, session is empty, so it defaults to 'landing'.
   const [currentPage, setCurrentPage] = useState(() => {
     return sessionStorage.getItem('currentPage') || 'landing';
   });
 
-  // 2. Save to Session Storage whenever currentPage changes.
   useEffect(() => {
     sessionStorage.setItem('currentPage', currentPage);
   }, [currentPage]);
 
-  // --- AUDIO UNLOCK (Your existing code) ---
   useEffect(() => {
     const unlockAudio = () => {
       try {
@@ -120,7 +91,7 @@ function App() {
   if (currentPage === 'manager') {
     return (
       <PortalAccessChecker
-        requiredGroups={['manager']} // Now checks for membership in the 'manager' organization
+        requiredGroups={['manager']}
         unauthorizedMessage="Must be a Manager to access this portal."
         onBack={() => setCurrentPage('landing')}
       >
@@ -133,7 +104,7 @@ function App() {
   if (currentPage === 'cashier') {
     return (
       <PortalAccessChecker
-        requiredGroups={['cashier', 'manager']} // Now checks for membership in 'cashier' OR 'manager' organization
+        requiredGroups={['cashier', 'manager']}
         unauthorizedMessage="Must be an Employee (Cashier or Manager) to access this portal."
         onBack={() => setCurrentPage('landing')}
       >
@@ -146,6 +117,13 @@ function App() {
   if (currentPage === 'menu_board') {
     return <BobaMenuBoard onBack={() => setCurrentPage('landing')} />;
   }
+
+  // --- ADD THIS SECTION HERE ---
+  // Account Page (Private Customer View)
+  if (currentPage === 'account') {
+    return <BobaAccount onNavigate={setCurrentPage} />;
+  }
+  // -----------------------------
 
   // Landing Page (Default View)
   return <LandingPage onNavigate={setCurrentPage} />;
