@@ -15,6 +15,8 @@ import BobaMenuBoard from './boba_menu_board';
 import LandingPage from './landing_page';
 import BobaAccount from './boba_account';
 
+import { AccessibilityProvider, AccessibilityControls } from './AccessibilityContext';
+
 /*
   Wrapper component to enforce organization membership for portal access.
 */
@@ -87,51 +89,45 @@ function App() {
 
   // ---------- Portal Routing ----------
 
-  // Kiosk (Public/Customer View)
-  if (currentPage === 'kiosk') {
-    return <BobaKiosk onBack={() => setCurrentPage('landing')} />;
-  }
-
-  // Manager Portal (Restricted)
-  if (currentPage === 'manager') {
-    return (
-      <PortalAccessChecker
-        requiredGroups={['manager']}
-        unauthorizedMessage="Must be a Manager to access this portal."
-        onBack={() => setCurrentPage('landing')}
-      >
-        <BobaManager onBack={() => setCurrentPage('landing')} />
-      </PortalAccessChecker>
-    );
-  }
-
-  // Cashier Portal (Restricted)
-  if (currentPage === 'cashier') {
-    return (
-      <PortalAccessChecker
-        requiredGroups={['cashier', 'manager']}
-        unauthorizedMessage="Must be an Employee (Cashier or Manager) to access this portal."
-        onBack={() => setCurrentPage('landing')}
-      >
-        <BobaCashier onBack={() => setCurrentPage('landing')} />
-      </PortalAccessChecker>
-    );
-  }
-
-  // Menu Board (Public View)
-  if (currentPage === 'menu_board') {
-    return <BobaMenuBoard onBack={() => setCurrentPage('landing')} />;
-  }
-
-  // --- ADD THIS SECTION HERE ---
-  // Account Page (Private Customer View)
-  if (currentPage === 'account') {
-    return <BobaAccount onNavigate={setCurrentPage} />;
-  }
-  // -----------------------------
-
   // Landing Page (Default View)
-  return <LandingPage onNavigate={setCurrentPage} />;
+  return (
+    <AccessibilityProvider>
+      {/* 
+          Keep AccessibilityControls mounted GLOBALLY to prevent Google Translate from breaking.
+          We only hide it visually on pages where it's not wanted (Manager, Cashier, etc.).
+       */}
+      <div style={{ display: (currentPage === 'landing' || currentPage === 'kiosk') ? 'block' : 'none' }}>
+        <AccessibilityControls />
+      </div>
+
+      {/* Lifted Provider to wrap all page views */}
+      {currentPage === 'kiosk' ? (
+        <BobaKiosk onBack={() => setCurrentPage('landing')} />
+      ) : currentPage === 'manager' ? (
+        <PortalAccessChecker
+          requiredGroups={['manager']}
+          unauthorizedMessage="Must be a Manager to access this portal."
+          onBack={() => setCurrentPage('landing')}
+        >
+          <BobaManager onBack={() => setCurrentPage('landing')} />
+        </PortalAccessChecker>
+      ) : currentPage === 'cashier' ? (
+        <PortalAccessChecker
+          requiredGroups={['cashier', 'manager']}
+          unauthorizedMessage="Must be an Employee (Cashier or Manager) to access this portal."
+          onBack={() => setCurrentPage('landing')}
+        >
+          <BobaCashier onBack={() => setCurrentPage('landing')} />
+        </PortalAccessChecker>
+      ) : currentPage === 'menu_board' ? (
+        <BobaMenuBoard onBack={() => setCurrentPage('landing')} />
+      ) : currentPage === 'account' ? (
+        <BobaAccount onNavigate={setCurrentPage} />
+      ) : (
+        <LandingPage onNavigate={setCurrentPage} />
+      )}
+    </AccessibilityProvider>
+  );
 }
 
 export default App;

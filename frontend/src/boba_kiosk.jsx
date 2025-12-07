@@ -1379,7 +1379,6 @@ function BobaKioskContent({ onBack }) {
 
   return (
     <>
-      <AccessibilityControls />
 
       {/* Navigation Buttons */}
       {currentView === 'welcome' ? (
@@ -1517,9 +1516,7 @@ function BobaKioskContent({ onBack }) {
 */
 function BobaKiosk(props) {
   return (
-    <AccessibilityProvider>
-      <BobaKioskContent {...props} />
-    </AccessibilityProvider>
+    <BobaKioskContent {...props} />
   );
 }
 
