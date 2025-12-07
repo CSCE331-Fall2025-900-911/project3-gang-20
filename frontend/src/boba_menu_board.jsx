@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, Sun, Cloud, CloudRain, CloudSnow, CloudLightning } from 'lucide-react';
 
 /* -------------------------------------------------------------------------- */
 /*                                   STYLES                                   */
@@ -32,17 +32,37 @@ const styles = `
   flex-direction: column;
 }
 
-/* New Floating Clock Styles */
-.menu-board-floating-clock {
+/* New Header Info Styles (Clock + Weather) */
+.menu-board-header-info {
   position: absolute;
   top: 24px;
   right: 32px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  z-index: 50;
+}
+
+.menu-board-weather {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #9a3412;
+}
+
+.menu-board-weather__temp {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1;
+  font-feature-settings: "tnum";
+}
+
+.menu-board-floating-clock {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   color: #9a3412;
   text-align: right;
-  z-index: 50;
 }
 
 .menu-board-floating-clock__time {
@@ -518,6 +538,10 @@ export default function BobaMenuBoard({ pollMs, onBack }) {
     const [now, setNow] = useState(() => new Date());
     const [promoIndex, setPromoIndex] = useState(0);
 
+    // Weather State
+    const [temperature, setTemperature] = useState(null);
+    const [description, setDescription] = useState("");
+
     const handleLogout = () => {
         if (onBack) {
             onBack();
@@ -537,6 +561,30 @@ export default function BobaMenuBoard({ pollMs, onBack }) {
         return () => clearInterval(ticker);
     }, [promos.length]);
 
+    // Fetch Weather
+    useEffect(() => {
+        fetch(
+            "https://api.openweathermap.org/data/2.5/weather?lat=30.621703&lon=-96.340494&appid=" + import.meta.env.VITE_WEATHER_API + "&units=imperial"
+        )
+            .then((response) => response.json())
+            .then((data) => {
+                setTemperature(data.main.temp);
+                setDescription(data.weather[0].description);
+            })
+            .catch((error) => console.error("Error fetching weather:", error));
+    }, []);
+
+    // Helper to get weather emoji
+    const getWeatherEmoji = (desc) => {
+        if (!desc) return <Sun size={32} />;
+        if (desc.includes("clear")) return <Sun size={32} />;
+        if (desc.includes("cloud")) return <Cloud size={32} />;
+        if (desc.includes("rain")) return <CloudRain size={32} />;
+        if (desc.includes("thunder")) return <CloudLightning size={32} />;
+        if (desc.includes("snow")) return <CloudSnow size={32} />;
+        return <Sun size={32} />;
+    };
+
     return (
         <>
             {/* Inject CSS */}
@@ -552,16 +600,16 @@ export default function BobaMenuBoard({ pollMs, onBack }) {
                             left: '24px',
                             backgroundColor: '#dc2626', // theme.danger
                             color: 'white',
-                            borderRadius: '12px',
-                            padding: '16px 24px', // Increased padding to match Kiosk
-                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', // theme.shadow
+                            borderRadius: '20px', // Match Cashier
+                            padding: '16px 32px', // Match Cashier
+                            boxShadow: '0 4px 6px rgba(220, 38, 38, 0.2)', // Match Cashier
                             border: 'none',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '12px', // Increased gap to match Kiosk
-                            zIndex: 1000, // Kept high z-index
-                            fontSize: '1.1em', // Matched font size
+                            gap: '12px',
+                            zIndex: 1000,
+                            fontSize: '1.2rem', // Match Cashier
                             fontWeight: 'bold'
                         }}
                     >
@@ -569,17 +617,30 @@ export default function BobaMenuBoard({ pollMs, onBack }) {
                         Exit
                     </button>
                 )}
-                <div className="menu-board-floating-clock">
-                    <time className="menu-board-floating-clock__time">
-                        {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </time>
-                    <span className="menu-board-floating-clock__date">
-                        {now.toLocaleDateString(undefined, {
-                            weekday: 'long',
-                            month: 'long',
-                            day: 'numeric',
-                        })}
-                    </span>
+
+
+                <div className="menu-board-header-info">
+                    {/* Weather Widget */}
+                    <div className="menu-board-weather">
+                        <span className="menu-board-weather__temp">
+                            {temperature ? `${Math.round(temperature)}°` : '--'}
+                        </span>
+                        {getWeatherEmoji(description)}
+                    </div>
+
+                    {/* Clock */}
+                    <div className="menu-board-floating-clock">
+                        <time className="menu-board-floating-clock__time">
+                            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </time>
+                        <span className="menu-board-floating-clock__date">
+                            {now.toLocaleDateString(undefined, {
+                                weekday: 'long',
+                                month: 'long',
+                                day: 'numeric',
+                            })}
+                        </span>
+                    </div>
                 </div>
 
                 <div className="menu-board-frame">
@@ -603,7 +664,7 @@ export default function BobaMenuBoard({ pollMs, onBack }) {
                         </div>
                     </footer>
                 </div>
-            </div>
+            </div >
         </>
     );
 }
