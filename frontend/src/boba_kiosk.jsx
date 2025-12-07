@@ -294,7 +294,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
       const orderData = {
         payment_type: selectedPaymentType,
         customer: dbCustomer ? dbCustomer.id : null,
-        employee: null,
+        employee: 0, // this is employee for customer kiosk
         items: itemsPayload,
         sub_total: getSubtotal()
       };

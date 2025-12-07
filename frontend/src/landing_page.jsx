@@ -122,10 +122,10 @@ function LandingPage({ onNavigate }) {
                         fontWeight: '600',
                         alignItems: 'center'
                     }}>
-                        <button onClick={() => onNavigate('home')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Home</button>
-                        <button onClick={() => onNavigate('menu_board')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Menu</button>
+                        <button onClick={() => onNavigate('home')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}><span>Home</span></button>
+                        <button onClick={() => onNavigate('menu_board')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}><span>Menu</span></button>
                         {isSignedIn && (
-                            <button onClick={() => onNavigate('account')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Account</button>
+                            <button onClick={() => onNavigate('account')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}><span>Account</span></button>
                         )}
                     </div>
 
@@ -153,7 +153,7 @@ function LandingPage({ onNavigate }) {
                                                 gap: '6px'
                                             }}>
                                             <LogOut size={18} />
-                                            <span className="hidden md:inline">Log Out</span>
+                                            <span className="hidden md:inline"><span>Log Out</span></span>
                                         </button>
                                     </>
                                 ) : (
@@ -169,7 +169,7 @@ function LandingPage({ onNavigate }) {
                                                 fontWeight: 'bold',
                                                 cursor: 'pointer'
                                             }}>
-                                            Log In
+                                            <span>Log In</span>
                                         </button>
                                         <button
                                             onClick={() => setAuthMode('signup')}
@@ -183,7 +183,7 @@ function LandingPage({ onNavigate }) {
                                                 cursor: 'pointer',
                                                 boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)'
                                             }}>
-                                            Sign Up
+                                            <span>Sign Up</span>
                                         </button>
                                     </>
                                 )}
@@ -214,18 +214,18 @@ function LandingPage({ onNavigate }) {
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent'
                         }}>
-                            Bobaclat
+                            <span>Bobaclat</span>
                         </h1>
                         <p style={{ fontSize: 'clamp(1rem, 2vh, 1.25rem)', color: theme.textLight, maxWidth: '600px', margin: '0 auto 3vh', lineHeight: '1.6' }}>
-                            Experience the perfect blend of premium tea, fresh milk, and chewy tapioca pearls. Handcrafted daily for your delight.
+                            <span>Experience the perfect blend of premium tea, fresh milk, and chewy tapioca pearls. Handcrafted daily for your delight.</span>
                         </p>
 
                         <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
                             <button onClick={() => onNavigate('kiosk')} style={{ background: theme.primary, color: 'white', padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 10px 25px -5px rgba(217, 119, 6, 0.4)', transition: 'transform 0.2s' }}>
-                                Order Now <ChevronRight size={20} />
+                                <span>Order Now</span> <ChevronRight size={20} />
                             </button>
                             <button onClick={() => onNavigate('menu_board')} style={{ background: 'white', color: theme.text, padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-                                View Menu
+                                <span>View Menu</span>
                             </button>
                         </div>
                     </header>
