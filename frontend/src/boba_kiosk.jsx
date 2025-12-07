@@ -6,7 +6,7 @@
 */
 
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
-import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star, Gift, Dice6, RotateCcw, Check, Lock, ArrowLeft, Pencil } from 'lucide-react'; 
+import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star, Gift, Dice6, RotateCcw, Check, Lock, ArrowLeft, Pencil } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
 
 // --- Accessibility Context & Theme ---
@@ -52,7 +52,7 @@ function AccessibilityProvider({ children }) {
   const [fontSize, setFontSize] = useState(() => parseFloat(localStorage.getItem('kioskFontSize')) || 1.0);
   const [highContrast, setHighContrast] = useState(() => localStorage.getItem('kioskHighContrast') === 'true');
   const [ttsEnabled, setTtsEnabled] = useState(() => localStorage.getItem('kioskTtsEnabled') === 'true');
-  
+
   // Store available voices for TTS
   const [availableVoices, setAvailableVoices] = useState([]);
 
@@ -68,7 +68,7 @@ function AccessibilityProvider({ children }) {
       const voices = window.speechSynthesis.getVoices();
       if (voices.length > 0) setAvailableVoices(voices);
     };
-  
+
     // Retry loading voices for 1 second to handle browser race conditions
     let intervalId = setInterval(() => {
       const voices = window.speechSynthesis.getVoices();
@@ -77,12 +77,12 @@ function AccessibilityProvider({ children }) {
         clearInterval(intervalId);
       }
     }, 200);
-  
+
     window.speechSynthesis.onvoiceschanged = loadVoices;
-  
+
     return () => clearInterval(intervalId);
   }, []);
-  
+
   const [ttsReady, setTtsReady] = useState(false);
 
   // Initialize audio context on first user interaction
@@ -101,7 +101,7 @@ function AccessibilityProvider({ children }) {
       clearTimeout(timer);
 
       const target = e.target;
-      
+
       // Filter out complex containers to avoid reading entire blocks
       if (target.childElementCount > 3) return;
 
@@ -116,7 +116,7 @@ function AccessibilityProvider({ children }) {
       // Only read specific interactive or text tags
       const relevantTags = ['BUTTON', 'H1', 'H2', 'H3', 'P', 'SPAN', 'A', 'LI', 'DIV'];
       if (!relevantTags.includes(target.tagName)) return;
-      
+
       // Prevent reading long paragraphs on hover
       if (target.tagName === 'DIV' && textToRead.length > 60) return;
 
@@ -149,7 +149,7 @@ function AccessibilityProvider({ children }) {
 
     document.addEventListener('mouseover', handleMouseOver);
     document.addEventListener('mouseout', handleMouseLeave);
-    
+
     return () => {
       document.removeEventListener('mouseover', handleMouseOver);
       document.removeEventListener('mouseout', handleMouseLeave);
@@ -258,12 +258,12 @@ function KioskButton({ onClick, children, variant = 'primary', style = {}, disab
 }
 
 function AccessibilityControls() {
-  const { 
-    fontSize, 
-    increaseFontSize, 
-    decreaseFontSize, 
-    toggleContrast, 
-    highContrast, 
+  const {
+    fontSize,
+    increaseFontSize,
+    decreaseFontSize,
+    toggleContrast,
+    highContrast,
     theme,
     toggleTts,
     ttsEnabled
@@ -292,18 +292,18 @@ function AccessibilityControls() {
         <Plus size={24} />
         <span style={{ fontSize: '1.2em' }}>A</span>
       </KioskButton>
-      
+
       <div style={{ width: '1px', backgroundColor: '#ccc' }}></div>
-      
+
       <KioskButton onClick={toggleContrast} aria-label="Toggle high contrast" variant="secondary" style={{ padding: '8px' }}>
         {highContrast ? <Sun size={24} /> : <Moon size={24} />}
         <span>{highContrast ? 'Normal' : 'Contrast'}</span>
       </KioskButton>
 
-      <KioskButton 
-        onClick={toggleTts} 
-        aria-label={ttsEnabled ? "Disable Text to Speech" : "Enable Text to Speech"} 
-        variant={ttsEnabled ? 'primary' : 'secondary'} 
+      <KioskButton
+        onClick={toggleTts}
+        aria-label={ttsEnabled ? "Disable Text to Speech" : "Enable Text to Speech"}
+        variant={ttsEnabled ? 'primary' : 'secondary'}
         style={{ padding: '8px' }}
       >
         {ttsEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
@@ -379,9 +379,9 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
   const [error, setError] = useState(null);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [selectedPaymentType, setSelectedPaymentType] = useState(null);
-  
+
   // State for selected point redemption
-  const [selectedRedemption, setSelectedRedemption] = useState(null); 
+  const [selectedRedemption, setSelectedRedemption] = useState(null);
 
   // State to track which item is currently being edited
   const [editingCartItem, setEditingCartItem] = useState(null);
@@ -506,7 +506,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
       customizationPrice: 0,
       totalPrice: finalPrice.toFixed(2)
     };
-    
+
     setCart([...cart, mysteryItem]);
     setCurrentView('checkout');
     setSelectedRedemption(null);
@@ -528,18 +528,18 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     let discountAmount = 0;
 
     if (selectedRedemption.value === 'free_drink' || selectedRedemption.value === 'free_drink_and_toppings') {
-        // Discount the item's base price + ice/sweetness level cost
-        discountAmount += parseFloat(mostExpensiveItem.base_price) + (
-            mostExpensiveItem.customizations.iceLevel ? parseFloat(mostExpensiveItem.customizations.iceLevel.price) : 0
-        ) + (
-            mostExpensiveItem.customizations.sweetnessLevel ? parseFloat(mostExpensiveItem.customizations.sweetnessLevel.price) : 0
+      // Discount the item's base price + ice/sweetness level cost
+      discountAmount += parseFloat(mostExpensiveItem.base_price) + (
+        mostExpensiveItem.customizations.iceLevel ? parseFloat(mostExpensiveItem.customizations.iceLevel.price) : 0
+      ) + (
+          mostExpensiveItem.customizations.sweetnessLevel ? parseFloat(mostExpensiveItem.customizations.sweetnessLevel.price) : 0
         );
-        
-        // If 750 points, also discount toppings price of that item
-        if (selectedRedemption.value === 'free_drink_and_toppings') {
-            const toppingPrice = mostExpensiveItem.customizations.toppings.reduce((sum, topping) => sum + parseFloat(topping.price), 0);
-            discountAmount += toppingPrice;
-        }
+
+      // If 750 points, also discount toppings price of that item
+      if (selectedRedemption.value === 'free_drink_and_toppings') {
+        const toppingPrice = mostExpensiveItem.customizations.toppings.reduce((sum, topping) => sum + parseFloat(topping.price), 0);
+        discountAmount += toppingPrice;
+      }
     }
 
     // Discount cannot exceed the price of the item
@@ -593,7 +593,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
 
       const orderData = {
         payment_type: selectedPaymentType,
-        customer: dbCustomer ? dbCustomer.id : null, 
+        customer: dbCustomer ? dbCustomer.id : null,
         employee: null,
         items: itemsPayload,
         sub_total: getSubtotal()
@@ -612,26 +612,26 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
 
       const newOrder = await response.json();
       const finalTotal = getTotal();
-      
+
       let pointsEarned = 0;
       let pointsDeducted = 0;
       let successMsg = `Order #${newOrder.id || 'placed'} successfully! Total: $${finalTotal.toFixed(2)}`;
 
       if (dbCustomer) {
         let newPointsTotal = dbCustomer.points || 0;
-        
+
         if (selectedRedemption) {
-            // deduct points on redemption
-            pointsDeducted = selectedRedemption.points;
-            newPointsTotal -= pointsDeducted;
-            successMsg += `\n\n${selectedRedemption.label} applied! ${pointsDeducted} points redeemed.`;
+          // deduct points on redemption
+          pointsDeducted = selectedRedemption.points;
+          newPointsTotal -= pointsDeducted;
+          successMsg += `\n\n${selectedRedemption.label} applied! ${pointsDeducted} points redeemed.`;
         } else {
-            // earn points (if no points were redeemed)
-            pointsEarned = getPointsToEarn();
-            newPointsTotal += pointsEarned;
-            if (pointsEarned > 0) {
-              successMsg += `\n\n🎉 You earned ${pointsEarned} points!`;
-            }
+          // earn points (if no points were redeemed)
+          pointsEarned = getPointsToEarn();
+          newPointsTotal += pointsEarned;
+          if (pointsEarned > 0) {
+            successMsg += `\n\n🎉 You earned ${pointsEarned} points!`;
+          }
         }
 
         // Update customer points in DB
@@ -644,7 +644,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
         if (updateResponse.ok) {
           const updatedCustomer = await updateResponse.json();
           // Update the local state so the UI shows the new total immediately
-          setDbCustomer(updatedCustomer); 
+          setDbCustomer(updatedCustomer);
           console.log(`Points successfully updated! New Total: ${newPointsTotal}`);
         } else {
           console.error("Failed to update points via API");
@@ -654,7 +654,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
       setCart([]);
       setSelectedPaymentType(null);
       setSelectedRedemption(null); // Clear redemption state
-      
+
       alert(successMsg);
       setCurrentView('welcome');
 
@@ -692,7 +692,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     loading, error,
     processingPayment,
     selectedPaymentType, setSelectedPaymentType,
-    REDEMPTION_OPTIONS, selectedRedemption, setSelectedRedemption, getDiscount, 
+    REDEMPTION_OPTIONS, selectedRedemption, setSelectedRedemption, getDiscount,
 
     getAddOnsByCategory, calculateCustomizationPrice,
     getSubtotal, getServiceCharge, getTax, getTotal, getPointsToEarn,
@@ -735,32 +735,32 @@ function BobaKioskContent({ onBack }) {
   const [mysteryCategory, setMysteryCategory] = useState(null);
   const [isRolling, setIsRolling] = useState(false);
   const [mysteryResult, setMysteryResult] = useState(null);
-  const [displayItem, setDisplayItem] = useState(null); 
+  const [displayItem, setDisplayItem] = useState(null);
   const [rerollCount, setRerollCount] = useState(0); // Track number of re-rolls
 
   useEffect(() => {
-      const fetchCustomer = async () => {
-          if (isSignedIn && user) {
-              try {
-                  const response = await fetch(CUSTOMERS_URL);
-                  const customers = await response.json();
-                  
-                  const foundCustomer = customers.find(c => 
-                    c.email && 
-                    user.primaryEmailAddress?.emailAddress && 
-                    c.email.toLowerCase() === user.primaryEmailAddress.emailAddress.toLowerCase()
-                  );
-                  
-                  if (foundCustomer) {
-                      setDbCustomer(foundCustomer);
-                      console.log("Customer Matched:", foundCustomer);
-                  }
-              } catch (err) {
-                  console.error("Error fetching customer:", err);
-              }
+    const fetchCustomer = async () => {
+      if (isSignedIn && user) {
+        try {
+          const response = await fetch(CUSTOMERS_URL);
+          const customers = await response.json();
+
+          const foundCustomer = customers.find(c =>
+            c.email &&
+            user.primaryEmailAddress?.emailAddress &&
+            c.email.toLowerCase() === user.primaryEmailAddress.emailAddress.toLowerCase()
+          );
+
+          if (foundCustomer) {
+            setDbCustomer(foundCustomer);
+            console.log("Customer Matched:", foundCustomer);
           }
-      };
-      fetchCustomer();
+        } catch (err) {
+          console.error("Error fetching customer:", err);
+        }
+      }
+    };
+    fetchCustomer();
   }, [isSignedIn, user]);
 
 
@@ -833,12 +833,12 @@ function BobaKioskContent({ onBack }) {
   // --- Mystery Game Logic ---
   const handleMysteryRoll = () => {
     if (!mysteryCategory) return;
-    
+
     // If a result already exists, this is a re-roll. Increase cost count.
     if (mysteryResult) {
-        setRerollCount(prev => prev + 1);
+      setRerollCount(prev => prev + 1);
     }
-    
+
     setIsRolling(true);
     setMysteryResult(null);
 
@@ -858,7 +858,7 @@ function BobaKioskContent({ onBack }) {
     let iteration = 0;
     const maxIterations = 25; // How many times it flips
     let delay = 50; // Initial speed (ms)
-    
+
     const animate = () => {
       // Pick a random item just for visual display
       const randomIndex = Math.floor(Math.random() * candidates.length);
@@ -901,16 +901,16 @@ function BobaKioskContent({ onBack }) {
       }}>
         <div style={{ textAlign: 'center' }}>
           <h1 style={{ fontSize: '3em', fontWeight: 'bold', color: theme.text, marginBottom: '0.5em' }}>
-            Welcome
+            <span>Welcome</span>
           </h1>
           <p style={{ fontSize: '1.5em', color: theme.textSecondary, marginBottom: '1.5em' }}>
-            Tap to Start
+            <span>Tap to Start</span>
           </p>
           <KioskButton
             onClick={() => setCurrentView('categories')}
             style={{ fontSize: '1.5em', padding: '1em 2em' }}
           >
-            Start Order
+            <span>Start Order</span>
           </KioskButton>
         </div>
       </div>
@@ -932,7 +932,7 @@ function BobaKioskContent({ onBack }) {
       <div style={{
         minHeight: '100vh',
         background: theme.bg,
-        padding: '150px 32px 32px 32px', 
+        padding: '150px 32px 32px 32px',
       }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
 
@@ -987,9 +987,9 @@ function BobaKioskContent({ onBack }) {
             onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
             onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
-            <div style={{ 
-              background: highContrast ? 'transparent' : 'rgba(255,255,255,0.2)', 
-              padding: '16px', 
+            <div style={{
+              background: highContrast ? 'transparent' : 'rgba(255,255,255,0.2)',
+              padding: '16px',
               borderRadius: '50%',
               border: highContrast ? '2px solid #000' : 'none'
             }}>
@@ -1107,16 +1107,16 @@ function BobaKioskContent({ onBack }) {
 
   // --- MYSTERY VIEW ---
   if (currentView === 'mystery') {
-     // Use categories from existing data
-     const mysteryCategories = [...new Set(menuItems.map(item => item.category))];
+    // Use categories from existing data
+    const mysteryCategories = [...new Set(menuItems.map(item => item.category))];
 
-     // Logic: Game is considered "locked in" if a result has been shown or is rolling.
-     // Once locked, user cannot back out without buying or rerolling.
-     const gameLocked = isRolling || mysteryResult;
+    // Logic: Game is considered "locked in" if a result has been shown or is rolling.
+    // Once locked, user cannot back out without buying or rerolling.
+    const gameLocked = isRolling || mysteryResult;
 
-     const currentTotal = MYSTERY_PRICE + (rerollCount * REROLL_COST);
+    const currentTotal = MYSTERY_PRICE + (rerollCount * REROLL_COST);
 
-     viewContent = (
+    viewContent = (
       <div style={{
         minHeight: '100vh',
         background: theme.bg,
@@ -1131,9 +1131,9 @@ function BobaKioskContent({ onBack }) {
             Mystery Drink
           </h2>
           <p style={{ fontSize: '1.5em', color: theme.textSecondary, marginBottom: '1.5em' }}>
-            {mysteryResult ? 
-                `Current Price: $${currentTotal.toFixed(2)}` : 
-                `Spin for $${MYSTERY_PRICE}`}
+            {mysteryResult ?
+              `Current Price: $${currentTotal.toFixed(2)}` :
+              `Spin for $${MYSTERY_PRICE}`}
           </p>
 
           {/* STEP 1: CATEGORY SELECTION */}
@@ -1175,9 +1175,9 @@ function BobaKioskContent({ onBack }) {
             }}>
               {/* Lock Icon when game is active */}
               {gameLocked && (
-                 <div style={{ position: 'absolute', top: '16px', right: '16px', color: theme.danger }}>
-                    <Lock size={32} />
-                 </div>
+                <div style={{ position: 'absolute', top: '16px', right: '16px', color: theme.danger }}>
+                  <Lock size={32} />
+                </div>
               )}
 
               {/* Display Area */}
@@ -1197,7 +1197,7 @@ function BobaKioskContent({ onBack }) {
                     {displayItem.image ? (
                       <img src={displayItem.image} alt="Mystery" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     ) : (
-                       <span style={{ fontSize: '4em' }}>🧋</span>
+                      <span style={{ fontSize: '4em' }}>🧋</span>
                     )}
                   </div>
                   <h3 style={{ fontSize: '2em', fontWeight: 'bold', color: theme.text }}>
@@ -1205,9 +1205,9 @@ function BobaKioskContent({ onBack }) {
                   </h3>
                   {mysteryResult && (
                     <div style={{ marginTop: '16px' }}>
-                         <p style={{ fontSize: '1.2em', color: theme.text }}>
-                            {rerollCount > 0 ? `${rerollCount} Re-rolls used` : 'First Roll'}
-                        </p>
+                      <p style={{ fontSize: '1.2em', color: theme.text }}>
+                        {rerollCount > 0 ? `${rerollCount} Re-rolls used` : 'First Roll'}
+                      </p>
                     </div>
                   )}
                 </>
@@ -1241,7 +1241,7 @@ function BobaKioskContent({ onBack }) {
             {/* Result State */}
             {!isRolling && mysteryResult && (
               <>
-                 <KioskButton
+                <KioskButton
                   onClick={handleMysteryRoll}
                   variant="secondary"
                   style={{ fontSize: '1.2em', padding: '1em 2em', flexDirection: 'column' }}
@@ -1251,10 +1251,10 @@ function BobaKioskContent({ onBack }) {
                     Roll Again
                   </div>
                   <div style={{ fontSize: '0.8em', color: theme.danger }}>
-                     +${REROLL_COST.toFixed(2)}
+                    +${REROLL_COST.toFixed(2)}
                   </div>
                 </KioskButton>
-                
+
                 <KioskButton
                   onClick={() => addMysteryToCart(mysteryResult, rerollCount * REROLL_COST)}
                   variant="success"
@@ -1264,14 +1264,14 @@ function BobaKioskContent({ onBack }) {
                     <Check size={24} />
                     Accept Drink
                   </div>
-                   <div style={{ fontSize: '0.8em' }}>
-                     Total: ${currentTotal.toFixed(2)}
+                  <div style={{ fontSize: '0.8em' }}>
+                    Total: ${currentTotal.toFixed(2)}
                   </div>
                 </KioskButton>
               </>
             )}
           </div>
-          
+
           {!gameLocked && (
             <div
               style={{
@@ -1288,7 +1288,7 @@ function BobaKioskContent({ onBack }) {
 
         </div>
       </div>
-     );
+    );
   }
 
 
@@ -1312,16 +1312,16 @@ function BobaKioskContent({ onBack }) {
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
             {cart.length > 0 && (
-              <KioskButton 
+              <KioskButton
                 onClick={() => {
                   if (editingCartItem) {
-                      // Use the hook function to safely reset state
-                      cancelEdit();
+                    // Use the hook function to safely reset state
+                    cancelEdit();
                   } else {
-                      // Standard navigation for non-edit mode
-                      setCurrentView('checkout');
+                    // Standard navigation for non-edit mode
+                    setCurrentView('checkout');
                   }
-                }} 
+                }}
                 variant="secondary"
               >
                 {editingCartItem ? "Cancel Edit" : `Go to Cart (${cart.length}) →`}
@@ -1465,7 +1465,7 @@ function BobaKioskContent({ onBack }) {
               </p>
             )}
           </div>
-        
+
         </div>
         {/* End of wrapper div */}
       </div>
@@ -1541,7 +1541,7 @@ function BobaKioskContent({ onBack }) {
                         <p style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.success }}>
                           ${item.totalPrice}
                         </p>
-                        
+
                         {/* Edit Button: Triggers edit mode for this specific item */}
                         <KioskButton
                           onClick={() => startEditing(item)}
@@ -1601,7 +1601,7 @@ function BobaKioskContent({ onBack }) {
                           setSelectedPaymentType(null); // Force re-selection of payment after discount change
                         }
                       }
-                      
+
                       return (
                         <KioskButton
                           key={option.points}
@@ -1683,14 +1683,14 @@ function BobaKioskContent({ onBack }) {
                     </div>
                     {/* Points Earned/Redeemed Display */}
                     {dbCustomer && (
-                       <div style={{ fontSize: '1rem', color: theme.primary, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', marginTop: '4px' }}>
-                         <Star size={16} fill={theme.primary} />
-                         {selectedRedemption ? (
-                           <span>-{selectedRedemption.points} Points</span>
-                         ) : (
-                           <span>+{getPointsToEarn()} Points</span>
-                         )}
-                       </div>
+                      <div style={{ fontSize: '1rem', color: theme.primary, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', marginTop: '4px' }}>
+                        <Star size={16} fill={theme.primary} />
+                        {selectedRedemption ? (
+                          <span>-{selectedRedemption.points} Points</span>
+                        ) : (
+                          <span>+{getPointsToEarn()} Points</span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1762,6 +1762,7 @@ function BobaKioskContent({ onBack }) {
       {currentView === 'welcome' ? (
         // Logout Button
         <button
+          key="logout-btn"
           onClick={onBack}
           style={{
             position: 'fixed',
@@ -1783,11 +1784,12 @@ function BobaKioskContent({ onBack }) {
           }}
         >
           <LogOut size={24} />
-          Exit
+          <span>Exit</span>
         </button>
       ) : (
         (currentView !== 'mystery' || (!mysteryResult && !isRolling)) && (
           <button
+            key="back-btn"
             onClick={() => {
               if (currentView === 'customize') setCurrentView('categories');
               else if (currentView === 'checkout') setCurrentView('categories');
@@ -1813,14 +1815,14 @@ function BobaKioskContent({ onBack }) {
             }}
           >
             <ArrowLeft size={24} />
-            Back
+            <span>Back</span>
           </button>
         )
       )}
-      
+
       {currentView !== 'welcome' && (currentView !== 'mystery' || (!mysteryResult && !isRolling)) && (
         <div style={{ position: 'fixed', top: '24px', right: '24px', display: 'flex', gap: '16px', zIndex: 50 }}>
-          
+
           {/* Points Badge */}
           {dbCustomer && (
             <div style={{
