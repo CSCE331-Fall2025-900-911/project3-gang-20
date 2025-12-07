@@ -6,7 +6,7 @@
 */
 
 import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, AuthenticateWithRedirectCallback } from '@clerk/clerk-react';
 
 import BobaKiosk from './boba_kiosk';
 import BobaManager from './boba_manager';
@@ -54,6 +54,11 @@ const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage, on
 
 // Main application component. Handles initial loading state and routing.
 function App() {
+  // Handle Clerk SSO callback (must be before other routing)
+  if (window.location.pathname === '/sso-callback') {
+    return <AuthenticateWithRedirectCallback signInForceRedirectUrl="/" signUpForceRedirectUrl="/" continueSignUpUrl="/" />;
+  }
+
   const [currentPage, setCurrentPage] = useState(() => {
     return sessionStorage.getItem('currentPage') || 'landing';
   });

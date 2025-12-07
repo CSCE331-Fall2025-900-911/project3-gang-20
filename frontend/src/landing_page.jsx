@@ -4,9 +4,9 @@
 */
 
 import { useState, useEffect } from 'react';
-import { Coffee, LogOut, ChevronRight, User } from 'lucide-react'; 
+import { Coffee, LogOut, ChevronRight, User } from 'lucide-react';
 import { useUser, useClerk } from '@clerk/clerk-react';
-import { CustomSignIn, CustomSignUp } from './Auth'; 
+import { CustomSignIn, CustomSignUp } from './Auth';
 
 // --- Configuration ---
 const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
@@ -26,7 +26,7 @@ function LandingPage({ onNavigate }) {
     };
 
     const isManager = checkUserRole(MANAGER_SLUG);
-    const isCashier = checkUserRole(CASHIER_SLUG) || isManager; 
+    const isCashier = checkUserRole(CASHIER_SLUG) || isManager;
     const isEmployee = isManager || isCashier;
 
     // --- Theme ---
@@ -38,45 +38,42 @@ function LandingPage({ onNavigate }) {
         overlay: 'rgba(120, 53, 15, 0.4)',
     };
 
-    // --- Sync User to Database ---
+    // --- Sync User to Database & Organization ---
     useEffect(() => {
-        const syncUserToBackend = async () => {
-            if (isLoaded && isSignedIn && user && user.primaryEmailAddress?.emailAddress) {
-                try {
-                    const userEmail = user.primaryEmailAddress.emailAddress.toLowerCase().trim();
-                    
-                    // Using the new filter logic if backend supports it, otherwise fetches all
-                    const response = await fetch(CUSTOMERS_URL);
-                    const customers = await response.json();
-                    
-                    // Handle both list and paginated response
-                    const results = Array.isArray(customers) ? customers : (customers.results || []);
-                    
-                    const existingCustomer = results.find(c => 
-                        c.email && c.email.toLowerCase().trim() === userEmail
-                    );
+        const syncUser = async () => {
+            if (isLoaded && isSignedIn && user) {
+                // 1. Sync to Backend DB
+                if (user.primaryEmailAddress?.emailAddress) {
+                    try {
+                        const userEmail = user.primaryEmailAddress.emailAddress.toLowerCase().trim();
+                        const response = await fetch(CUSTOMERS_URL);
+                        const customers = await response.json();
+                        const results = Array.isArray(customers) ? customers : (customers.results || []);
 
-                    if (!existingCustomer) {
-                        const newCustomer = {
-                            first_name: user.firstName || "New",
-                            last_name: user.lastName || "User",
-                            email: userEmail,
-                            phone: "", 
-                            joined_date: new Date().toISOString().split('T')[0]
-                        };
-                        
-                        await fetch(CUSTOMERS_URL, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(newCustomer)
-                        });
+                        const existingCustomer = results.find(c =>
+                            c.email && c.email.toLowerCase().trim() === userEmail
+                        );
+
+                        if (!existingCustomer) {
+                            await fetch(CUSTOMERS_URL, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    first_name: user.firstName || "New",
+                                    last_name: user.lastName || "User",
+                                    email: userEmail,
+                                    phone: "",
+                                    joined_date: new Date().toISOString().split('T')[0]
+                                })
+                            });
+                        }
+                    } catch (error) {
+                        console.error("Error syncing user to backend:", error);
                     }
-                } catch (error) {
-                    console.error("Error syncing user to backend:", error);
                 }
             }
         };
-        syncUserToBackend();
+        syncUser();
     }, [isLoaded, isSignedIn, user]);
 
     const handleCloseModal = () => setAuthMode(null);
@@ -117,11 +114,11 @@ function LandingPage({ onNavigate }) {
                 </div>
 
                 {/* --- CENTER LINKS: Removed 'hidden md:flex' so they always show --- */}
-                <div style={{ 
-                    display: 'flex', 
+                <div style={{
+                    display: 'flex',
                     gap: '20px', // Reduced gap slightly to fit smaller screens
-                    fontWeight: '600', 
-                    alignItems: 'center' 
+                    fontWeight: '600',
+                    alignItems: 'center'
                 }}>
                     <button onClick={() => onNavigate('home')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Home</button>
                     <button onClick={() => onNavigate('menu_board')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}>Menu</button>
@@ -236,7 +233,7 @@ function LandingPage({ onNavigate }) {
                     <section style={{ textAlign: 'center', maxWidth: '1000px', width: '100%' }}>
                         <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 2rem)', fontWeight: '800', marginBottom: '2vh', color: theme.text }}>Employee Portals</h2>
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '2vh', flexWrap: 'wrap' }}>
-                            
+
                             {isManager && (
                                 <div onClick={() => onNavigate('manager')} style={{ background: 'white', padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)', transition: 'transform 0.2s' }}>
                                     <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Manager Dashboard</h3>
