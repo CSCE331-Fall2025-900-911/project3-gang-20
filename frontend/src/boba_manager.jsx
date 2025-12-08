@@ -297,7 +297,7 @@ export default function BobaManager() {
           {error && <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-xl shadow-md text-red-700 font-medium">{error}</div>}
           <div className="w-full flex-1 flex flex-col">{renderContent()}</div>
         </div>
-        <button onClick={() => navigate('/')} type="button" className="fixed bottom-6 left-6 flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#fde68a] hover:bg-[#fcd34d] text-[#92400e] font-bold transition-all shadow-lg hover:shadow-xl active:scale-95 border-2 border-[#d97706]/20 z-50 text-lg cursor-pointer">
+        <button onClick={() => navigate('/')} type="button" className="fixed top-6 left-6 flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#fde68a] hover:bg-[#fcd34d] text-[#92400e] font-bold transition-all shadow-lg hover:shadow-xl active:scale-95 border-2 border-[#d97706]/20 z-50 text-lg cursor-pointer">
           <Home size={24} /> Return Home
         </button>
       </main>
