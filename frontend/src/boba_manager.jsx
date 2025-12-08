@@ -464,7 +464,13 @@ function MenuModal({ item, data, onClose, onSuccess }) {
       const url = item ? `${API_BASE}/menu-items/${item.id}/` : `${API_BASE}/menu-items/`;
       const method = item ? 'PUT' : 'POST';
       const menuRes = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
-      if (!menuRes.ok) throw new Error("Failed to save menu item");
+
+      if (!menuRes.ok) {
+        const errText = await menuRes.text();
+        console.error("Save Error:", errText);
+        throw new Error(`Failed to save menu item (${menuRes.status}): ${errText}`);
+      }
+
       const savedItem = await menuRes.json();
       const itemId = savedItem.id;
 
