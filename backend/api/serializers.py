@@ -246,13 +246,20 @@ class OrderWriteSerializer(serializers.ModelSerializer):
             order_item.customizations.set(customizations_data)
 
             # --- Update Inventory ---
-            # 1. Deduct based on base recipe
+            # Determine size multiplier (1.0 for Regular, 1.2 for Large)
+            size_multiplier = 1.0
+            for customization in customizations_data:
+                if customization.category.name == 'Size' and customization.name == 'Large':
+                    size_multiplier = 1.3
+                    break
+            
+            # 1. Deduct based on base recipe (with size multiplier)
             menu_item = order_item.menu_item
             recipe_items = RecipeItem.objects.filter(menu_item=menu_item)
             
             for recipe in recipe_items:
                 ingredient = recipe.ingredient
-                deduction_amount = recipe.quantity * order_item.quantity
+                deduction_amount = recipe.quantity * order_item.quantity * size_multiplier
                 ingredient.stock_level -= deduction_amount
                 ingredient.save()
 

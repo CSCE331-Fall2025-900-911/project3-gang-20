@@ -86,6 +86,11 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [quantity, setQuantity] = useState(() => {
+    const saved = localStorage.getItem('kiosk_quantity');
+    return saved ? parseInt(saved) : 1;
+  });
+
   // -- PERSISTENCE: Sync to LocalStorage --
   useEffect(() => {
     localStorage.setItem('kiosk_currentView', currentView);
@@ -93,7 +98,8 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     localStorage.setItem('kiosk_selectedDrink', JSON.stringify(selectedDrink));
     localStorage.setItem('kiosk_selectedAddOns', JSON.stringify(selectedAddOns));
     localStorage.setItem('kiosk_cart', JSON.stringify(cart));
-  }, [currentView, activeFilter, selectedDrink, selectedAddOns, cart]);
+    localStorage.setItem('kiosk_quantity', quantity.toString());
+  }, [currentView, activeFilter, selectedDrink, selectedAddOns, cart, quantity]);
 
   // -- PERSISTENCE: Safety Check (Hydration) --
   useEffect(() => {
@@ -179,6 +185,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     setCart([...cart, ...newItems]);
 
     setSelectedAddOns({ temperature: null, iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
+    setQuantity(1);
     setSelectedDrink(null);
     setCurrentView('checkout');
     setSelectedRedemption(null);
@@ -332,7 +339,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
         customer: dbCustomer ? dbCustomer.id : null,
         employee: 0, // this is employee for customer kiosk
         items: itemsPayload,
-        sub_total: getSubtotal()
+        sub_total: Math.min(parseFloat(getSubtotal().toFixed(2)), 99999999.99)
       };
 
       const response = await fetch(ORDERS_URL, {
@@ -975,7 +982,6 @@ function BobaKioskContent() {
     const sweetnessLevels = getAddOnsByCategory('Sweetness Level');
     const drinkSizes = getAddOnsByCategory('Size');
     const toppings = getAddOnsByCategory('Toppings');
-    const temperatures = getAddOnsByCategory('Temperature');
 
     const customizationPrice = calculateCustomizationPrice();
     const totalPrice = parseFloat(selectedDrink.base_price) + customizationPrice;
@@ -987,7 +993,6 @@ function BobaKioskContent() {
         padding: '100px 32px 32px 32px',
         overflowY: 'auto'
       }}>
-        {/* NEW: Wrapper div to constrain width and center content (Restores original size) */}
         <div style={{ maxWidth: '800px', width: '100%', margin: '0 auto' }}>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
@@ -1037,7 +1042,7 @@ function BobaKioskContent() {
               Size
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
-              {drinkSizes.map((size) => (
+              {drinkSizes.reverse().map((size) => (
                 <KioskButton
                   key={size.id}
                   onClick={() => setSelectedAddOns({ ...selectedAddOns, drinkSize: size })}
@@ -1187,31 +1192,6 @@ function BobaKioskContent() {
                   </KioskButton>
                 );
               })}
-            </div>
-          </div>
-
-          {/* Temperature Selection */}
-          <div style={{
-            backgroundColor: theme.cardBg,
-            borderRadius: highContrast ? '0' : '16px',
-            border: theme.border,
-            padding: '24px',
-            marginBottom: '24px',
-            boxShadow: theme.shadow
-          }}>
-            <h3 style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text, marginBottom: '1em' }}>
-              Temperature
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
-              {temperatures.reverse().map((temp) => (
-                <KioskButton
-                  key={temp.id}
-                  onClick={() => setSelectedAddOns({ ...selectedAddOns, temp: temp })}
-                  variant={selectedAddOns.temp?.id === temp.id ? 'primary' : 'secondary'}
-                >
-                  {temp.name}
-                </KioskButton>
-              ))}
             </div>
           </div>
 

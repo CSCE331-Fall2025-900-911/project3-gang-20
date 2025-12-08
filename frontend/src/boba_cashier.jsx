@@ -61,6 +61,7 @@ function BobaCashier() {
     drinkSize: null,
     toppings: []
   });
+  const [quantity, setQuantity] = useState(1);
 
   // State for loading and transaction status
   const [loading, setLoading] = useState(true);
@@ -201,14 +202,18 @@ function BobaCashier() {
       }));
       setEditingItem(null);
     } else {
-      // Add new item
-      setCart([...cart, {
-        ...selectedDrink,
-        cartId: Date.now(), // Unique ID for cart item removal
-        customizations: { ...selectedCustomizations },
-        customizationPrice,
-        totalPrice: totalPrice.toFixed(2)
-      }]);
+      // Add new item(s) based on quantity
+      const newItems = [];
+      for (let i = 0; i < quantity; i++) {
+        newItems.push({
+          ...selectedDrink,
+          cartId: Date.now() + i,
+          customizations: { ...selectedCustomizations },
+          customizationPrice,
+          totalPrice: totalPrice.toFixed(2)
+        });
+      }
+      setCart([...cart, ...newItems]);
     }
 
     // Reset and close modal
@@ -221,6 +226,7 @@ function BobaCashier() {
       drinkSize: null,
       toppings: []
     });
+    setQuantity(1);
   };
 
   // Prepares an item for editing
@@ -861,7 +867,7 @@ function BobaCashier() {
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: theme.text, marginBottom: '16px' }}>Size *</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
-                  {getCustomizationsByCategory('Size').map((size) => (
+                  {getCustomizationsByCategory('Size').reverse().map((size) => (
                     <button
                       key={size.id}
                       onClick={() => setSelectedCustomizations({ ...selectedCustomizations, drinkSize: size })}
@@ -1013,13 +1019,64 @@ function BobaCashier() {
                 </div>
               </div>
 
+              {/* Quantity Selector - only shown when adding new items, not editing */}
+              {!editingItem && (
+                <div style={{ marginBottom: '24px' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: theme.text, marginBottom: '16px' }}>Quantity</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px' }}>
+                    <button
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      disabled={quantity <= 1}
+                      style={{
+                        padding: '12px 24px',
+                        borderRadius: '12px',
+                        fontWeight: 'bold',
+                        fontSize: '1.2rem',
+                        border: 'none',
+                        cursor: quantity <= 1 ? 'not-allowed' : 'pointer',
+                        opacity: quantity <= 1 ? 0.5 : 1,
+                        background: theme.secondary,
+                        color: theme.secondaryText
+                      }}
+                    >
+                      −
+                    </button>
+                    <span style={{ fontSize: '2rem', fontWeight: 'bold', color: theme.text, minWidth: '60px', textAlign: 'center' }}>
+                      {quantity}
+                    </span>
+                    <button
+                      onClick={() => setQuantity(quantity + 1)}
+                      style={{
+                        padding: '12px 24px',
+                        borderRadius: '12px',
+                        fontWeight: 'bold',
+                        fontSize: '1.2rem',
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: theme.secondary,
+                        color: theme.secondaryText
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Modal Footer (Total and Actions) */}
               <div style={{ borderTop: `2px solid ${theme.secondary}`, paddingTop: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: theme.text }}>Total:</span>
-                  <span style={{ fontSize: '2rem', fontWeight: 'bold', color: theme.success }}>
-                    ${(parseFloat(selectedDrink.base_price) + calculateCustomizationPrice()).toFixed(2)}
-                  </span>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '2rem', fontWeight: 'bold', color: theme.success }}>
+                      ${((parseFloat(selectedDrink.base_price) + calculateCustomizationPrice()) * (editingItem ? 1 : quantity)).toFixed(2)}
+                    </span>
+                    {!editingItem && quantity > 1 && (
+                      <div style={{ fontSize: '0.9rem', color: theme.textSecondary }}>
+                        ${(parseFloat(selectedDrink.base_price) + calculateCustomizationPrice()).toFixed(2)} × {quantity}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Validation Message */}
