@@ -7,46 +7,27 @@
       1. Reports: Uses dedicated backend endpoints for X/Z/Product reports.
       2. Pagination: Orders history uses pagination.
       3. Backend Lookup: Void Transaction uses direct ID lookup.
+  - Compliance: 
+      1. X-Report matches Java logic (Hour, Orders, Gross, Cash, Card, Voids).
+      2. Z-Report implements "Once per day" lockout using localStorage.
+      3. Sales Report includes Revenue totals.
   - UI: Kiosk-style visuals with Amber/Cream theme.
-  - Fixes: Implemented navigation to home page using useNavigate hook.
 */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom'; // Added for navigation
+import { useNavigate } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
-  Coffee, 
-  Package, 
-  Users, 
-  FileText, 
-  LogOut, 
-  Plus, 
-  Search, 
-  Trash2, 
-  Edit, 
-  Save, 
-  X, 
-  AlertTriangle, 
-  TrendingUp, 
-  Calendar, 
-  Clock, 
-  DollarSign, 
-  ChevronRight,
-  ArrowUp,
-  ArrowDown,
-  ArrowUpDown,
-  ClipboardList,
-  Home,
-  Loader2,
-  RefreshCw,
-  ChevronLeft
+  LayoutDashboard, Coffee, Package, Users, FileText, LogOut, Plus, Search, 
+  Trash2, Edit, Save, X, AlertTriangle, TrendingUp, Calendar, Clock, 
+  DollarSign, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, ClipboardList, 
+  Home, Loader2, RefreshCw, ChevronLeft, Lock, Unlock
 } from 'lucide-react';
 
 // ============================================================================
 // CONFIGURATION & CONSTANTS
 // ============================================================================
 
-const API_BASE = 'https://project3-gang-20-810838872032.us-south1.run.app/api';
+const API_BASE = 'http://127.0.0.1:8000/api';
 
 const COLORS = {
   bgGradient: 'from-[#fffbeb] to-[#fed7aa]', 
@@ -97,6 +78,7 @@ const useSortableData = (items, config = null) => {
         if (aValue === null) aValue = "";
         if (bValue === null) bValue = "";
         if (!isNaN(parseFloat(aValue)) && !isNaN(parseFloat(bValue)) && typeof aValue !== 'string') {
+           // numeric sort
         } else {
             if (typeof aValue === 'string') aValue = aValue.toLowerCase();
             if (typeof bValue === 'string') bValue = bValue.toLowerCase();
@@ -142,7 +124,7 @@ const Cell = ({ children, align = "left", className = "" }) => (
 
 export default function BobaManager({ onBack }) {
   const [activeTab, setActiveTab] = useState('menu');
-  const navigate = useNavigate(); // Initialize navigation hook
+  const navigate = useNavigate(); 
   
   // -- CENTRALIZED DATA STORE (CACHE) --
   const [dataStore, setDataStore] = useState({
@@ -797,24 +779,78 @@ function ReportsDashboard({ data }) {
   });
   const [reportResult, setReportResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [zReportLocked, setZReportLocked] = useState(false);
 
   useEffect(() => {
-    if (reportType) generateReport(reportType);
+    // Check local storage for Z-Report status on mount
+    const lastRun = localStorage.getItem('zReportLastRunDate');
+    const today = getLocalDateString();
+    if (lastRun === today) {
+      setZReportLocked(true);
+    }
+  }, []);
+
+  // Effect to automatically run X and Z reports when selected
+  useEffect(() => {
+    if (reportType === 'x-report' || reportType === 'z-report') {
+        generateReport(reportType);
+    } else if (reportType === 'low-stock') {
+        generateReport(reportType);
+    } else {
+        // Clear result for other types that require date selection
+        setReportResult(null);
+    }
   }, [reportType]);
 
   const handleReportClick = (type) => {
+    setReportResult(null); // Clear previous result to show loading
     setReportType(type);
+  };
+
+  const resetZReportLock = () => {
+      if (window.confirm("Reset Daily Lock for Z-Report? This will allow you to re-run the Z-Report for today.")) {
+          localStorage.removeItem('zReportLastRunDate');
+          setZReportLocked(false);
+          setReportResult(null);
+          setReportType(null);
+      }
   };
 
   const generateReport = async (type) => {
     if (!type) return;
-    setLoading(true); setReportResult(null);
+    
+    // Logic for X-Report when Z-Report is locked (Closed)
+    if (type === 'x-report' && zReportLocked) {
+        setReportResult({ message: `Z-Report has been run for today (${getLocalDateString()}). Daily totals are finalized.` });
+        return;
+    }
+
+    setLoading(true);
+    
     try {
-      const params = `?start=${dateRange.start}&end=${dateRange.end}&date=${dateRange.start}`;
+      // Default to TODAY for X and Z reports
+      const todayStr = getLocalDateString();
+      const start = (type === 'x-report' || type === 'z-report') ? todayStr : dateRange.start;
+      const end = (type === 'x-report' || type === 'z-report') ? todayStr : dateRange.end;
+      
+      const params = `?start=${start}&end=${end}&date=${todayStr}`;
       let endpoint = '';
 
       if (type === 'x-report') endpoint = `${API_BASE}/orders/x_report/${params}`;
-      else if (type === 'z-report') endpoint = `${API_BASE}/orders/z_report/${params}`;
+      else if (type === 'z-report') {
+         // If locked, we just VIEW. If not locked, we CONFIRM then LOCK.
+         if (!zReportLocked) {
+             if (!window.confirm("Run End-of-Day Z-Report? This will close the day for X-Reports. This action should only be done once per day.")) {
+                 setLoading(false);
+                 setReportType(null); // Deselect
+                 return;
+             }
+             // Lock immediately upon confirmation
+             localStorage.setItem('zReportLastRunDate', todayStr);
+             setZReportLocked(true);
+         }
+         endpoint = `${API_BASE}/orders/z_report/${params}`;
+      }
       else if (type === 'product') endpoint = `${API_BASE}/orders/product_usage/${params}`;
       else if (type === 'sales') endpoint = `${API_BASE}/orders/popular_items/${params}`;
       else if (type === 'low-stock') {
@@ -829,7 +865,6 @@ function ReportsDashboard({ data }) {
           const res = await fetch(endpoint);
           if (!res.ok) throw new Error("Failed to fetch report from server");
           const json = await res.json();
-          // The backend returns { data: ... } or { rows: ... } depending on report
           setReportResult(json);
       }
     } catch (e) { 
@@ -843,17 +878,19 @@ function ReportsDashboard({ data }) {
     <button 
       onClick={() => handleReportClick(type)}
       className={`
-        w-full py-3 px-4 rounded-lg border font-medium text-sm transition-all shadow-sm text-left cursor-pointer
+        w-full py-3 px-4 rounded-lg border font-medium text-sm transition-all shadow-sm text-left cursor-pointer flex justify-between items-center
         ${reportType === type 
           ? 'bg-[#e5e7eb] border-[#9ca3af] text-black shadow-inner ring-1 ring-gray-300' 
           : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'}
       `}
     >
-      {label}
+      <span>{label}</span>
+      {type === 'z-report' && zReportLocked && <Lock size={14} className="text-gray-400"/>}
     </button>
   );
 
-  const showDateControls = ['x-report', 'z-report', 'product', 'sales'].includes(reportType);
+  // Only show date controls for reports that are NOT X, Z, or Low Stock
+  const showDateControls = ['product', 'sales'].includes(reportType);
 
   return (
     <div className="h-full flex gap-6 w-full">
@@ -873,6 +910,8 @@ function ReportsDashboard({ data }) {
               <button onClick={() => generateReport(reportType)} type="button" className="bg-[#d97706] text-white px-4 py-2 rounded mt-4 cursor-pointer hover:bg-[#b45309]">Run Report</button>
             </>
           )}
+          {!showDateControls && reportType === 'x-report' && <p className="text-gray-500 italic mt-4">Showing live X-Report for today.</p>}
+          {!showDateControls && reportType === 'z-report' && <p className="text-gray-500 italic mt-4">{zReportLocked ? "Viewing finalized Z-Report for today." : "Closing day and generating Z-Report..."}</p>}
           {!showDateControls && reportType === 'low-stock' && <p className="text-gray-500 italic mt-4">Showing current low stock inventory items.</p>}
           {!reportType && <p className="text-gray-500 italic mt-4">Select a report type to begin.</p>}
         </div>
@@ -898,18 +937,27 @@ function ReportsDashboard({ data }) {
                 <ReportButton label="Product Usage" type="product" />
                 <ReportButton label="Popular Items" type="sales" />
                 <ReportButton label="Low Stock" type="low-stock" />
-                <div className="mt-auto pt-6">
+                <div className="mt-auto pt-6 flex flex-col gap-2">
                     <button 
                       onClick={() => handleReportClick('z-report')}
                       className={`
-                        w-full py-3 px-4 rounded-lg border font-bold text-center transition-colors shadow-sm cursor-pointer
+                        w-full py-3 px-4 rounded-lg border font-bold text-center transition-colors shadow-sm cursor-pointer flex justify-center items-center gap-2
                         ${reportType === 'z-report'
                             ? 'bg-[#d97706] text-white border-[#d97706] shadow-inner'
                             : 'bg-[#e5e5e5] text-black hover:bg-[#d4d4d4] border-transparent'}
                       `}
                     >
-                      Z-Report
+                      {zReportLocked && <Lock size={16}/>}
+                      {zReportLocked ? 'View Z-Report' : 'Run Z-Report'}
                     </button>
+                    {zReportLocked && (
+                        <button 
+                            onClick={resetZReportLock}
+                            className="text-xs text-red-500 hover:text-red-700 underline cursor-pointer flex items-center justify-center gap-1"
+                        >
+                            <Unlock size={12}/> Reset Lock
+                        </button>
+                    )}
                 </div>
             </div>
         </Card>
@@ -920,73 +968,110 @@ function ReportsDashboard({ data }) {
 
 function ReportViewer({ type, result }) {
   if (!result) return null;
+  if (result.message) return <div className="p-8 text-center text-gray-500 italic">{result.message}</div>;
   
-  // Safe access check to prevent "rows.map is not a function" crash
   const rows = Array.isArray(result) ? result : (result.data || result.rows || []);
 
   if (type === 'x-report') {
     return (
       <div className="w-full">
          <table className="w-full text-left">
-          <thead className="bg-[#fffbeb] sticky top-0"><tr><th className="p-3">Time</th><th className="p-3">Orders</th><th className="p-3">Gross</th></tr></thead>
+          <thead className="bg-[#fffbeb] sticky top-0">
+              <tr>
+                  <th className="p-3">Hour</th>
+                  <th className="p-3">Orders</th>
+                  <th className="p-3">Gross Sales</th>
+                  <th className="p-3">Cash</th>
+                  <th className="p-3">Card</th>
+                  <th className="p-3">Voids</th>
+              </tr>
+          </thead>
           <tbody>
           {Array.isArray(rows) && rows.length > 0 ? rows.map((r, idx) => (
-            <tr key={`x-${r.hour}-${idx}`} className="border-b"><td className="p-3">{r.hour}:00</td><td className="p-3">{r.orders}</td><td className="p-3">{formatCurrency(r.gross)}</td></tr>
-          )) : <tr><td colSpan="3" className="p-3 text-center text-gray-400">No Data</td></tr>}
+            <tr key={`x-${r.hour}-${idx}`} className="border-b">
+                <td className="p-3">{String(r.hour).padStart(2, '0')}:00-{String(r.hour).padStart(2, '0')}:59</td>
+                <td className="p-3">{r.orders}</td>
+                <td className="p-3">{formatCurrency(r.gross)}</td>
+                <td className="p-3">{formatCurrency(r.cash)}</td>
+                <td className="p-3">{formatCurrency(r.card)}</td>
+                <td className="p-3">{formatCurrency(r.voids)}</td>
+            </tr>
+          )) : <tr><td colSpan="6" className="p-3 text-center text-gray-400">No Data</td></tr>}
           </tbody>
         </table>
-        {/* Payment Stats Footer if available */}
-        {result.payment_methods && (
-          <div className="p-4 bg-gray-50 border-t border-gray-200 mt-4">
-             <h4 className="font-bold mb-2">Payment Methods</h4>
-             <div className="flex gap-4">
-                {result.payment_methods.map((pm, i) => (
-                  <div key={i} className="text-sm bg-white p-2 rounded border">
-                    <span className="font-bold block">{pm.payment_type}</span>
-                    <span>{pm.count} orders (${parseFloat(pm.total).toFixed(2)})</span>
-                  </div>
-                ))}
-             </div>
-          </div>
+        {result.totals && (
+            <div className="bg-gray-100 p-3 font-bold flex justify-between border-t border-gray-300">
+                <span>TOTAL</span>
+                <span className="ml-auto pr-8">{formatCurrency(result.totals.gross)}</span>
+            </div>
         )}
       </div>
     );
   }
   if (type === 'z-report') {
     const { data } = result;
+    // result.hourly_breakdown comes from the updated backend view
+    const hourlyRows = result.hourly_breakdown || []; 
+    
     if (!data) return <div className="p-8 text-gray-400">No data available</div>;
     return (
       <div className="p-8">
-        <h2 className="text-2xl font-bold mb-4">Z-Report ({data.date})</h2>
-        <div className="space-y-4 text-lg">
-            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-               <div className="flex justify-between"><span>Total Sales (Gross):</span> <span className="font-bold">{formatCurrency(data.grossSales)}</span></div>
-               <div className="flex justify-between text-sm text-gray-600"><span>Net Sales (Pre-Tax):</span> <span>{formatCurrency(data.totalSalesPreTax)}</span></div>
-               <div className="flex justify-between text-sm text-gray-600"><span>Total Tax:</span> <span>{formatCurrency(data.totalTax)}</span></div>
-            </div>
+        <h2 className="text-2xl font-bold mb-4">Z-Report: End of Day ({data.date})</h2>
+        <table className="w-full text-left border-collapse border border-gray-200 mb-8">
+            <thead className="bg-gray-50">
+                <tr>
+                    <th className="p-3 border border-gray-200">Category</th>
+                    <th className="p-3 border border-gray-200">Details</th>
+                    <th className="p-3 border border-gray-200">Amount / Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td className="p-3 border border-gray-200">SALES</td><td>Total Sales (Pre-Tax)</td><td className="p-3 border border-gray-200">{formatCurrency(data.totalSalesPreTax)}</td></tr>
+                <tr><td className="p-3 border border-gray-200">SALES</td><td>Total Tax</td><td className="p-3 border border-gray-200">{formatCurrency(data.totalTax)}</td></tr>
+                <tr><td className="p-3 border border-gray-200 font-bold">SALES</td><td className="font-bold">Gross Sales (Incl. Tax)</td><td className="p-3 border border-gray-200 font-bold">{formatCurrency(data.grossSales)}</td></tr>
+                
+                <tr><td className="p-3 border border-gray-200" colSpan="3"></td></tr>
 
-            <div className="grid grid-cols-2 gap-4">
-               <div className="bg-gray-50 p-4 rounded border">
-                  <h4 className="font-bold mb-2 border-b pb-1">Payments</h4>
-                  <div className="flex justify-between text-sm"><span>Cash:</span> <span>{formatCurrency(data.totalCash)}</span></div>
-                  <div className="flex justify-between text-sm"><span>Card:</span> <span>{formatCurrency(data.totalCard)}</span></div>
-               </div>
-               <div className="bg-red-50 p-4 rounded border border-red-100">
-                  <h4 className="font-bold mb-2 border-b pb-1 text-red-800">Voids</h4>
-                  <div className="flex justify-between text-sm text-red-700"><span>Count:</span> <span>{data.voidCount}</span></div>
-                  <div className="flex justify-between text-sm text-red-700"><span>Value:</span> <span>{formatCurrency(data.voidValue)}</span></div>
-               </div>
-            </div>
-            
-            <div className="mt-6 pt-4 border-t border-gray-200">
-               <h4 className="font-bold mb-2 text-sm text-gray-500 uppercase">Employee Signatures (On Duty)</h4>
-               <div className="flex flex-wrap gap-2">
-                 {data.employees && data.employees.map((emp, i) => (
-                    <span key={i} className="px-3 py-1 bg-gray-100 rounded-full text-sm font-mono">{emp}</span>
-                 ))}
-               </div>
-            </div>
-        </div>
+                <tr><td className="p-3 border border-gray-200">PAYMENTS</td><td>Cash Orders (Total)</td><td className="p-3 border border-gray-200">{formatCurrency(data.totalCash)}</td></tr>
+                <tr><td className="p-3 border border-gray-200">PAYMENTS</td><td>Card Orders (Total)</td><td className="p-3 border border-gray-200">{formatCurrency(data.totalCard)}</td></tr>
+
+                <tr><td className="p-3 border border-gray-200" colSpan="3"></td></tr>
+                
+                <tr><td className="p-3 border border-gray-200 text-red-600">VOIDS</td><td>Voided Orders Count</td><td className="p-3 border border-gray-200">{data.voidCount}</td></tr>
+                <tr><td className="p-3 border border-gray-200 text-red-600">VOIDS</td><td>Voided Orders Total Value</td><td className="p-3 border border-gray-200">{formatCurrency(data.voidValue)}</td></tr>
+
+                <tr><td className="p-3 border border-gray-200" colSpan="3"></td></tr>
+                
+                <tr><td className="p-3 border border-gray-200">EMPLOYEES</td><td colSpan="2" className="italic">{data.employees ? data.employees.join(', ') : 'None'}</td></tr>
+            </tbody>
+        </table>
+
+        {/* Hourly Breakdown included in Z-Report */}
+        <h3 className="text-lg font-bold mb-2">Hourly Breakdown (Finalized)</h3>
+        <table className="w-full text-left border border-gray-200">
+          <thead className="bg-[#fffbeb]">
+              <tr>
+                  <th className="p-2 border-b">Hour</th>
+                  <th className="p-2 border-b">Orders</th>
+                  <th className="p-2 border-b">Gross Sales</th>
+                  <th className="p-2 border-b">Cash</th>
+                  <th className="p-2 border-b">Card</th>
+                  <th className="p-2 border-b">Voids</th>
+              </tr>
+          </thead>
+          <tbody>
+          {hourlyRows.length > 0 ? hourlyRows.map((r, idx) => (
+            <tr key={`z-hr-${r.hour}-${idx}`} className="border-b">
+                <td className="p-2">{String(r.hour).padStart(2, '0')}:00</td>
+                <td className="p-2">{r.orders}</td>
+                <td className="p-2">{formatCurrency(r.gross)}</td>
+                <td className="p-2">{formatCurrency(r.cash)}</td>
+                <td className="p-2">{formatCurrency(r.card)}</td>
+                <td className="p-2">{formatCurrency(r.voids)}</td>
+            </tr>
+          )) : <tr><td colSpan="6" className="p-2 text-center text-gray-400">No Data</td></tr>}
+          </tbody>
+        </table>
       </div>
     );
   }
@@ -994,10 +1079,10 @@ function ReportViewer({ type, result }) {
     // result.data is array
     return (
       <table className="w-full text-left">
-        <thead className="bg-[#fffbeb] sticky top-0"><tr><th className="p-3">Item</th><th className="p-3">Category</th><th className="p-3">Qty</th></tr></thead>
+        <thead className="bg-[#fffbeb] sticky top-0"><tr><th className="p-3">Item Name</th><th className="p-3">Category</th><th className="p-3">Total Quantity</th><th className="p-3">Total Sales</th></tr></thead>
         <tbody>
         {Array.isArray(rows) && rows.length > 0 ? rows.map((row, idx) => (
-          <tr key={`sales-${idx}`} className="border-b"><td className="p-3 font-bold">{row.menu_item__name}</td><td className="p-3 text-sm">{row.menu_item__category__name}</td><td className="p-3">{row.quantity}</td></tr>
+          <tr key={`sales-${idx}`} className="border-b"><td className="p-3 font-bold">{row.menu_item__name}</td><td className="p-3 text-sm">{row.menu_item__category__name}</td><td className="p-3">{row.total_qty}</td><td className="p-3">{formatCurrency(row.total_sales)}</td></tr>
         )) : <tr><td colSpan="4" className="p-3 text-center text-gray-400">No Data</td></tr>}
         </tbody>
       </table>
@@ -1006,7 +1091,7 @@ function ReportViewer({ type, result }) {
   if (type === 'product') {
     return (
       <table className="w-full text-left">
-        <thead className="bg-[#fffbeb] sticky top-0"><tr><th className="p-3">Ingredient</th><th className="p-3">Quantity Used</th></tr></thead>
+        <thead className="bg-[#fffbeb] sticky top-0"><tr><th className="p-3">Ingredient</th><th className="p-3">Amount Used</th></tr></thead>
         <tbody>
         {Array.isArray(rows) && rows.length > 0 ? rows.map((row, idx) => (
           <tr key={`prod-${idx}`} className="border-b"><td className="p-3 font-bold">{row.name}</td><td className="p-3 font-mono">{row.quantity?.toFixed(2)} {row.unit}</td></tr>
@@ -1169,7 +1254,7 @@ function VoidOrderManager() {
         {error && <p className="text-red-600 font-bold text-sm bg-red-50 p-2 rounded-lg">{error}</p>}
         {orderData && (
           <div className="bg-[#fffbeb] p-4 rounded-xl text-left border border-[#fed7aa] shadow-inner">
-            <div className="flex justify-between mb-2"><span className="text-xs font-bold text-[#92400e] uppercase">Date</span><span className="font-mono text-sm text-[#78350f]">{formatDateTime(orderData.order_date_time)}</span></div>
+            <div className="flex justify-between mb-2"><span className="text-xs font-bold text-[#92400e] uppercase">Date</span><span className="fon http://127.0.0.1:8000/t-mono text-sm text-[#78350f]">{formatDateTime(orderData.order_date_time)}</span></div>
             <div className="flex justify-between mb-2"><span className="text-xs font-bold text-[#92400e] uppercase">Status</span><span className={`font-bold text-sm ${orderData.payment_method === 'VOID' ? 'text-red-600' : 'text-green-600'}`}>{orderData.payment_method}</span></div>
             <div className="flex justify-between mb-4"><span className="text-xs font-bold text-[#92400e] uppercase">Total</span><span className="font-mono font-bold text-xl text-[#78350f]">{formatCurrency(orderData.sub_total || orderData.total_price)}</span></div>
             {orderData.payment_method !== 'VOID' ? <ActionButton onClick={handleVoid} label="CONFIRM VOID" variant="danger" className="w-full py-3" disabled={loading} type="button" /> : <div className="text-center text-red-500 font-bold text-sm bg-red-50 p-2 rounded-lg border border-red-100">ALREADY VOIDED</div>}

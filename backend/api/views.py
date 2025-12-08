@@ -2,10 +2,11 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import LimitOffsetPagination
-from django.db.models import Sum, Count, F, FloatField, Q, DecimalField, Max
+from django.db.models import Sum, Count, F, FloatField, Q, DecimalField, Max, ExpressionWrapper
 from django.db.models.functions import TruncHour, Cast
 from django.utils import timezone
 import datetime
+import itertools
 
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import (
@@ -99,13 +100,6 @@ class OrdersViewSet(viewsets.ModelViewSet):
         return OrderReadSerializer
 
     @action(detail=False, methods=['get'])
-    def latest_id(self, request):
-        # Aggregate the maximum ID from the Order table
-        max_id = Order.objects.aggregate(Max('id'))['id__max']
-        # If no orders exist, max_id will be None, so return 0
-        return Response({'latest_id': max_id or 0})
-
-    @action(detail=False, methods=['get'])
     def x_report(self, request):
         date_str = request.query_params.get('date')
         if date_str:
@@ -113,50 +107,65 @@ class OrdersViewSet(viewsets.ModelViewSet):
         else:
             date = timezone.now().date()
 
+        # Include ALL orders (including VOID) to match Java logic where they show in the 'total_orders' count
+        # and are then filtered out for the net totals.
         orders = Order.objects.filter(order_date_time__date=date)
 
-        hourly_data = (
-            orders.exclude(payment_type='VOID')
-            .annotate(hour=TruncHour('order_date_time'))
-            .values('hour')
-            .annotate(orders=Count('id'), gross=Sum('sub_total'))
-            .order_by('hour')
-        )
+        # We aggregate hourly but calculate components manually to mirror Java's logic
+        # Java: Total Orders (count all distinct order IDs in that hour)
+        # Java: Gross Sales (incl Tax) = Sum(Quantity * Price * 1.0825)
+        # Java: Cash Sales (incl Tax) = Sum(Quantity * Price * 1.0825) where Type='Cash'
         
-        payment_stats = orders.exclude(payment_type='VOID').values('payment_type').annotate(
-            count=Count('id'), total=Sum('sub_total')
-        )
-
-        void_stats = orders.filter(payment_type='VOID').aggregate(
-            void_count=Count('id'), void_value=Sum('sub_total')
-        )
+        TAX_RATE = 0.0825
+        TAX_MULTIPLIER = 1 + TAX_RATE
 
         formatted_rows = []
-        total_orders = 0
         total_gross = 0.0
         
-        for entry in hourly_data:
-            h = entry['hour'].hour 
-            gross = float(entry['gross'] or 0)
+        # Group raw query by hour
+        for hour, group in itertools.groupby(orders.annotate(h=TruncHour('order_date_time')).order_by('h'), key=lambda x: x.h):
+            group_list = list(group)
+            current_hour = hour.hour
+            
+            orders_count = len(group_list) # Java: counts all orders including voids
+            
+            hourly_gross = 0.0
+            hourly_cash = 0.0
+            hourly_card = 0.0
+            hourly_voids = 0.0
+            
+            for o in group_list:
+                # Subtotal is pre-tax in our model. Java calculates tax ON TOP of this.
+                val_pre_tax = float(o.sub_total)
+                val_with_tax = val_pre_tax * TAX_MULTIPLIER
+                
+                if o.payment_type == 'VOID':
+                    hourly_voids += val_with_tax
+                else:
+                    hourly_gross += val_with_tax
+                    if o.payment_type == 'Cash':
+                        hourly_cash += val_with_tax
+                    elif o.payment_type == 'Card':
+                        hourly_card += val_with_tax
+            
+            display_gross = hourly_gross + hourly_voids 
+
             formatted_rows.append({
-                "hour": h,
-                "orders": entry['orders'],
-                "gross": gross,
+                "hour": current_hour,
+                "orders": orders_count,
+                "gross": display_gross,
+                "cash": hourly_cash,
+                "card": hourly_card,
+                "voids": hourly_voids
             })
-            total_orders += entry['orders']
-            total_gross += gross
+            
+            total_gross += display_gross
 
         return Response({
             "rows": formatted_rows,
             "totals": { 
-                "orders": total_orders, 
-                "gross": total_gross,
-                "voids": {
-                    "count": void_stats['void_count'] or 0,
-                    "value": float(void_stats['void_value'] or 0)
-                }
-            },
-            "payment_methods": list(payment_stats)
+                "gross": total_gross
+            }
         })
 
     @action(detail=False, methods=['get'])
@@ -169,6 +178,7 @@ class OrdersViewSet(viewsets.ModelViewSet):
 
         orders = Order.objects.filter(order_date_time__date=date)
         
+        # Calculate stats strictly matching Java Z-Report logic
         stats = orders.aggregate(
             total_sales=Sum('sub_total', filter=~Q(payment_type='VOID')),
             total_cash=Sum('sub_total', filter=Q(payment_type='Cash')),
@@ -177,26 +187,77 @@ class OrdersViewSet(viewsets.ModelViewSet):
             void_value=Sum('sub_total', filter=Q(payment_type='VOID')),
         )
         
-        gross = float(stats['total_sales'] or 0)
-        TAX_RATE_MULTIPLIER = 1.0825 
-        pre_tax = gross / TAX_RATE_MULTIPLIER
-        tax = gross - pre_tax
+        # Java logic: 
+        # total_sales_pre_tax = sum(qty * price) [raw]
+        # total_tax = total_sales_pre_tax * 0.0825
+        # Our model stores 'sub_total' which is pre-tax.
+        
+        pre_tax = float(stats['total_sales'] or 0)
+        TAX_RATE = 0.0825
+        TAX_MULTIPLIER = 1 + TAX_RATE
+        tax = pre_tax * TAX_RATE
+        gross = pre_tax + tax # Gross Sales (Incl. Tax)
+        
+        # Voids in Java Z-report display "Voided Orders Total Value". 
+        # Is that value Pre-Tax or Post-Tax? 
+        # Java code: `void_total_value` comes from `SUM(... * (1 + TAX_RATE))`
+        # So we must apply tax to the void value for the display.
+        void_pre_tax = float(stats['void_value'] or 0)
+        void_value_display = void_pre_tax * (1 + TAX_RATE)
 
+        # Employee List
         employees = orders.values_list('employee__first_name', 'employee__last_name').distinct()
         employee_names = [f"{e[0]} {e[1]}" for e in employees if e[0]]
+        
+        # ---- Add Hourly Breakdown (Requested in updated prompt) ----
+        # Reusing logic from X-Report so Z-Report contains breakdown
+        formatted_rows = []
+        for hour, group in itertools.groupby(orders.annotate(h=TruncHour('order_date_time')).order_by('h'), key=lambda x: x.h):
+            group_list = list(group)
+            current_hour = hour.hour
+            orders_count = len(group_list)
+            
+            hourly_gross = 0.0
+            hourly_cash = 0.0
+            hourly_card = 0.0
+            hourly_voids = 0.0
+            
+            for o in group_list:
+                val_pre_tax = float(o.sub_total)
+                val_with_tax = val_pre_tax * TAX_MULTIPLIER
+                
+                if o.payment_type == 'VOID':
+                    hourly_voids += val_with_tax
+                else:
+                    hourly_gross += val_with_tax
+                    if o.payment_type == 'Cash':
+                        hourly_cash += val_with_tax
+                    elif o.payment_type == 'Card':
+                        hourly_card += val_with_tax
+            
+            display_gross = hourly_gross + hourly_voids 
+            formatted_rows.append({
+                "hour": current_hour,
+                "orders": orders_count,
+                "gross": display_gross,
+                "cash": hourly_cash,
+                "card": hourly_card,
+                "voids": hourly_voids
+            })
 
         return Response({
             "data": {
                 "totalSalesPreTax": pre_tax,
                 "totalTax": tax,
                 "grossSales": gross,
-                "totalCash": float(stats['total_cash'] or 0),
-                "totalCard": float(stats['total_card'] or 0),
+                "totalCash": float(stats['total_cash'] or 0) * (1 + TAX_RATE), # Cash is collected tax-inclusive
+                "totalCard": float(stats['total_card'] or 0) * (1 + TAX_RATE), # Card is collected tax-inclusive
                 "voidCount": stats['void_count'] or 0,
-                "voidValue": float(stats['void_value'] or 0),
+                "voidValue": void_value_display,
                 "employees": employee_names,
                 "date": str(date)
-            }
+            },
+            "hourly_breakdown": formatted_rows
         })
 
     @action(detail=False, methods=['get'])
@@ -213,7 +274,7 @@ class OrdersViewSet(viewsets.ModelViewSet):
             .exclude(menu_item__orderitem__order__payment_type='VOID')
             .values('ingredient__name', 'ingredient__unit__abbreviation')
             .annotate(
-                # Simple multiplication, avoiding complex ExpressionWrapper that crashed
+                # Simple multiplication to get strict inventory usage amount
                 total_qty=Sum(F('quantity') * F('menu_item__orderitem__quantity'))
             )
             .order_by('-total_qty')
@@ -239,25 +300,16 @@ class OrdersViewSet(viewsets.ModelViewSet):
         if not start or not end:
             return Response({"error": "Start and End dates required"}, status=400)
 
-        # Simplified query to avoid ExpressionWrapper crash on older Django/DB versions
         items = (
             OrderItem.objects
             .filter(order__order_date_time__date__range=[start, end])
             .exclude(order__payment_type='VOID')
             .values('menu_item__name', 'menu_item__category__name')
             .annotate(
-                quantity=Sum('quantity'),
-                # We fetch just qty sum here, price calculation can happen on frontend 
-                # OR we accept that revenue might be approximate if prices changed.
-                # Ideally, OrderItem should snapshot price. 
-                # For this report, we'll order by quantity to be safe and robust.
+                total_qty=Sum('quantity'),
+                total_sales=Sum(F('quantity') * F('menu_item__base_price'), output_field=DecimalField())
             )
-            .order_by('-quantity')
+            .order_by('-total_qty')
         )
-        
-        # We can fetch base prices separately or if OrderItem has price snapshot use that.
-        # Assuming current base_price for revenue estimation to keep it simple and working.
-        # We'll attach price in a secondary step or let frontend handle it if data is missing.
-        # BUT to satisfy the requirement, let's try a safer annotation:
         
         return Response({ "data": list(items) })
