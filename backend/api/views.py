@@ -1,5 +1,9 @@
-from rest_framework import viewsets, filters
+from rest_framework import viewsets, filters, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from rest_framework.pagination import LimitOffsetPagination
+from django.db.models import Sum, Count, F, FloatField, Q, ExpressionWrapper, DecimalField
+from django.db.models.functions import TruncHour, Cast
 
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import (
@@ -23,132 +27,70 @@ from .serializers import (
 )
 
 # --- Standard ViewSets ---
-# These ViewSets use a single serializer for all actions.
 
 class CustomerViewSet(viewsets.ModelViewSet):
     """API endpoint for Customers."""
     queryset = Customer.objects.all()
-    
-    """Enable email filterting for faster account lookup."""
     filter_backends = [DjangoFilterBackend] 
     filterset_fields = ['email']
-    
     def get_serializer_class(self):
-        """Use WriteSerializer for create/update, ReadSerializer otherwise."""
-        if self.action in ['create', 'update', 'partial_update']:
-            return CustomerWriteSerializer
-        return CustomerReadSerializer
+        return CustomerWriteSerializer if self.action in ['create', 'update', 'partial_update'] else CustomerReadSerializer
 
 class EmployeeViewSet(viewsets.ModelViewSet):
-    """API endpoint for Employees."""
     queryset = Employee.objects.all()
-    
     def get_serializer_class(self):
-        """Use WriteSerializer for create/update, ReadSerializer otherwise."""
-        if self.action in ['create', 'update', 'partial_update']:
-            return EmployeeWriteSerializer
-        return EmployeeReadSerializer
+        return EmployeeWriteSerializer if self.action in ['create', 'update', 'partial_update'] else EmployeeReadSerializer
 
 class UnitViewSet(viewsets.ModelViewSet):
-    """API endpoint for Units of measurement."""
     queryset = Unit.objects.all()
-
     def get_serializer_class(self):
-        """Use WriteSerializer for create/update, ReadSerializer otherwise."""
-        if self.action in ['create', 'update', 'partial_update']:
-            return UnitWriteSerializer
-        return UnitReadSerializer
+        return UnitWriteSerializer if self.action in ['create', 'update', 'partial_update'] else UnitReadSerializer
 
 class CustomizationCategoryViewSet(viewsets.ModelViewSet):
-    """API endpoint for Customization Categories."""
     queryset = CustomizationCategory.objects.all()
-    
     def get_serializer_class(self):
-        """Use WriteSerializer for create/update, ReadSerializer otherwise."""
-        if self.action in ['create', 'update', 'partial_update']:
-            return CustomizationCategoryWriteSerializer
-        return CustomizationCategoryReadSerializer
+        return CustomizationCategoryWriteSerializer if self.action in ['create', 'update', 'partial_update'] else CustomizationCategoryReadSerializer
 
 class MenuCategoryViewSet(viewsets.ModelViewSet):
-    """API endpoint for Menu Categories."""
     queryset = MenuCategory.objects.all()
-    
     def get_serializer_class(self):
-        """Use WriteSerializer for create/update, ReadSerializer otherwise."""
-        if self.action in ['create', 'update', 'partial_update']:
-            return MenuCategoryWriteSerializer
-        return MenuCategoryReadSerializer
-
-
-# --- ViewSets with Read/Write Logic ---
-# These ViewSets use get_serializer_class() to choose the correct
-# serializer based on the request action (e.g., GET vs. POST).
+        return MenuCategoryWriteSerializer if self.action in ['create', 'update', 'partial_update'] else MenuCategoryReadSerializer
 
 class IngredientViewSet(viewsets.ModelViewSet):
-    """API endpoint for Ingredients."""
-    # Optimize query by selecting related unit
     queryset = Ingredient.objects.all().select_related('unit')
-    
     def get_serializer_class(self):
-        """Use WriteSerializer for create/update, ReadSerializer otherwise."""
-        if self.action in ['create', 'update', 'partial_update']:
-            return IngredientWriteSerializer
-        return IngredientReadSerializer
+        return IngredientWriteSerializer if self.action in ['create', 'update', 'partial_update'] else IngredientReadSerializer
 
 class CustomizationOptionViewSet(viewsets.ModelViewSet):
-    """API endpoint for Customization Options."""
-    # Optimize query by selecting related category and ingredient
     queryset = CustomizationOption.objects.all().select_related('category', 'ingredient')
-    
     def get_serializer_class(self):
-        """Use WriteSerializer for create/update, ReadSerializer otherwise."""
-        if self.action in ['create', 'update', 'partial_update']:
-            return CustomizationOptionWriteSerializer
-        return CustomizationOptionReadSerializer
+        return CustomizationOptionWriteSerializer if self.action in ['create', 'update', 'partial_update'] else CustomizationOptionReadSerializer
 
 class MenuItemViewSet(viewsets.ModelViewSet):
-    """API endpoint for Menu Items."""
-    # Use prefetch_related to optimize queries by fetching all
-    # related data (recipes, units, etc.) in a single batch.
-    queryset = MenuItem.objects.all().select_related('category').prefetch_related(
-        'recipeitem_set__ingredient__unit'
-    )
+    queryset = MenuItem.objects.all().select_related('category').prefetch_related('recipeitem_set__ingredient__unit')
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['category'] # Allows filtering by /api/menu-items/?category=1
-    
+    filterset_fields = ['category'] 
     def get_serializer_class(self):
-        """Use WriteSerializer for create/update, ReadSerializer otherwise."""
-        if self.action in ['create', 'update', 'partial_update']:
-            return MenuItemWriteSerializer
-        return MenuItemReadSerializer
+        return MenuItemWriteSerializer if self.action in ['create', 'update', 'partial_update'] else MenuItemReadSerializer
 
 class RecipeItemViewSet(viewsets.ModelViewSet):
-    """API endpoint for Recipe Items."""
-    # Optimize query by selecting related menu_item and ingredient (and its unit)
     queryset = RecipeItem.objects.all().select_related('menu_item', 'ingredient__unit')
-    
     def get_serializer_class(self):
-        """Use WriteSerializer for create/update, ReadSerializer otherwise."""
-        if self.action in ['create', 'update', 'partial_update']:
-            return RecipeItemWriteSerializer
-        return RecipeItemReadSerializer
+        return RecipeItemWriteSerializer if self.action in ['create', 'update', 'partial_update'] else RecipeItemReadSerializer
 
 class OrderItemViewSet(viewsets.ModelViewSet):
-    """API endpoint for individual Order Items."""
-    # Optimize query by selecting related menu_item and prefetching customizations
     queryset = OrderItem.objects.all().select_related('menu_item').prefetch_related('customizations')
-    
     def get_serializer_class(self):
-        """Use WriteSerializer for create/update, ReadSerializer otherwise."""
-        if self.action in ['create', 'update', 'partial_update']:
-            return OrderItemWriteSerializer
-        return OrderItemReadSerializer
+        return OrderItemWriteSerializer if self.action in ['create', 'update', 'partial_update'] else OrderItemReadSerializer
+
+# --- CORE UPDATE: Optimized Orders ViewSet with Server-Side Reporting ---
 
 class OrdersViewSet(viewsets.ModelViewSet):
-    """API endpoint for Orders."""
-    # Prefetch related data for efficiency
-    # Use select_related for ForeignKeys (customer, employee)
-    # Use prefetch_related for ManyToMany/Reverse ForeignKeys (items -> menu_item, customizations)
+    """
+    API endpoint for Orders.
+    Includes custom actions for generating reports (X-Report, Z-Report, etc.)
+    directly via database aggregation to improve performance.
+    """
     queryset = Order.objects.all().order_by('-order_date_time').select_related(
         'customer',
         'employee'
@@ -158,18 +100,149 @@ class OrdersViewSet(viewsets.ModelViewSet):
     )
     
     pagination_class = LimitOffsetPagination
-    
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter] 
     filterset_fields = ['customer']          
     ordering_fields = ['order_date_time']
     
     def get_serializer_class(self):
-        """
-        Chooses the serializer based on the request action.
-        - 'create': Use OrderWriteSerializer to handle nested items.
-        - 'update'/'partial_update': Use OrderWriteSerializer.
-        - 'list'/'retrieve' (GET): Use OrderReadSerializer for nested display.
-        """
         if self.action in ['create', 'update', 'partial_update']:
             return OrderWriteSerializer
         return OrderReadSerializer
+
+    # --- REPORT ACTIONS (Server-Side Aggregation) ---
+
+    @action(detail=False, methods=['get'])
+    def x_report(self, request):
+        """Aggregate hourly sales for a specific date (Server-Side)."""
+        date = request.query_params.get('date')
+        if not date:
+            return Response({"error": "Date parameter is required (YYYY-MM-DD)"}, status=400)
+
+        # Truncate to hour and group
+        hourly_data = (
+            Order.objects.filter(order_date_time__date=date)
+            .exclude(payment_type='VOID')
+            .annotate(hour=TruncHour('order_date_time'))
+            .values('hour')
+            .annotate(
+                orders=Count('id'),
+                gross=Sum('sub_total'), 
+            )
+            .order_by('hour')
+        )
+        
+        formatted_rows = []
+        total_orders = 0
+        total_gross = 0.0
+        
+        for entry in hourly_data:
+            h = entry['hour'].hour 
+            gross = float(entry['gross'] or 0)
+            formatted_rows.append({
+                "hour": h,
+                "orders": entry['orders'],
+                "gross": gross,
+            })
+            total_orders += entry['orders']
+            total_gross += gross
+
+        return Response({
+            "rows": formatted_rows,
+            "totals": { "orders": total_orders, "gross": total_gross }
+        })
+
+    @action(detail=False, methods=['get'])
+    def z_report(self, request):
+        """Aggregate daily totals (Server-Side)."""
+        date = request.query_params.get('date')
+        if not date:
+            return Response({"error": "Date parameter is required (YYYY-MM-DD)"}, status=400)
+
+        orders = Order.objects.filter(order_date_time__date=date)
+        
+        stats = orders.aggregate(
+            total_sales=Sum('sub_total', filter=~Q(payment_type='VOID')),
+            cash_sales=Count('id', filter=Q(payment_type='Cash')),
+            card_sales=Count('id', filter=Q(payment_type='Card')),
+            void_count=Count('id', filter=Q(payment_type='VOID')),
+        )
+        
+        gross = float(stats['total_sales'] or 0)
+        TAX_RATE_MULTIPLIER = 1.0825 
+        pre_tax = gross / TAX_RATE_MULTIPLIER
+        tax = gross - pre_tax
+
+        return Response({
+            "data": {
+                "totalSalesPreTax": pre_tax,
+                "totalTax": tax,
+                "grossSales": gross,
+                "cashCount": stats['cash_sales'] or 0,
+                "cardCount": stats['card_sales'] or 0,
+                "voidCount": stats['void_count'] or 0
+            }
+        })
+
+    @action(detail=False, methods=['get'])
+    def product_usage(self, request):
+        """Calculate ingredient usage via SQL Joins (Server-Side)."""
+        start = request.query_params.get('start')
+        end = request.query_params.get('end')
+        
+        if not start or not end:
+            return Response({"error": "Start and End dates required"}, status=400)
+            
+        usage = (
+            RecipeItem.objects
+            .filter(
+                menu_item__orderitem__order__order_date_time__date__range=[start, end]
+            )
+            .exclude(menu_item__orderitem__order__payment_type='VOID')
+            .values('ingredient__name', 'ingredient__unit__abbreviation')
+            .annotate(
+                # Use ExpressionWrapper for safe type calculation
+                total_qty=Sum(
+                    ExpressionWrapper(
+                        F('quantity') * F('menu_item__orderitem__quantity'),
+                        output_field=FloatField()
+                    )
+                )
+            )
+            .order_by('-total_qty')
+        )
+        
+        data_list = [
+            {
+                "name": item['ingredient__name'],
+                "quantity": item['total_qty'],
+                "unit": item['ingredient__unit__abbreviation']
+            }
+            for item in usage
+        ]
+
+        return Response({ "data": data_list })
+
+    @action(detail=False, methods=['get'])
+    def popular_items(self, request):
+        """Calculate most sold items (Server-Side)."""
+        start = request.query_params.get('start')
+        end = request.query_params.get('end')
+        
+        if not start or not end:
+            return Response({"error": "Start and End dates required"}, status=400)
+
+        # Simplified Aggregation: Removed the complex ExpressionWrapper which was causing 500 errors.
+        # Django's ORM usually handles Decimal * Integer math correctly without it.
+        items = (
+            OrderItem.objects
+            .filter(order__order_date_time__date__range=[start, end])
+            .exclude(order__payment_type='VOID')
+            .values('menu_item__name', 'menu_item__category__name')
+            .annotate(
+                quantity=Sum('quantity'),
+                revenue=Sum(F('quantity') * F('menu_item__base_price'))
+            )
+            .order_by('-revenue')
+        )
+        
+        return Response({ "data": list(items) })
