@@ -27,7 +27,7 @@ import {
 // CONFIGURATION & CONSTANTS
 // ============================================================================
 
-const API_BASE = 'http://127.0.0.1:8000/api';
+const API_BASE = 'https://project3-gang-20-810838872032.us-south1.run.app/api';
 
 const COLORS = {
   bgGradient: 'from-[#fffbeb] to-[#fed7aa]', 
