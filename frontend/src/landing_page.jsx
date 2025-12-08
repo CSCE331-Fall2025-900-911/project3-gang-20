@@ -18,7 +18,7 @@ const CASHIER_SLUG = 'cashier-1763751666';
 
 function LandingPage() {
     const navigate = useNavigate();
-    const { theme, highContrast, fontSizeMultiplier } = useAccessibility();
+    const { theme, highContrast, fontSize } = useAccessibility();
     const [authMode, setAuthMode] = useState(null);
     const { isSignedIn, user, isLoaded } = useUser();
     const { signOut } = useClerk();
@@ -108,7 +108,7 @@ function LandingPage() {
                             <Coffee size={24} />
                         </div>
                         {/* Hide the text "BobaSpot" on very small screens if needed, or keep it */}
-                        <span style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: `${1.5 * fontSize}rem`, fontWeight: '800', letterSpacing: '-0.5px', whiteSpace: 'nowrap' }}>
                             Boba<span style={{ color: theme.primary }}>Spot</span>
                         </span>
                     </div>
@@ -120,10 +120,10 @@ function LandingPage() {
                         fontWeight: '600',
                         alignItems: 'center'
                     }}>
-                        <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}><span>Home</span></button>
-                        <button onClick={() => navigate('/menu')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}><span>Menu</span></button>
+                        <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: `${1 * fontSize}rem`, fontWeight: '600' }}><span>Home</span></button>
+                        <button onClick={() => navigate('/menu')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: `${1 * fontSize}rem`, fontWeight: '600' }}><span>Menu</span></button>
                         {isSignedIn && (
-                            <button onClick={() => navigate('/account')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}><span>Account</span></button>
+                            <button onClick={() => navigate('/account')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: `${1 * fontSize}rem`, fontWeight: '600' }}><span>Account</span></button>
                         )}
                     </div>
 
@@ -204,7 +204,7 @@ function LandingPage() {
                     {/* --- Hero Section --- */}
                     <header style={{ textAlign: 'center', maxWidth: '1200px', width: '100%' }}>
                         <h1 style={{
-                            fontSize: 'clamp(3rem, 7vh, 5rem)',
+                            fontSize: `clamp(${3 * fontSize}rem, 7vh, ${5 * fontSize}rem)`,
                             fontWeight: '900',
                             lineHeight: '1.1',
                             marginBottom: '1.5vh',
@@ -215,15 +215,15 @@ function LandingPage() {
                         }}>
                             <span>BobaSpot</span>
                         </h1>
-                        <p style={{ fontSize: 'clamp(1rem, 2vh, 1.25rem)', color: theme.textLight, maxWidth: '600px', margin: '0 auto 3vh', lineHeight: '1.6' }}>
+                        <p style={{ fontSize: `clamp(${1 * fontSize}rem, 2vh, ${1.25 * fontSize}rem)`, color: theme.textLight, maxWidth: '600px', margin: '0 auto 3vh', lineHeight: '1.6' }}>
                             <span>Experience the perfect blend of premium tea, fresh milk, and chewy tapioca pearls. Handcrafted daily for your delight.</span>
                         </p>
 
                         <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                            <button onClick={() => navigate('/kiosk')} style={{ background: theme.primary, color: 'white', padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 10px 25px -5px rgba(217, 119, 6, 0.4)', transition: 'transform 0.2s' }}>
+                            <button onClick={() => navigate('/kiosk')} style={{ background: theme.primary, color: 'white', padding: '1.5vh 32px', borderRadius: '50px', fontSize: `${1.1 * fontSize}rem`, fontWeight: 'bold', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 10px 25px -5px rgba(217, 119, 6, 0.4)', transition: 'transform 0.2s' }}>
                                 <span>Order Now</span> <ChevronRight size={20} />
                             </button>
-                            <button onClick={() => navigate('/menu')} style={{ background: theme.cardBg, color: theme.text, padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: theme.border, cursor: 'pointer', boxShadow: theme.shadow }}>
+                            <button onClick={() => navigate('/menu')} style={{ background: theme.cardBg, color: theme.text, padding: '1.5vh 32px', borderRadius: '50px', fontSize: `${1.1 * fontSize}rem`, fontWeight: 'bold', border: theme.border, cursor: 'pointer', boxShadow: theme.shadow }}>
                                 <span>View Menu</span>
                             </button>
                         </div>
@@ -232,20 +232,20 @@ function LandingPage() {
                     {/* --- Employee Portals (CONDITIONAL RENDER) --- */}
                     {isEmployee && (
                         <section style={{ textAlign: 'center', maxWidth: '1000px', width: '100%' }}>
-                            <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 2rem)', fontWeight: '800', marginBottom: '2vh', color: theme.text }}>Employee Portals</h2>
+                            <h2 style={{ fontSize: `clamp(${1.5 * fontSize}rem, 3vh, ${2 * fontSize}rem)`, fontWeight: '800', marginBottom: '2vh', color: theme.text }}>Employee Portals</h2>
                             <div style={{ display: 'flex', justifyContent: 'center', gap: '2vh', flexWrap: 'wrap' }}>
 
                                 {isManager && (
                                     <div onClick={() => navigate('/manager')} style={{ background: theme.cardBg, padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: theme.shadow, border: theme.border, transition: 'transform 0.2s' }}>
-                                        <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Manager Dashboard</h3>
-                                        <p style={{ color: theme.textLight, fontSize: '0.95rem' }}>Access inventory, staff management, and sales reports.</p>
+                                        <h3 style={{ fontSize: `${1.35 * fontSize}rem`, fontWeight: 'bold', marginBottom: '4px' }}>Manager Dashboard</h3>
+                                        <p style={{ color: theme.textLight, fontSize: `${0.95 * fontSize}rem` }}>Access inventory, staff management, and sales reports.</p>
                                     </div>
                                 )}
 
                                 {isCashier && (
                                     <div onClick={() => navigate('/cashier')} style={{ background: theme.cardBg, padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: theme.shadow, border: theme.border, transition: 'transform 0.2s' }}>
-                                        <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Cashier POS</h3>
-                                        <p style={{ color: theme.textLight, fontSize: '0.95rem' }}>Handle customer orders, process payments, and manage the till.</p>
+                                        <h3 style={{ fontSize: `${1.35 * fontSize}rem`, fontWeight: 'bold', marginBottom: '4px' }}>Cashier POS</h3>
+                                        <p style={{ color: theme.textLight, fontSize: `${0.95 * fontSize}rem` }}>Handle customer orders, process payments, and manage the till.</p>
                                     </div>
                                 )}
 
@@ -256,7 +256,7 @@ function LandingPage() {
                 </main>
 
                 <footer style={{ flexShrink: 0, background: '#78350f', color: 'white', padding: '2vh 20px', borderTop: '5px solid #d97706' }}>
-                    <div style={{ textAlign: 'center', opacity: 0.8, fontSize: '0.9rem' }}>Group 20 CSCE-331-902</div>
+                    <div style={{ textAlign: 'center', opacity: 0.8, fontSize: `${0.9 * fontSize}rem` }}>Group 20 CSCE-331-902</div>
                 </footer>
 
                 {/* --- Auth Modal Overlay --- */}
