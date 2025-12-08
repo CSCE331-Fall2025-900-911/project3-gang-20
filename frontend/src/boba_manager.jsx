@@ -300,7 +300,7 @@ export default function BobaManager({ onBack }) {
         <button 
           onClick={() => navigate('/')} 
           type="button" 
-          className="fixed bottom-6 left-6 flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#fde68a] hover:bg-[#fcd34d] text-[#92400e] font-bold transition-all shadow-lg hover:shadow-xl active:scale-95 border-2 border-[#d97706]/20 z-50 text-lg cursor-pointer"
+          className="fixed top-6 left-6 flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#fde68a] hover:bg-[#fcd34d] text-[#92400e] font-bold transition-all shadow-lg hover:shadow-xl active:scale-95 border-2 border-[#d97706]/20 z-50 text-lg cursor-pointer"
         >
           <Home size={24} /> Return Home
         </button>
@@ -994,10 +994,10 @@ function ReportViewer({ type, result }) {
     // result.data is array
     return (
       <table className="w-full text-left">
-        <thead className="bg-[#fffbeb] sticky top-0"><tr><th className="p-3">Item</th><th className="p-3">Category</th><th className="p-3">Qty</th><th className="p-3">Revenue</th></tr></thead>
+        <thead className="bg-[#fffbeb] sticky top-0"><tr><th className="p-3">Item</th><th className="p-3">Category</th><th className="p-3">Qty</th></tr></thead>
         <tbody>
         {Array.isArray(rows) && rows.length > 0 ? rows.map((row, idx) => (
-          <tr key={`sales-${idx}`} className="border-b"><td className="p-3 font-bold">{row.menu_item__name}</td><td className="p-3 text-sm">{row.menu_item__category__name}</td><td className="p-3">{row.quantity}</td><td className="p-3">{formatCurrency(row.revenue)}</td></tr>
+          <tr key={`sales-${idx}`} className="border-b"><td className="p-3 font-bold">{row.menu_item__name}</td><td className="p-3 text-sm">{row.menu_item__category__name}</td><td className="p-3">{row.quantity}</td></tr>
         )) : <tr><td colSpan="4" className="p-3 text-center text-gray-400">No Data</td></tr>}
         </tbody>
       </table>
