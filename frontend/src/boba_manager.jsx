@@ -8,29 +8,29 @@
       2. Pagination: Orders history uses pagination.
       3. Backend Lookup: Void Transaction uses direct ID lookup.
   - UI: Kiosk-style visuals with Amber/Cream theme.
-  - Fixes: Defined missing HeaderCell/Cell components, fixed button types, robust error handling in ReportViewer.
+  - Fixes: Implemented navigation to home page using useNavigate hook.
 */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Coffee,
-  Package,
-  Users,
-  FileText,
-  LogOut,
-  Plus,
-  Search,
-  Trash2,
-  Edit,
-  Save,
-  X,
-  AlertTriangle,
-  TrendingUp,
-  Calendar,
-  Clock,
-  DollarSign,
+import { useNavigate } from 'react-router-dom'; // Added for navigation
+import { 
+  LayoutDashboard, 
+  Coffee, 
+  Package, 
+  Users, 
+  FileText, 
+  LogOut, 
+  Plus, 
+  Search, 
+  Trash2, 
+  Edit, 
+  Save, 
+  X, 
+  AlertTriangle, 
+  TrendingUp, 
+  Calendar, 
+  Clock, 
+  DollarSign, 
   ChevronRight,
   ArrowUp,
   ArrowDown,
@@ -49,10 +49,10 @@ import {
 const API_BASE = 'https://project3-gang-20-810838872032.us-south1.run.app/api';
 
 const COLORS = {
-  bgGradient: 'from-[#fffbeb] to-[#fed7aa]',
-  text: '#78350f',
-  textSecondary: '#92400e',
-  primary: '#d97706',
+  bgGradient: 'from-[#fffbeb] to-[#fed7aa]', 
+  text: '#78350f',       
+  textSecondary: '#92400e', 
+  primary: '#d97706',    
   primaryHover: '#b45309',
   cardBg: 'white',
   danger: '#dc2626',
@@ -98,8 +98,8 @@ const useSortableData = (items, config = null) => {
         if (bValue === null) bValue = "";
         if (!isNaN(parseFloat(aValue)) && !isNaN(parseFloat(bValue)) && typeof aValue !== 'string') {
         } else {
-          if (typeof aValue === 'string') aValue = aValue.toLowerCase();
-          if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+            if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+            if (typeof bValue === 'string') bValue = bValue.toLowerCase();
         }
         if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
@@ -140,10 +140,10 @@ const Cell = ({ children, align = "left", className = "" }) => (
 // MAIN COMPONENT
 // ============================================================================
 
-export default function BobaManager() {
-  const navigate = useNavigate();
+export default function BobaManager({ onBack }) {
   const [activeTab, setActiveTab] = useState('menu');
-
+  const navigate = useNavigate(); // Initialize navigation hook
+  
   // -- CENTRALIZED DATA STORE (CACHE) --
   const [dataStore, setDataStore] = useState({
     menuItems: [],
@@ -156,12 +156,12 @@ export default function BobaManager() {
 
   // -- LOAD STATUS TRACKER --
   const [loadStatus, setLoadStatus] = useState({
-    menu: false,
+    menu: false,       
     ingredients: false,
-    inventory: false,
+    inventory: false,  
     employees: false
   });
-
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -190,7 +190,7 @@ export default function BobaManager() {
       setDataStore(prev => ({ ...prev, menuItems: menu, recipes, categories, ingredients }));
       setLoadStatus(prev => ({ ...prev, menu: true, ingredients: true }));
       setError(null);
-    } catch (err) { setError("Failed to load menu data."); }
+    } catch (err) { setError("Failed to load menu data."); } 
     finally { setLoading(false); }
   }, [loadStatus, dataStore]);
 
@@ -238,10 +238,10 @@ export default function BobaManager() {
       case 'menu': fetchMenuData(); break;
       case 'inventory': fetchInventoryData(); break;
       case 'employees': fetchEmployeeData(); break;
-      case 'reports':
-        if (!loadStatus.menu) fetchMenuData();
-        if (!loadStatus.ingredients) fetchInventoryData();
-        break;
+      case 'reports': 
+        if (!loadStatus.menu) fetchMenuData(); 
+        if (!loadStatus.ingredients) fetchInventoryData(); 
+        break; 
     }
   }, [activeTab, fetchMenuData, fetchInventoryData, fetchEmployeeData, loadStatus]);
 
@@ -256,7 +256,7 @@ export default function BobaManager() {
       case 'employees': return <EmployeeManager data={dataStore} onRefresh={refreshEmployees} />;
       case 'reports': return <ReportsDashboard data={dataStore} />;
       case 'orders': return <OrdersHistoryView />;
-      case 'void': return <VoidOrderManager />;
+      case 'void': return <VoidOrderManager />; 
       default: return <div className="p-8 text-center text-[#92400e]">Select a tab</div>;
     }
   };
@@ -274,7 +274,7 @@ export default function BobaManager() {
       <div className="bg-white/80 backdrop-blur-md border-b border-[#fed7aa] px-6 py-4 flex-shrink-0 shadow-sm z-20 w-full">
         <div className="max-w-7xl mx-auto w-full flex flex-col gap-6">
           <div className="w-full flex justify-center items-center relative">
-            <h1 className="text-3xl font-bold text-[#78350f] tracking-tight text-center">Manager Dashboard</h1>
+             <h1 className="text-3xl font-bold text-[#78350f] tracking-tight text-center">Manager Dashboard</h1>
           </div>
           <nav className="flex gap-4 overflow-x-auto hide-scrollbar justify-center items-center w-full pb-1">
             <NavTab label="Overview" id="menu" active={activeTab} onClick={setActiveTab} />
@@ -297,7 +297,11 @@ export default function BobaManager() {
           {error && <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-xl shadow-md text-red-700 font-medium">{error}</div>}
           <div className="w-full flex-1 flex flex-col">{renderContent()}</div>
         </div>
-        <button onClick={() => navigate('/')} type="button" className="fixed bottom-6 left-6 flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#fde68a] hover:bg-[#fcd34d] text-[#92400e] font-bold transition-all shadow-lg hover:shadow-xl active:scale-95 border-2 border-[#d97706]/20 z-50 text-lg cursor-pointer">
+        <button 
+          onClick={() => navigate('/')} 
+          type="button" 
+          className="fixed top-6 left-6 flex items-center gap-3 px-6 py-3 rounded-2xl bg-[#fde68a] hover:bg-[#fcd34d] text-[#92400e] font-bold transition-all shadow-lg hover:shadow-xl active:scale-95 border-2 border-[#d97706]/20 z-50 text-lg cursor-pointer"
+        >
           <Home size={24} /> Return Home
         </button>
       </main>
@@ -317,8 +321,8 @@ function NavTab({ label, id, active, onClick }) {
       onClick={() => onClick(id)}
       className={`
         px-10 py-4 rounded-2xl font-bold text-lg transition-all border-2 whitespace-nowrap flex-shrink-0 cursor-pointer
-        ${isActive
-          ? `bg-[#e5e5e5] border-[#a3a3a3] text-black shadow-inner transform scale-105`
+        ${isActive 
+          ? `bg-[#e5e5e5] border-[#a3a3a3] text-black shadow-inner transform scale-105` 
           : `bg-[#f5f5f5] border-transparent text-gray-500 hover:bg-[#e5e5e5] hover:text-gray-700 hover:shadow-md`}
       `}
     >
@@ -332,7 +336,7 @@ function SortableHeader({ label, sortKey, sortConfig, requestSort, align = "left
   const alignmentClass = align === "center" ? "justify-center" : (align === "right" ? "justify-end" : "justify-start");
   const textAlignClass = align === "center" ? "text-center" : (align === "right" ? "text-right" : "text-left");
   return (
-    <th
+    <th 
       className={`p-4 font-bold text-[#78350f] cursor-pointer hover:bg-[#fffbeb] transition-colors select-none ${textAlignClass} border-b border-[#fed7aa] bg-white sticky top-0 z-10 whitespace-nowrap`}
       onClick={() => requestSort(sortKey)}
     >
@@ -344,10 +348,10 @@ function SortableHeader({ label, sortKey, sortConfig, requestSort, align = "left
   );
 }
 
-function ActionButton({ onClick, icon: Icon, label, variant = 'primary', disabled = false, className = "", type = "button" }) {
+function ActionButton({ onClick, icon: Icon, label, variant = 'primary', disabled = false, className="", type="button" }) {
   const baseStyles = "flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap cursor-pointer";
   const variants = {
-    primary: "bg-[#ea580c] text-white hover:bg-[#c2410c] border border-transparent",
+    primary: "bg-[#ea580c] text-white hover:bg-[#c2410c] border border-transparent", 
     secondary: "bg-white text-[#78350f] border border-[#d97706] hover:bg-[#fffbeb]",
     danger: "bg-red-600 text-white hover:bg-red-700 border border-transparent",
     success: "bg-[#16a34a] text-white hover:bg-green-700 border border-transparent",
@@ -392,34 +396,34 @@ function MenuManager({ data, onRefresh }) {
   return (
     <div className="space-y-4 h-full flex flex-col w-full">
       <div className="flex justify-between items-center bg-white/50 p-3 rounded-xl border border-[#fed7aa] w-full">
-        <h2 className="text-xl font-bold text-[#78350f]">Menu Items</h2>
-        <ActionButton onClick={() => { setEditingItem(null); setIsModalOpen(true); }} icon={Plus} label="ADD NEW ITEM" variant="primary" />
+         <h2 className="text-xl font-bold text-[#78350f]">Menu Items</h2>
+         <ActionButton onClick={() => { setEditingItem(null); setIsModalOpen(true); }} icon={Plus} label="ADD NEW ITEM" variant="primary" />
       </div>
       <Card className="flex-1 flex flex-col min-h-0 w-full">
         <div className="overflow-auto flex-1 custom-scrollbar w-full">
-          <table className="w-full text-left border-collapse relative">
+            <table className="w-full text-left border-collapse relative">
             <thead>
-              <tr className="bg-[#fffbeb]">
+                <tr className="bg-[#fffbeb]">
                 <SortableHeader label="Name" sortKey="name" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader label="Category" sortKey="category" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader label="Price" sortKey="base_price" sortConfig={sortConfig} requestSort={requestSort} />
                 <th className="p-4 font-bold text-[#78350f] text-center border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb] z-10">Actions</th>
-              </tr>
+                </tr>
             </thead>
             <tbody className="divide-y divide-[#fed7aa]">
-              {sortedItems.map(item => (
-                <tr key={item.id} className="hover:bg-[#fffbeb] transition-colors text-[#78350f]">
-                  <td className="p-4 font-bold">{item.name}</td>
-                  <td className="p-4">{item.category}</td>
-                  <td className="p-4 font-mono font-bold">{formatCurrency(item.base_price)}</td>
-                  <td className="p-4 text-center">
-                    <ActionButton onClick={() => handleEdit(item)} label="UPDATE" variant="update" />
-                    <button onClick={() => handleDelete(item.id)} type="button" className="text-red-500 hover:text-red-700 p-1 ml-2"><Trash2 size={18} /></button>
-                  </td>
-                </tr>
-              ))}
+                {sortedItems.map(item => (
+                    <tr key={item.id} className="hover:bg-[#fffbeb] transition-colors text-[#78350f]">
+                    <td className="p-4 font-bold">{item.name}</td>
+                    <td className="p-4">{item.category}</td>
+                    <td className="p-4 font-mono font-bold">{formatCurrency(item.base_price)}</td>
+                    <td className="p-4 text-center">
+                        <ActionButton onClick={() => handleEdit(item)} label="UPDATE" variant="update" />
+                        <button onClick={() => handleDelete(item.id)} type="button" className="text-red-500 hover:text-red-700 p-1 ml-2"><Trash2 size={18} /></button>
+                    </td>
+                    </tr>
+                ))}
             </tbody>
-          </table>
+            </table>
         </div>
       </Card>
       {isModalOpen && <MenuModal item={editingItem} data={data} onClose={() => setIsModalOpen(false)} onSuccess={() => { setIsModalOpen(false); onRefresh(); }} />}
@@ -440,7 +444,7 @@ function MenuModal({ item, data, onClose, onSuccess }) {
     category: getInitialCategoryId(),
     base_price: item?.base_price || '',
   });
-
+  
   const [recipeList, setRecipeList] = useState(
     item?.recipe ? item.recipe.map(r => {
       let ing = data.ingredients.find(i => i.id === r.ingredient);
@@ -486,22 +490,22 @@ function MenuModal({ item, data, onClose, onSuccess }) {
           <h3 className="text-lg font-bold text-black font-mono">{item ? 'Edit Menu Item' : 'New Menu Item'}</h3>
           <button onClick={onClose} type="button" className="text-gray-400 hover:text-gray-600 cursor-pointer"><X size={20} /></button>
         </div>
-
+        
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 bg-white custom-scrollbar">
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-2">
               <label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Item Name</label>
-              <input required className="w-full p-2 border border-gray-300 rounded bg-white focus:ring-1 focus:ring-blue-500 outline-none font-medium text-gray-800" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+              <input required className="w-full p-2 border border-gray-300 rounded bg-white focus:ring-1 focus:ring-blue-500 outline-none font-medium text-gray-800" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Price ($)</label>
-              <input required type="number" step="0.01" className="w-full p-2 border border-gray-300 rounded bg-white focus:ring-1 focus:ring-blue-500 outline-none font-medium text-gray-800" value={formData.base_price} onChange={e => setFormData({ ...formData, base_price: parseFloat(e.target.value) })} />
+              <input required type="number" step="0.01" className="w-full p-2 border border-gray-300 rounded bg-white focus:ring-1 focus:ring-blue-500 outline-none font-medium text-gray-800" value={formData.base_price} onChange={e => setFormData({...formData, base_price: parseFloat(e.target.value)})} />
             </div>
           </div>
-
+          
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Category</label>
-            <select required className="w-full p-2 border border-gray-300 rounded bg-white focus:ring-1 focus:ring-blue-500 outline-none font-medium text-gray-800" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
+            <select required className="w-full p-2 border border-gray-300 rounded bg-white focus:ring-1 focus:ring-blue-500 outline-none font-medium text-gray-800" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
               <option value="">Select Category...</option>
               {data.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -509,17 +513,17 @@ function MenuModal({ item, data, onClose, onSuccess }) {
 
           <div className="pt-2">
             <div className="flex justify-between items-center mb-2 border-b border-gray-200 pb-2">
-              <label className="block text-xs font-bold text-[#78350f] font-mono uppercase">Recipe Configuration</label>
-              <button type="button" onClick={() => setRecipeList([...recipeList, { ingredient_id: '', quantity: 1, unit: '' }])} className="text-xs bg-white border border-gray-300 text-gray-600 px-3 py-1 rounded hover:bg-gray-50 flex items-center gap-1 cursor-pointer">
-                + Add Ingredient
-              </button>
+                <label className="block text-xs font-bold text-[#78350f] font-mono uppercase">Recipe Configuration</label>
+                <button type="button" onClick={() => setRecipeList([...recipeList, { ingredient_id: '', quantity: 1, unit: '' }])} className="text-xs bg-white border border-gray-300 text-gray-600 px-3 py-1 rounded hover:bg-gray-50 flex items-center gap-1 cursor-pointer">
+                    + Add Ingredient
+                </button>
             </div>
-
+            
             <div className="space-y-2">
               {recipeList.length === 0 && (
-                <div className="text-center py-4 text-gray-400 text-sm italic">
-                  No ingredients. Add one to start.
-                </div>
+                 <div className="text-center py-4 text-gray-400 text-sm italic">
+                    No ingredients. Add one to start.
+                 </div>
               )}
               {recipeList.map((row, idx) => (
                 <div key={idx} className="flex gap-2 items-center">
@@ -528,8 +532,8 @@ function MenuModal({ item, data, onClose, onSuccess }) {
                     {data.ingredients.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
                   </select>
                   <div className="flex items-center border border-gray-300 rounded bg-white">
-                    <input required type="number" step="0.0001" className="w-20 p-2 text-sm text-right font-mono outline-none border-r border-gray-200" placeholder="Qty" value={row.quantity} onChange={e => updateIngredientRow(idx, 'quantity', e.target.value)} />
-                    <span className="w-10 text-[10px] text-gray-400 font-mono text-center px-1 truncate">{row.unit || '-'}</span>
+                     <input required type="number" step="0.0001" className="w-20 p-2 text-sm text-right font-mono outline-none border-r border-gray-200" placeholder="Qty" value={row.quantity} onChange={e => updateIngredientRow(idx, 'quantity', e.target.value)} />
+                     <span className="w-10 text-[10px] text-gray-400 font-mono text-center px-1 truncate">{row.unit || '-'}</span>
                   </div>
                   <button type="button" onClick={() => { const nl = [...recipeList]; nl.splice(idx, 1); setRecipeList(nl); }} className="text-red-400 hover:text-red-600 p-1 cursor-pointer"><X size={16} /></button>
                 </div>
@@ -567,10 +571,10 @@ function InventoryManager({ data, onRefresh }) {
   return (
     <div className="space-y-6 h-full flex flex-col w-full">
       <div className="flex justify-between items-center bg-white/50 p-3 rounded-xl border border-[#fed7aa]">
-        <div>
-          <h2 className="text-xl font-bold text-[#78350f]">Inventory</h2>
-          <p className="text-xs text-[#92400e] opacity-80">Track stock levels</p>
-        </div>
+         <div>
+             <h2 className="text-xl font-bold text-[#78350f]">Inventory</h2>
+             <p className="text-xs text-[#92400e] opacity-80">Track stock levels</p>
+         </div>
         <ActionButton onClick={() => { setEditingItem(null); setIsModalOpen(true); }} icon={Plus} label="ADD INGREDIENT" variant="primary" />
       </div>
 
@@ -581,43 +585,43 @@ function InventoryManager({ data, onRefresh }) {
             <h3 className="font-bold text-red-900 text-sm">Critical Stock Alerts ({lowStockItems.length})</h3>
           </div>
           <div className="max-h-32 overflow-y-auto border border-red-200 rounded bg-white custom-scrollbar">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-red-50 text-red-800 sticky top-0"><tr><th className="p-2">Item</th><th className="p-2">Stock</th><th className="p-2">Limit</th></tr></thead>
-              <tbody>{lowStockItems.map(i => <tr key={i.id} className="border-b border-red-100 text-xs"><td className="p-2">{i.name}</td><td className="p-2 font-bold text-red-600">{i.stock_level}</td><td className="p-2 text-gray-500">{i.low_stock_threshold}</td></tr>)}</tbody>
-            </table>
+             <table className="w-full text-left text-sm">
+               <thead className="bg-red-50 text-red-800 sticky top-0"><tr><th className="p-2">Item</th><th className="p-2">Stock</th><th className="p-2">Limit</th></tr></thead>
+               <tbody>{lowStockItems.map(i => <tr key={i.id} className="border-b border-red-100 text-xs"><td className="p-2">{i.name}</td><td className="p-2 font-bold text-red-600">{i.stock_level}</td><td className="p-2 text-gray-500">{i.low_stock_threshold}</td></tr>)}</tbody>
+             </table>
           </div>
         </Card>
       )}
 
       <Card className="flex-1 flex flex-col min-h-0 w-full">
         <div className="overflow-auto flex-1 custom-scrollbar w-full">
-          <table className="w-full text-left border-collapse relative">
+            <table className="w-full text-left border-collapse relative">
             <thead>
-              <tr className="bg-[#fffbeb]">
+                <tr className="bg-[#fffbeb]">
                 <SortableHeader label="Item Name" sortKey="name" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader label="Stock" sortKey="stock_level" sortConfig={sortConfig} requestSort={requestSort} align="center" />
                 <SortableHeader label="Unit" sortKey="unit" sortConfig={sortConfig} requestSort={requestSort} align="center" />
                 <SortableHeader label="Threshold" sortKey="low_stock_threshold" sortConfig={sortConfig} requestSort={requestSort} align="center" />
                 <th className="p-4 text-center text-[#78350f] font-bold border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb] z-10">Actions</th>
-              </tr>
+                </tr>
             </thead>
             <tbody className="divide-y divide-[#fed7aa]">
-              {sortedIngredients.map(item => (
+                {sortedIngredients.map(item => (
                 <tr key={item.id} className={`${isLowStock(item) ? "bg-red-50 hover:bg-red-100" : "hover:bg-[#fffbeb]"} transition-colors text-[#78350f]`}>
-                  <td className="p-4 font-bold truncate max-w-[200px]">{item.name}</td>
-                  <td className={`p-4 font-bold font-mono text-base text-center ${isLowStock(item) ? "text-red-600" : "text-[#16a34a]"}`}>{item.stock_level}</td>
-                  <td className="p-4 opacity-80 font-medium text-center">{item.unit}</td>
-                  <td className="p-4 opacity-80 font-mono text-center">{item.low_stock_threshold}</td>
-                  <td className="p-4 text-center">
+                    <td className="p-4 font-bold truncate max-w-[200px]">{item.name}</td>
+                    <td className={`p-4 font-bold font-mono text-base text-center ${isLowStock(item) ? "text-red-600" : "text-[#16a34a]"}`}>{item.stock_level}</td>
+                    <td className="p-4 opacity-80 font-medium text-center">{item.unit}</td>
+                    <td className="p-4 opacity-80 font-mono text-center">{item.low_stock_threshold}</td>
+                    <td className="p-4 text-center">
                     <div className="flex justify-center gap-2 items-center">
-                      <ActionButton onClick={() => { setEditingItem(item); setIsModalOpen(true); }} label="UPDATE" variant="update" />
-                      <button onClick={() => handleDelete(item.id)} type="button" className="text-red-500 hover:text-red-700 p-1 cursor-pointer"><Trash2 size={18} /></button>
+                        <ActionButton onClick={() => { setEditingItem(item); setIsModalOpen(true); }} label="UPDATE" variant="update" />
+                        <button onClick={() => handleDelete(item.id)} type="button" className="text-red-500 hover:text-red-700 p-1 cursor-pointer"><Trash2 size={18}/></button>
                     </div>
-                  </td>
+                    </td>
                 </tr>
-              ))}
+                ))}
             </tbody>
-          </table>
+            </table>
         </div>
       </Card>
 
@@ -657,16 +661,16 @@ function InventoryModal({ item, units, onClose, onSuccess }) {
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Name</label>
-            <input required className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-medium text-gray-800" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+            <input required className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-medium text-gray-800" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Stock</label>
-              <input required type="number" step="0.01" className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-medium text-gray-800" value={formData.stock_level} onChange={e => setFormData({ ...formData, stock_level: e.target.value })} />
+              <input required type="number" step="0.01" className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-medium text-gray-800" value={formData.stock_level} onChange={e => setFormData({...formData, stock_level: e.target.value})} />
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Unit</label>
-              <select required className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none bg-white text-sm" value={formData.unit} onChange={e => setFormData({ ...formData, unit: e.target.value })}>
+              <select required className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none bg-white text-sm" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})}>
                 <option value="">Select...</option>
                 {units.map(u => <option key={u.id} value={u.id}>{u.abbreviation}</option>)}
               </select>
@@ -674,7 +678,7 @@ function InventoryModal({ item, units, onClose, onSuccess }) {
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Threshold</label>
-            <input required type="number" step="0.01" className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-medium text-gray-800" value={formData.low_stock_threshold} onChange={e => setFormData({ ...formData, low_stock_threshold: e.target.value })} />
+            <input required type="number" step="0.01" className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none font-medium text-gray-800" value={formData.low_stock_threshold} onChange={e => setFormData({...formData, low_stock_threshold: e.target.value})} />
           </div>
           <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
             <ActionButton onClick={onClose} label="Cancel" variant="secondary" className="text-sm" type="button" />
@@ -699,46 +703,46 @@ function EmployeeManager({ data, onRefresh }) {
   return (
     <div className="space-y-6 h-full flex flex-col w-full">
       <div className="flex justify-between items-center bg-white/50 p-3 rounded-xl border border-[#fed7aa]">
-        <div>
-          <h2 className="text-xl font-bold text-[#78350f]">Employees</h2>
-          <p className="text-xs text-[#92400e] opacity-80">Manage staff records</p>
-        </div>
+         <div>
+             <h2 className="text-xl font-bold text-[#78350f]">Employees</h2>
+             <p className="text-xs text-[#92400e] opacity-80">Manage staff records</p>
+         </div>
         <ActionButton onClick={() => { setEditingItem(null); setIsModalOpen(true); }} icon={Plus} label="ADD EMPLOYEE" variant="primary" />
       </div>
-
+      
       <Card className="flex-1 flex flex-col min-h-0 w-full">
         <div className="overflow-auto flex-1 custom-scrollbar w-full">
-          <table className="w-full text-left border-collapse relative">
+            <table className="w-full text-left border-collapse relative">
             <thead>
-              <tr className="bg-[#fffbeb]">
+                <tr className="bg-[#fffbeb]">
                 <SortableHeader label="First Name" sortKey="first_name" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader label="Last Name" sortKey="last_name" sortConfig={sortConfig} requestSort={requestSort} />
                 <SortableHeader label="Position" sortKey="position" sortConfig={sortConfig} requestSort={requestSort} align="center" />
                 <SortableHeader label="Hire Date" sortKey="hire_date" sortConfig={sortConfig} requestSort={requestSort} align="center" />
                 <th className="p-4 text-center text-[#78350f] font-bold border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb] z-10">Actions</th>
-              </tr>
+                </tr>
             </thead>
             <tbody className="divide-y divide-[#fed7aa]">
-              {sortedEmployees.map(emp => (
+                {sortedEmployees.map(emp => (
                 <tr key={emp.id} className="hover:bg-[#fffbeb] transition-colors text-[#78350f]">
-                  <td className="p-4 font-bold truncate max-w-[150px]">{emp.first_name}</td>
-                  <td className="p-4 font-bold truncate max-w-[150px]">{emp.last_name}</td>
-                  <td className="p-4 text-center">
-                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase border border-gray-200">
-                      {emp.position}
-                    </span>
-                  </td>
-                  <td className="p-4 opacity-80 font-mono text-sm text-center">{formatDate(emp.hire_date)}</td>
-                  <td className="p-4 text-center">
+                    <td className="p-4 font-bold truncate max-w-[150px]">{emp.first_name}</td>
+                    <td className="p-4 font-bold truncate max-w-[150px]">{emp.last_name}</td>
+                    <td className="p-4 text-center">
+                        <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold uppercase border border-gray-200">
+                            {emp.position}
+                        </span>
+                    </td>
+                    <td className="p-4 opacity-80 font-mono text-sm text-center">{formatDate(emp.hire_date)}</td>
+                    <td className="p-4 text-center">
                     <div className="flex justify-center gap-2 items-center">
-                      <ActionButton onClick={() => { setEditingItem(emp); setIsModalOpen(true); }} label="UPDATE" variant="update" />
-                      <button onClick={() => handleDelete(emp.id)} type="button" className="text-red-500 hover:text-red-700 p-1 cursor-pointer"><Trash2 size={18} /></button>
+                        <ActionButton onClick={() => { setEditingItem(emp); setIsModalOpen(true); }} label="UPDATE" variant="update" />
+                        <button onClick={() => handleDelete(emp.id)} type="button" className="text-red-500 hover:text-red-700 p-1 cursor-pointer"><Trash2 size={18}/></button>
                     </div>
-                  </td>
+                    </td>
                 </tr>
-              ))}
+                ))}
             </tbody>
-          </table>
+            </table>
         </div>
       </Card>
       {isModalOpen && <EmployeeModal item={editingItem} onClose={() => setIsModalOpen(false)} onSuccess={() => { setIsModalOpen(false); onRefresh(); }} />}
@@ -769,11 +773,11 @@ function EmployeeModal({ item, onClose, onSuccess }) {
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">First Name</label><input required className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} /></div>
-            <div><label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Last Name</label><input required className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} /></div>
+            <div><label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">First Name</label><input required className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none" value={formData.first_name} onChange={e => setFormData({...formData, first_name: e.target.value})} /></div>
+            <div><label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Last Name</label><input required className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none" value={formData.last_name} onChange={e => setFormData({...formData, last_name: e.target.value})} /></div>
           </div>
-          <div><label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Position</label><input required className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none" value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })} /></div>
-          <div><label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Hire Date</label><input required type="date" className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none" value={formData.hire_date} onChange={e => setFormData({ ...formData, hire_date: e.target.value })} /></div>
+          <div><label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Position</label><input required className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none" value={formData.position} onChange={e => setFormData({...formData, position: e.target.value})} /></div>
+          <div><label className="block text-xs font-bold text-gray-500 mb-1 font-mono uppercase">Hire Date</label><input required type="date" className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 outline-none" value={formData.hire_date} onChange={e => setFormData({...formData, hire_date: e.target.value})} /></div>
           <div className="pt-4 flex justify-end gap-3 border-t border-gray-100"><ActionButton onClick={onClose} label="Cancel" variant="secondary" className="text-sm" type="button" /><ActionButton onClick={handleSubmit} label="Save" icon={Save} className="text-sm" type="submit" /></div>
         </form>
       </Card>
@@ -786,10 +790,10 @@ function EmployeeModal({ item, onClose, onSuccess }) {
 // ============================================================================
 
 function ReportsDashboard({ data }) {
-  const [reportType, setReportType] = useState(null);
-  const [dateRange, setDateRange] = useState({
-    start: getLocalDateString(),
-    end: getLocalDateString()
+  const [reportType, setReportType] = useState(null); 
+  const [dateRange, setDateRange] = useState({ 
+    start: getLocalDateString(), 
+    end: getLocalDateString() 
   });
   const [reportResult, setReportResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -809,42 +813,39 @@ function ReportsDashboard({ data }) {
       const params = `?start=${dateRange.start}&end=${dateRange.end}&date=${dateRange.start}`;
       let endpoint = '';
 
-      // Map to the new efficient backend endpoints
       if (type === 'x-report') endpoint = `${API_BASE}/orders/x_report/${params}`;
       else if (type === 'z-report') endpoint = `${API_BASE}/orders/z_report/${params}`;
       else if (type === 'product') endpoint = `${API_BASE}/orders/product_usage/${params}`;
       else if (type === 'sales') endpoint = `${API_BASE}/orders/popular_items/${params}`;
       else if (type === 'low-stock') {
-        // Low stock is instant from cached inventory
-        // Note: result mapping expects certain shape
-        const lowStock = data.ingredients.filter(i => parseFloat(i.stock_level) < parseFloat(i.low_stock_threshold));
-        setReportResult(lowStock); // This will be passed to ReportViewer
-        setLoading(false);
-        return;
+         // Low stock is instant from cached inventory
+         const lowStock = data.ingredients.filter(i => parseFloat(i.stock_level) < parseFloat(i.low_stock_threshold));
+         setReportResult(lowStock); 
+         setLoading(false);
+         return;
       }
 
       if (endpoint) {
-        const res = await fetch(endpoint);
-        if (!res.ok) throw new Error("Failed to fetch report from server");
-        const json = await res.json();
-        // The backend returns { data: ... } or { rows: ... } depending on report
-        setReportResult(json);
+          const res = await fetch(endpoint);
+          if (!res.ok) throw new Error("Failed to fetch report from server");
+          const json = await res.json();
+          // The backend returns { data: ... } or { rows: ... } depending on report
+          setReportResult(json);
       }
-    } catch (e) {
-      console.error("Report Error: ", e);
-      // We log to console instead of alert loop to prevent bricking
-    } finally {
-      setLoading(false);
+    } catch (e) { 
+        console.error("Report Error: ", e); 
+    } finally { 
+        setLoading(false); 
     }
   };
 
   const ReportButton = ({ label, type }) => (
-    <button
+    <button 
       onClick={() => handleReportClick(type)}
       className={`
         w-full py-3 px-4 rounded-lg border font-medium text-sm transition-all shadow-sm text-left cursor-pointer
-        ${reportType === type
-          ? 'bg-[#e5e7eb] border-[#9ca3af] text-black shadow-inner ring-1 ring-gray-300'
+        ${reportType === type 
+          ? 'bg-[#e5e7eb] border-[#9ca3af] text-black shadow-inner ring-1 ring-gray-300' 
           : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'}
       `}
     >
@@ -852,57 +853,65 @@ function ReportsDashboard({ data }) {
     </button>
   );
 
+  const showDateControls = ['x-report', 'z-report', 'product', 'sales'].includes(reportType);
+
   return (
     <div className="h-full flex gap-6 w-full">
       <div className="flex-1 flex flex-col gap-4 min-w-0">
         <h1 className="text-3xl font-bold text-black">Reports & Analytics</h1>
         <div className="flex gap-6 items-center">
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-gray-500 mb-1 uppercase">From</span>
-            <input type="date" className="p-2 border rounded" value={dateRange.start} onChange={e => setDateRange({ ...dateRange, start: e.target.value })} />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-gray-500 mb-1 uppercase">To</span>
-            <input type="date" className="p-2 border rounded" value={dateRange.end} onChange={e => setDateRange({ ...dateRange, end: e.target.value })} />
-          </div>
-          <button onClick={() => generateReport(reportType)} type="button" className="bg-[#d97706] text-white px-4 py-2 rounded mt-4 cursor-pointer hover:bg-[#b45309]">Run Report</button>
+          {showDateControls && (
+            <>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-gray-500 mb-1 uppercase">From</span>
+                <input type="date" className="p-2 border rounded" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-gray-500 mb-1 uppercase">To</span>
+                <input type="date" className="p-2 border rounded" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} />
+              </div>
+              <button onClick={() => generateReport(reportType)} type="button" className="bg-[#d97706] text-white px-4 py-2 rounded mt-4 cursor-pointer hover:bg-[#b45309]">Run Report</button>
+            </>
+          )}
+          {!showDateControls && reportType === 'low-stock' && <p className="text-gray-500 italic mt-4">Showing current low stock inventory items.</p>}
+          {!reportType && <p className="text-gray-500 italic mt-4">Select a report type to begin.</p>}
         </div>
 
         <Card className="flex-1 overflow-auto bg-white border border-gray-200 shadow-md rounded-lg min-h-0 w-full">
           {!reportResult && !loading ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-300 gap-2"><p>Select a report to view data</p></div>
+             <div className="h-full flex flex-col items-center justify-center text-gray-300 gap-2"><p>Select a report to view data</p></div>
           ) : loading ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><Loader2 className="animate-spin" /></div>
+             <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><Loader2 className="animate-spin" /></div>
           ) : (
-            <div className="p-0 h-full overflow-auto custom-scrollbar w-full">
-              <ReportViewer type={reportType} result={reportResult} />
-            </div>
+             <div className="p-0 h-full overflow-auto custom-scrollbar w-full">
+               <ReportViewer type={reportType} result={reportResult} />
+             </div>
           )}
         </Card>
       </div>
 
       <div className="w-72 flex flex-col flex-shrink-0">
         <Card className="h-full p-6 border border-gray-300 rounded-3xl shadow-lg bg-white flex flex-col">
-          <h2 className="text-2xl font-bold text-black mb-6">Reports</h2>
-          <div className="flex-1 flex flex-col gap-3">
-            <ReportButton label="X-Report" type="x-report" />
-            <ReportButton label="Product Usage" type="product" />
-            <ReportButton label="Popular Items" type="sales" />
-            <ReportButton label="Low Stock" type="low-stock" />
-            <div className="mt-auto pt-6">
-              <button
-                onClick={() => handleReportClick('z-report')}
-                className={`
+            <h2 className="text-2xl font-bold text-black mb-6">Reports</h2>
+            <div className="flex-1 flex flex-col gap-3">
+                <ReportButton label="X-Report" type="x-report" />
+                <ReportButton label="Product Usage" type="product" />
+                <ReportButton label="Popular Items" type="sales" />
+                <ReportButton label="Low Stock" type="low-stock" />
+                <div className="mt-auto pt-6">
+                    <button 
+                      onClick={() => handleReportClick('z-report')}
+                      className={`
                         w-full py-3 px-4 rounded-lg border font-bold text-center transition-colors shadow-sm cursor-pointer
                         ${reportType === 'z-report'
-                    ? 'bg-[#d97706] text-white border-[#d97706] shadow-inner'
-                    : 'bg-[#e5e5e5] text-black hover:bg-[#d4d4d4] border-transparent'}
+                            ? 'bg-[#d97706] text-white border-[#d97706] shadow-inner'
+                            : 'bg-[#e5e5e5] text-black hover:bg-[#d4d4d4] border-transparent'}
                       `}
-              >
-                Z-Report
-              </button>
+                    >
+                      Z-Report
+                    </button>
+                </div>
             </div>
-          </div>
         </Card>
       </div>
     </div>
@@ -911,21 +920,36 @@ function ReportsDashboard({ data }) {
 
 function ReportViewer({ type, result }) {
   if (!result) return null;
-
+  
   // Safe access check to prevent "rows.map is not a function" crash
-  // If the API returns an error object (like {error: "..."}), this ensures we fall back to []
   const rows = Array.isArray(result) ? result : (result.data || result.rows || []);
 
   if (type === 'x-report') {
     return (
-      <table className="w-full text-left">
-        <thead className="bg-[#fffbeb] sticky top-0"><tr><th className="p-3">Time</th><th className="p-3">Orders</th><th className="p-3">Gross</th></tr></thead>
-        <tbody>
+      <div className="w-full">
+         <table className="w-full text-left">
+          <thead className="bg-[#fffbeb] sticky top-0"><tr><th className="p-3">Time</th><th className="p-3">Orders</th><th className="p-3">Gross</th></tr></thead>
+          <tbody>
           {Array.isArray(rows) && rows.length > 0 ? rows.map((r, idx) => (
-            <tr key={idx} className="border-b"><td className="p-3">{r.hour}:00</td><td className="p-3">{r.orders}</td><td className="p-3">{formatCurrency(r.gross)}</td></tr>
+            <tr key={`x-${r.hour}-${idx}`} className="border-b"><td className="p-3">{r.hour}:00</td><td className="p-3">{r.orders}</td><td className="p-3">{formatCurrency(r.gross)}</td></tr>
           )) : <tr><td colSpan="3" className="p-3 text-center text-gray-400">No Data</td></tr>}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+        {/* Payment Stats Footer if available */}
+        {result.payment_methods && (
+          <div className="p-4 bg-gray-50 border-t border-gray-200 mt-4">
+             <h4 className="font-bold mb-2">Payment Methods</h4>
+             <div className="flex gap-4">
+                {result.payment_methods.map((pm, i) => (
+                  <div key={i} className="text-sm bg-white p-2 rounded border">
+                    <span className="font-bold block">{pm.payment_type}</span>
+                    <span>{pm.count} orders (${parseFloat(pm.total).toFixed(2)})</span>
+                  </div>
+                ))}
+             </div>
+          </div>
+        )}
+      </div>
     );
   }
   if (type === 'z-report') {
@@ -933,12 +957,35 @@ function ReportViewer({ type, result }) {
     if (!data) return <div className="p-8 text-gray-400">No data available</div>;
     return (
       <div className="p-8">
-        <h2 className="text-2xl font-bold mb-4">Z-Report</h2>
-        <div className="space-y-2 text-lg">
-          <div>Sales (Gross): <span className="font-bold">{formatCurrency(data.grossSales)}</span></div>
-          <div>Tax: {formatCurrency(data.totalTax)}</div>
-          <div className="border-t pt-2 mt-2">Cash Orders: {data.cashCount}</div>
-          <div>Card Orders: {data.cardCount}</div>
+        <h2 className="text-2xl font-bold mb-4">Z-Report ({data.date})</h2>
+        <div className="space-y-4 text-lg">
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+               <div className="flex justify-between"><span>Total Sales (Gross):</span> <span className="font-bold">{formatCurrency(data.grossSales)}</span></div>
+               <div className="flex justify-between text-sm text-gray-600"><span>Net Sales (Pre-Tax):</span> <span>{formatCurrency(data.totalSalesPreTax)}</span></div>
+               <div className="flex justify-between text-sm text-gray-600"><span>Total Tax:</span> <span>{formatCurrency(data.totalTax)}</span></div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+               <div className="bg-gray-50 p-4 rounded border">
+                  <h4 className="font-bold mb-2 border-b pb-1">Payments</h4>
+                  <div className="flex justify-between text-sm"><span>Cash:</span> <span>{formatCurrency(data.totalCash)}</span></div>
+                  <div className="flex justify-between text-sm"><span>Card:</span> <span>{formatCurrency(data.totalCard)}</span></div>
+               </div>
+               <div className="bg-red-50 p-4 rounded border border-red-100">
+                  <h4 className="font-bold mb-2 border-b pb-1 text-red-800">Voids</h4>
+                  <div className="flex justify-between text-sm text-red-700"><span>Count:</span> <span>{data.voidCount}</span></div>
+                  <div className="flex justify-between text-sm text-red-700"><span>Value:</span> <span>{formatCurrency(data.voidValue)}</span></div>
+               </div>
+            </div>
+            
+            <div className="mt-6 pt-4 border-t border-gray-200">
+               <h4 className="font-bold mb-2 text-sm text-gray-500 uppercase">Employee Signatures (On Duty)</h4>
+               <div className="flex flex-wrap gap-2">
+                 {data.employees && data.employees.map((emp, i) => (
+                    <span key={i} className="px-3 py-1 bg-gray-100 rounded-full text-sm font-mono">{emp}</span>
+                 ))}
+               </div>
+            </div>
         </div>
       </div>
     );
@@ -947,11 +994,11 @@ function ReportViewer({ type, result }) {
     // result.data is array
     return (
       <table className="w-full text-left">
-        <thead className="bg-[#fffbeb] sticky top-0"><tr><th className="p-3">Item</th><th className="p-3">Category</th><th className="p-3">Qty</th><th className="p-3">Revenue</th></tr></thead>
+        <thead className="bg-[#fffbeb] sticky top-0"><tr><th className="p-3">Item</th><th className="p-3">Category</th><th className="p-3">Qty</th></tr></thead>
         <tbody>
-          {Array.isArray(rows) && rows.length > 0 ? rows.map((row, idx) => (
-            <tr key={idx} className="border-b"><td className="p-3 font-bold">{row.menu_item__name}</td><td className="p-3 text-sm">{row.menu_item__category__name}</td><td className="p-3">{row.quantity}</td><td className="p-3">{formatCurrency(row.revenue)}</td></tr>
-          )) : <tr><td colSpan="4" className="p-3 text-center text-gray-400">No Data</td></tr>}
+        {Array.isArray(rows) && rows.length > 0 ? rows.map((row, idx) => (
+          <tr key={`sales-${idx}`} className="border-b"><td className="p-3 font-bold">{row.menu_item__name}</td><td className="p-3 text-sm">{row.menu_item__category__name}</td><td className="p-3">{row.quantity}</td></tr>
+        )) : <tr><td colSpan="4" className="p-3 text-center text-gray-400">No Data</td></tr>}
         </tbody>
       </table>
     )
@@ -961,9 +1008,9 @@ function ReportViewer({ type, result }) {
       <table className="w-full text-left">
         <thead className="bg-[#fffbeb] sticky top-0"><tr><th className="p-3">Ingredient</th><th className="p-3">Quantity Used</th></tr></thead>
         <tbody>
-          {Array.isArray(rows) && rows.length > 0 ? rows.map((row, idx) => (
-            <tr key={idx} className="border-b"><td className="p-3 font-bold">{row.name}</td><td className="p-3 font-mono">{row.quantity?.toFixed(2)} {row.unit}</td></tr>
-          )) : <tr><td colSpan="2" className="p-3 text-center text-gray-400">No Data</td></tr>}
+        {Array.isArray(rows) && rows.length > 0 ? rows.map((row, idx) => (
+          <tr key={`prod-${idx}`} className="border-b"><td className="p-3 font-bold">{row.name}</td><td className="p-3 font-mono">{row.quantity?.toFixed(2)} {row.unit}</td></tr>
+        )) : <tr><td colSpan="2" className="p-3 text-center text-gray-400">No Data</td></tr>}
         </tbody>
       </table>
     );
@@ -974,9 +1021,9 @@ function ReportViewer({ type, result }) {
       <table className="w-full text-left border-collapse">
         <thead><tr><HeaderCell>Ingredient</HeaderCell><HeaderCell>Stock</HeaderCell><HeaderCell>Threshold</HeaderCell></tr></thead>
         <tbody>
-          {Array.isArray(result) && result.length > 0 ? result.map(item => (
-            <tr key={item.id} className="bg-red-50"><Cell className="font-bold text-red-700">{item.name}</Cell><Cell className="text-red-600">{item.stock_level}</Cell><Cell>{item.low_stock_threshold}</Cell></tr>
-          )) : <tr><td colSpan="3" className="p-3 text-center text-gray-400">No Low Stock Items</td></tr>}
+        {Array.isArray(result) && result.length > 0 ? result.map((item, idx) => (
+          <tr key={`ls-${item.id}-${idx}`} className="bg-red-50"><Cell className="font-bold text-red-700">{item.name}</Cell><Cell className="text-red-600">{item.stock_level}</Cell><Cell>{item.low_stock_threshold}</Cell></tr>
+        )) : <tr><td colSpan="3" className="p-3 text-center text-gray-400">No Low Stock Items</td></tr>}
         </tbody>
       </table>
     );
@@ -995,20 +1042,20 @@ function calculateTotals(rows) {
 function OrdersHistoryView() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const LIMIT = 20;
+  const [page, setPage] = useState(0); 
+  const LIMIT = 20; 
 
-  useEffect(() => { fetchOrders(0); }, []);
+  useEffect(() => { fetchOrders(0); }, []); 
 
   const fetchOrders = async (offset) => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/orders/?limit=${LIMIT}&offset=${offset}`);
-      const data = await res.json();
-      // Handle paginated response (DRF uses 'results')
-      const results = data.results || data;
-      setOrders(results);
-    } catch (e) { alert("Error fetching orders"); } finally { setLoading(false); }
+        const res = await fetch(`${API_BASE}/orders/?limit=${LIMIT}&offset=${offset}`); 
+        const data = await res.json();
+        // Handle paginated response (DRF uses 'results')
+        const results = data.results || data; 
+        setOrders(results);
+    } catch(e) { alert("Error fetching orders"); } finally { setLoading(false); }
   }
 
   const handleNext = () => {
@@ -1027,45 +1074,45 @@ function OrdersHistoryView() {
   return (
     <div className="space-y-4 h-full flex flex-col w-full">
       <div className="bg-white/80 p-4 rounded-xl shadow-sm border border-[#fed7aa] flex justify-between items-center">
-        <h2 className="text-xl font-bold text-[#78350f]">Order History</h2>
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-mono text-[#92400e]">Page {page + 1}</span>
-          <div className="flex gap-2">
-            <button onClick={handlePrev} disabled={page === 0} type="button" className="p-2 rounded bg-white border border-gray-300 disabled:opacity-50 cursor-pointer"><ChevronLeft size={20} /></button>
-            <button onClick={handleNext} type="button" className="p-2 rounded bg-white border border-gray-300 cursor-pointer"><ChevronRight size={20} /></button>
-          </div>
-        </div>
+         <h2 className="text-xl font-bold text-[#78350f]">Order History</h2>
+         <div className="flex items-center gap-4">
+             <span className="text-sm font-mono text-[#92400e]">Page {page + 1}</span>
+             <div className="flex gap-2">
+                 <button onClick={handlePrev} disabled={page === 0} type="button" className="p-2 rounded bg-white border border-gray-300 disabled:opacity-50 cursor-pointer"><ChevronLeft size={20} /></button>
+                 <button onClick={handleNext} type="button" className="p-2 rounded bg-white border border-gray-300 cursor-pointer"><ChevronRight size={20} /></button>
+             </div>
+         </div>
       </div>
 
       <Card className="flex-1 flex flex-col min-h-0 w-full">
         <div className="overflow-auto flex-1 custom-scrollbar w-full">
           {loading ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2">
-              <Loader2 className="animate-spin text-[#d97706]" size={48} />
-              <p className="font-medium text-sm">Loading Page {page + 1}...</p>
+             <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2">
+               <Loader2 className="animate-spin text-[#d97706]" size={48} />
+               <p className="font-medium text-sm">Loading Page {page + 1}...</p>
             </div>
           ) : (
             <table className="w-full text-left border-collapse relative">
-              <thead>
+            <thead>
                 <tr className="bg-[#fffbeb]">
-                  <th className="p-4 font-bold text-[#78350f] border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb]">Order ID</th>
-                  <th className="p-4 font-bold text-[#78350f] border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb]">Date</th>
-                  <th className="p-4 font-bold text-[#78350f] border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb]">Employee</th>
-                  <th className="p-4 font-bold text-[#78350f] border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb]">Payment</th>
-                  <th className="p-4 font-bold text-[#78350f] text-right border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb]">Total</th>
+                <th className="p-4 font-bold text-[#78350f] border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb]">Order ID</th>
+                <th className="p-4 font-bold text-[#78350f] border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb]">Date</th>
+                <th className="p-4 font-bold text-[#78350f] border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb]">Employee</th>
+                <th className="p-4 font-bold text-[#78350f] border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb]">Payment</th>
+                <th className="p-4 font-bold text-[#78350f] text-right border-b border-[#fed7aa] sticky top-0 bg-[#fffbeb]">Total</th>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-[#fed7aa]">
+            </thead>
+            <tbody className="divide-y divide-[#fed7aa]">
                 {orders.map(order => (
-                  <tr key={order.id} className="hover:bg-[#fffbeb] transition-colors text-[#78350f]">
+                <tr key={order.id} className="hover:bg-[#fffbeb] transition-colors text-[#78350f]">
                     <td className="p-4 font-mono text-sm">#{order.id}</td>
                     <td className="p-4 text-sm">{formatDateTime(order.order_date_time)}</td>
                     <td className="p-4 text-sm">{order.employee || '-'}</td>
                     <td className="p-4"><span className={`px-2 py-0.5 rounded text-xs font-bold border ${order.payment_type === 'VOID' ? 'border-red-500 text-red-600 bg-red-50' : 'border-green-500 text-green-600 bg-green-50'}`}>{order.payment_type}</span></td>
                     <td className="p-4 text-right font-mono font-bold">{formatCurrency(order.sub_total || order.total_price)}</td>
-                  </tr>
+                </tr>
                 ))}
-              </tbody>
+            </tbody>
             </table>
           )}
         </div>
@@ -1090,11 +1137,11 @@ function VoidOrderManager() {
       const found = await res.json();
       setOrderData(found);
       setError('');
-    } catch (err) {
-      setError(`Order #${orderId} not found.`);
+    } catch (err) { 
+      setError(`Order #${orderId} not found.`); 
       setOrderData(null);
-    } finally {
-      setLoading(false);
+    } finally { 
+      setLoading(false); 
     }
   };
 
@@ -1116,7 +1163,7 @@ function VoidOrderManager() {
         <form onSubmit={handleSearch} className="flex gap-3 mb-6">
           <input className="flex-1 border border-[#fed7aa] p-3 rounded-xl text-center font-mono text-lg outline-none focus:ring-2 focus:ring-[#d97706] bg-[#fffbeb] placeholder-[#d97706]/30" placeholder="ORDER ID" value={orderId} onChange={e => setOrderId(e.target.value)} />
           <button type="submit" className="bg-[#78350f] text-white p-3 rounded-xl hover:bg-[#92400e] shadow-lg cursor-pointer">
-            {loading ? <Loader2 className="animate-spin" size={24} /> : <Search size={24} />}
+             {loading ? <Loader2 className="animate-spin" size={24} /> : <Search size={24} />}
           </button>
         </form>
         {error && <p className="text-red-600 font-bold text-sm bg-red-50 p-2 rounded-lg">{error}</p>}
