@@ -64,18 +64,45 @@ const getDrinkDescription = (drink) => {
   to fix the "Rules of Hooks" violation in the parent component.
 */
 function useBobaOrdering(dbCustomer, setDbCustomer) {
-  const [currentView, setCurrentView] = useState('welcome');
+  // -- PERSISTENCE: Lazy Intializers --
+  const [currentView, setCurrentView] = useState(() => localStorage.getItem('kiosk_currentView') || 'welcome');
   const [menuItems, setMenuItems] = useState([]);
   const [addOns, setAddOns] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [activeFilter, setActiveFilter] = useState('All');
-  const [selectedDrink, setSelectedDrink] = useState(null);
-  const [selectedAddOns, setSelectedAddOns] = useState({
-    iceLevel: null,
-    sweetnessLevel: null,
-    toppings: []
+  const [activeFilter, setActiveFilter] = useState(() => localStorage.getItem('kiosk_activeFilter') || 'All');
+
+  const [selectedDrink, setSelectedDrink] = useState(() => {
+    const saved = localStorage.getItem('kiosk_selectedDrink');
+    return saved ? JSON.parse(saved) : null;
   });
-  const [cart, setCart] = useState([]);
+
+  const [selectedAddOns, setSelectedAddOns] = useState(() => {
+    const saved = localStorage.getItem('kiosk_selectedAddOns');
+    return saved ? JSON.parse(saved) : { iceLevel: null, sweetnessLevel: null, toppings: [] };
+  });
+
+  const [cart, setCart] = useState(() => {
+    const saved = localStorage.getItem('kiosk_cart');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // -- PERSISTENCE: Sync to LocalStorage --
+  useEffect(() => {
+    localStorage.setItem('kiosk_currentView', currentView);
+    localStorage.setItem('kiosk_activeFilter', activeFilter);
+    localStorage.setItem('kiosk_selectedDrink', JSON.stringify(selectedDrink));
+    localStorage.setItem('kiosk_selectedAddOns', JSON.stringify(selectedAddOns));
+    localStorage.setItem('kiosk_cart', JSON.stringify(cart));
+  }, [currentView, activeFilter, selectedDrink, selectedAddOns, cart]);
+
+  // -- PERSISTENCE: Safety Check (Hydration) --
+  useEffect(() => {
+    // If we loaded 'customize' but have no drink selected, fallback to categories
+    if (currentView === 'customize' && !selectedDrink) {
+      setCurrentView('categories');
+    }
+  }, []); // Run once on mount
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [processingPayment, setProcessingPayment] = useState(false);
@@ -1387,7 +1414,14 @@ function BobaKioskContent() {
         // Logout Button
         <button
           key="logout-btn"
-          onClick={() => navigate('/')}
+          onClick={() => {
+            localStorage.removeItem('kiosk_currentView');
+            localStorage.removeItem('kiosk_activeFilter');
+            localStorage.removeItem('kiosk_selectedDrink');
+            localStorage.removeItem('kiosk_selectedAddOns');
+            localStorage.removeItem('kiosk_cart');
+            navigate('/');
+          }}
           style={{
             position: 'fixed',
             top: '24px',
