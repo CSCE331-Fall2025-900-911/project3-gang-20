@@ -78,7 +78,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
 
   const [selectedAddOns, setSelectedAddOns] = useState(() => {
     const saved = localStorage.getItem('kiosk_selectedAddOns');
-    return saved ? JSON.parse(saved) : { iceLevel: null, sweetnessLevel: null, toppings: [] };
+    return saved ? JSON.parse(saved) : { iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] };
   });
 
   const [cart, setCart] = useState(() => {
@@ -156,6 +156,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     let total = 0;
     if (selectedAddOns.iceLevel) total += parseFloat(selectedAddOns.iceLevel.price);
     if (selectedAddOns.sweetnessLevel) total += parseFloat(selectedAddOns.sweetnessLevel.price);
+    if (selectedAddOns.drinkSize) total += parseFloat(selectedAddOns.drinkSize.price);
     selectedAddOns.toppings.forEach(topping => total += parseFloat(topping.price));
     return total;
   };
@@ -172,7 +173,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
       totalPrice: totalPrice.toFixed(2)
     }]);
 
-    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
+    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
     setSelectedDrink(null);
     setCurrentView('checkout');
     setSelectedRedemption(null); // Reset redemption when adding new items
@@ -210,14 +211,14 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     // Cleanup and reset state
     setEditingCartItem(null);
     setSelectedDrink(null);
-    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
+    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
     setCurrentView('checkout');
   };
 
   const cancelEdit = () => {
     setEditingCartItem(null);
     setSelectedDrink(null);
-    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
+    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
     setCurrentView('checkout');
   };
 
@@ -230,7 +231,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
       name: `🎲 ${drink.name}`, // Add icon to indicate mystery
       cartId: Date.now(),
       base_price: finalPrice, // Override database price with Gamified Price
-      customizations: { iceLevel: null, sweetnessLevel: null, toppings: [] }, // Defaults (none)
+      customizations: { iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] }, // Defaults (none)
       customizationPrice: 0,
       totalPrice: finalPrice.toFixed(2)
     };
@@ -295,6 +296,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     const ids = [];
     if (cartItem.customizations.iceLevel) ids.push(cartItem.customizations.iceLevel.id);
     if (cartItem.customizations.sweetnessLevel) ids.push(cartItem.customizations.sweetnessLevel.id);
+    if (cartItem.customizations.drinkSize) ids.push(cartItem.customizations.drinkSize.id);
     cartItem.customizations.toppings.forEach(topping => ids.push(topping.id));
     return ids;
   };
@@ -962,6 +964,7 @@ function BobaKioskContent() {
   if (currentView === 'customize') {
     const iceLevels = getAddOnsByCategory('Ice Level');
     const sweetnessLevels = getAddOnsByCategory('Sweetness Level');
+    const drinkSizes = getAddOnsByCategory('Size');
     const toppings = getAddOnsByCategory('Toppings');
 
     const customizationPrice = calculateCustomizationPrice();
@@ -1078,6 +1081,30 @@ function BobaKioskContent() {
             boxShadow: theme.shadow
           }}>
             <h3 style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text, marginBottom: '1em' }}>
+              Size
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
+              {drinkSizes.map((size) => (
+                <KioskButton
+                  key={size.id}
+                  onClick={() => setSelectedAddOns({ ...selectedAddOns, drinkSize: size })}
+                  variant={selectedAddOns.drinkSize?.id === size.id ? 'primary' : 'secondary'}
+                >
+                  {size.name}
+                </KioskButton>
+              ))}
+            </div>
+          </div>
+
+          <div style={{
+            backgroundColor: theme.cardBg,
+            borderRadius: highContrast ? '0' : '16px',
+            border: theme.border,
+            padding: '24px',
+            marginBottom: '24px',
+            boxShadow: theme.shadow
+          }}>
+            <h3 style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text, marginBottom: '1em' }}>
               Toppings (Optional)
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
@@ -1122,7 +1149,7 @@ function BobaKioskContent() {
                   addToCart(selectedDrink);
                 }
               }}
-              disabled={!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel}
+              disabled={!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel || !selectedAddOns.drinkSize}
               variant="success"
               style={{ width: '100%', fontSize: '1.5em', padding: '1em' }}
             >
@@ -1134,9 +1161,9 @@ function BobaKioskContent() {
                 "Add to Cart"
               )}
             </KioskButton>
-            {(!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel) && (
+            {(!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel || !selectedAddOns.drinkSize) && (
               <p style={{ textAlign: 'center', color: theme.danger, fontSize: '1.2em', marginTop: '1em', fontWeight: 'bold' }}>
-                ⚠ Please select Ice Level and Sweetness Level
+                ⚠ Please select Ice Level, Sweetness Level, and Size
               </p>
             )}
           </div>
