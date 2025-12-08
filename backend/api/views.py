@@ -28,6 +28,10 @@ from .serializers import (
 
 # ... [Standard ViewSets omitted - assume unchanged] ...
 class CustomerViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows customers to be viewed or edited.
+    Supports filtering by email.
+    """
     queryset = Customer.objects.all()
     filter_backends = [DjangoFilterBackend] 
     filterset_fields = ['email']
@@ -35,6 +39,10 @@ class CustomerViewSet(viewsets.ModelViewSet):
         return CustomerWriteSerializer if self.action in ['create', 'update', 'partial_update'] else CustomerReadSerializer
 
 class EmployeeViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for managing employee records.
+    Uses separate serializers for read (safe) and write (id-based) operations.
+    """
     queryset = Employee.objects.all()
     def get_serializer_class(self):
         return EmployeeWriteSerializer if self.action in ['create', 'update', 'partial_update'] else EmployeeReadSerializer
@@ -102,6 +110,15 @@ class OrdersViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def x_report(self, request):
+        """
+        Generates an X-Report for a specific date.
+        If no date is provided, defaults to today.
+        
+        Returns:
+        - Hourly sales data (orders count, gross total)
+        - Payment method breakdown
+        - Void transaction stats
+        """
         date_str = request.query_params.get('date')
         if date_str:
             date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -171,6 +188,10 @@ class OrdersViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def z_report(self, request):
+        """
+        Generates a Z-Report for a specific date.
+        Calculates totals, taxes, and splits revenue by payment type.
+        """
         date_str = request.query_params.get('date')
         if date_str:
             date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()

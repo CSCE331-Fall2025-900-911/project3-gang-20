@@ -45,6 +45,7 @@ class CustomizationCategoryReadSerializer(serializers.ModelSerializer):
 
 # --- "Read" Serializers (For GET requests) ---
 # These show human-readable strings (StringRelatedField) for related fields.
+# Used when sending data TO the frontend/client.
 
 class IngredientReadSerializer(serializers.ModelSerializer):
     """Serializes Ingredient data for reading, showing the unit abbreviation."""
@@ -116,6 +117,7 @@ class OrderReadSerializer(serializers.ModelSerializer):
 
 # --- "Write" Serializers (For POST/PUT requests) ---
 # These accept simple IDs (PrimaryKeyRelatedField) for related fields.
+# Used when receiving data FROM the frontend/client.
 
 class CustomerWriteSerializer(serializers.ModelSerializer):
     """Serializes Customer data for writing."""
