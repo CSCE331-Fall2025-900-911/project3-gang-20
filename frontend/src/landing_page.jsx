@@ -213,7 +213,7 @@ function LandingPage() {
                             WebkitTextFillColor: highContrast ? 'currentColor' : 'transparent',
                             color: theme.text
                         }}>
-                            <span>Bobaclat</span>
+                            <span>BobaSpot</span>
                         </h1>
                         <p style={{ fontSize: 'clamp(1rem, 2vh, 1.25rem)', color: theme.textLight, maxWidth: '600px', margin: '0 auto 3vh', lineHeight: '1.6' }}>
                             <span>Experience the perfect blend of premium tea, fresh milk, and chewy tapioca pearls. Handcrafted daily for your delight.</span>
