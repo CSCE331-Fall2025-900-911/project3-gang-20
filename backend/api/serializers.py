@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from decimal import Decimal
 from django.db import transaction
 from .models import (
     Customer, Employee, Ingredient, CustomizationCategory,
@@ -259,7 +260,7 @@ class OrderWriteSerializer(serializers.ModelSerializer):
             
             for recipe in recipe_items:
                 ingredient = recipe.ingredient
-                deduction_amount = recipe.quantity * order_item.quantity * size_multiplier
+                deduction_amount = recipe.quantity * order_item.quantity * Decimal(str(size_multiplier))
                 ingredient.stock_level -= deduction_amount
                 ingredient.save()
 
