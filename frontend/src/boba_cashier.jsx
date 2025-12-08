@@ -875,23 +875,31 @@ function BobaCashier() {
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: theme.text, marginBottom: '16px' }}>Sweetness Level *</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
-                  {getCustomizationsByCategory('Sweetness Level').map((sweet) => (
-                    <button
-                      key={sweet.id}
-                      onClick={() => setSelectedCustomizations({ ...selectedCustomizations, sweetnessLevel: sweet })}
-                      style={{
-                        padding: '12px',
-                        borderRadius: '12px',
-                        fontWeight: 'bold',
-                        border: 'none',
-                        cursor: 'pointer',
-                        background: selectedCustomizations.sweetnessLevel?.id === sweet.id ? theme.primary : theme.secondary,
-                        color: selectedCustomizations.sweetnessLevel?.id === sweet.id ? theme.primaryText : theme.secondaryText
-                      }}
-                    >
-                      {sweet.name}
-                    </button>
-                  ))}
+                  {getCustomizationsByCategory('Sweetness Level')
+                    .sort((a, b) => {
+                      const getPercent = (name) => {
+                        const match = name.match(/(\d+)%/);
+                        return match ? parseInt(match[1]) : 0;
+                      };
+                      return getPercent(a.name) - getPercent(b.name);
+                    })
+                    .map((sweet) => (
+                      <button
+                        key={sweet.id}
+                        onClick={() => setSelectedCustomizations({ ...selectedCustomizations, sweetnessLevel: sweet })}
+                        style={{
+                          padding: '12px',
+                          borderRadius: '12px',
+                          fontWeight: 'bold',
+                          border: 'none',
+                          cursor: 'pointer',
+                          background: selectedCustomizations.sweetnessLevel?.id === sweet.id ? theme.primary : theme.secondary,
+                          color: selectedCustomizations.sweetnessLevel?.id === sweet.id ? theme.primaryText : theme.secondaryText
+                        }}
+                      >
+                        {sweet.name}
+                      </button>
+                    ))}
                 </div>
               </div>
 

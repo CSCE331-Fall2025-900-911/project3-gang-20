@@ -1049,15 +1049,23 @@ function BobaKioskContent() {
             </h3>
             {/* FIX: Changed minmax from 140px to 120px to match Ice Level and fit better in the constrained width */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
-              {sweetnessLevels.map((sweet) => (
-                <KioskButton
-                  key={sweet.id}
-                  onClick={() => setSelectedAddOns({ ...selectedAddOns, sweetnessLevel: sweet })}
-                  variant={selectedAddOns.sweetnessLevel?.id === sweet.id ? 'primary' : 'secondary'}
-                >
-                  {sweet.name}
-                </KioskButton>
-              ))}
+              {sweetnessLevels
+                .sort((a, b) => {
+                  const getPercent = (name) => {
+                    const match = name.match(/(\d+)%/);
+                    return match ? parseInt(match[1]) : 0;
+                  };
+                  return getPercent(a.name) - getPercent(b.name);
+                })
+                .map((sweet) => (
+                  <KioskButton
+                    key={sweet.id}
+                    onClick={() => setSelectedAddOns({ ...selectedAddOns, sweetnessLevel: sweet })}
+                    variant={selectedAddOns.sweetnessLevel?.id === sweet.id ? 'primary' : 'secondary'}
+                  >
+                    {sweet.name}
+                  </KioskButton>
+                ))}
             </div>
           </div>
 
