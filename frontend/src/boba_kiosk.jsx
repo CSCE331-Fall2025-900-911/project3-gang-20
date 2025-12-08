@@ -78,7 +78,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
 
   const [selectedAddOns, setSelectedAddOns] = useState(() => {
     const saved = localStorage.getItem('kiosk_selectedAddOns');
-    return saved ? JSON.parse(saved) : { iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] };
+    return saved ? JSON.parse(saved) : { temperature: null, iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] };
   });
 
   const [cart, setCart] = useState(() => {
@@ -154,6 +154,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
 
   const calculateCustomizationPrice = () => {
     let total = 0;
+    if (selectedAddOns.temperature) total += parseFloat(selectedAddOns.temperature.price);
     if (selectedAddOns.iceLevel) total += parseFloat(selectedAddOns.iceLevel.price);
     if (selectedAddOns.sweetnessLevel) total += parseFloat(selectedAddOns.sweetnessLevel.price);
     if (selectedAddOns.drinkSize) total += parseFloat(selectedAddOns.drinkSize.price);
@@ -173,7 +174,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
       totalPrice: totalPrice.toFixed(2)
     }]);
 
-    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
+    setSelectedAddOns({ temperature: null, iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
     setSelectedDrink(null);
     setCurrentView('checkout');
     setSelectedRedemption(null); // Reset redemption when adding new items
@@ -211,14 +212,14 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     // Cleanup and reset state
     setEditingCartItem(null);
     setSelectedDrink(null);
-    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
+    setSelectedAddOns({ temperature: null, iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
     setCurrentView('checkout');
   };
 
   const cancelEdit = () => {
     setEditingCartItem(null);
     setSelectedDrink(null);
-    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
+    setSelectedAddOns({ temperature: null, iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
     setCurrentView('checkout');
   };
 
@@ -294,6 +295,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
 
   const getCustomizationIDs = (cartItem) => {
     const ids = [];
+    if (cartItem.customizations.temperature) ids.push(cartItem.customizations.temperature.id);
     if (cartItem.customizations.iceLevel) ids.push(cartItem.customizations.iceLevel.id);
     if (cartItem.customizations.sweetnessLevel) ids.push(cartItem.customizations.sweetnessLevel.id);
     if (cartItem.customizations.drinkSize) ids.push(cartItem.customizations.drinkSize.id);
@@ -962,6 +964,7 @@ function BobaKioskContent() {
 
 
   if (currentView === 'customize') {
+    const temperatureOptions = getAddOnsByCategory('Temperature');
     const iceLevels = getAddOnsByCategory('Ice Level');
     const sweetnessLevels = getAddOnsByCategory('Sweetness Level');
     const drinkSizes = getAddOnsByCategory('Size');
@@ -1024,13 +1027,89 @@ function BobaKioskContent() {
             boxShadow: theme.shadow
           }}>
             <h3 style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text, marginBottom: '1em' }}>
+              Size
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
+              {drinkSizes.map((size) => (
+                <KioskButton
+                  key={size.id}
+                  onClick={() => setSelectedAddOns({ ...selectedAddOns, drinkSize: size })}
+                  variant={selectedAddOns.drinkSize?.id === size.id ? 'primary' : 'secondary'}
+                  style={{ flexDirection: 'column', alignItems: 'flex-start', padding: '16px' }}
+                >
+                  <div>{size.name}</div>
+                  <div style={{ fontSize: '0.8em', opacity: 0.9 }}>
+                    +${parseFloat(size.price).toFixed(2)}
+                  </div>
+                </KioskButton>
+
+              ))}
+            </div>
+          </div>
+
+          {!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice Blended') && (
+            <div style={{
+              backgroundColor: theme.cardBg,
+              borderRadius: highContrast ? '0' : '16px',
+              border: theme.border,
+              padding: '24px',
+              marginBottom: '24px',
+              boxShadow: theme.shadow
+            }}>
+              <h3 style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text, marginBottom: '1em' }}>
+                Temperature
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
+                {temperatureOptions.map((temp) => (
+                  <KioskButton
+                    key={temp.id}
+                    onClick={() => {
+                      let newIceLevel = selectedAddOns.iceLevel;
+                      if (temp.name === 'Hot') {
+                        newIceLevel = iceLevels.find(i => i.name === 'No Ice') || null;
+                      }
+                      setSelectedAddOns({ ...selectedAddOns, temperature: temp, iceLevel: newIceLevel });
+                    }}
+                    variant={selectedAddOns.temperature?.id === temp.id ? 'primary' : 'secondary'}
+                  >
+                    {temp.name}
+                  </KioskButton>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{
+            backgroundColor: theme.cardBg,
+            borderRadius: highContrast ? '0' : '16px',
+            border: theme.border,
+            padding: '24px',
+            marginBottom: '24px',
+            boxShadow: theme.shadow
+          }}>
+            <h3 style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text, marginBottom: '1em' }}>
               Ice Level
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
               {iceLevels.map((ice) => (
                 <KioskButton
                   key={ice.id}
-                  onClick={() => setSelectedAddOns({ ...selectedAddOns, iceLevel: ice })}
+                  onClick={() => {
+                    let newTemperature = selectedAddOns.temperature;
+                    if (!newTemperature && !['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) {
+                      // If no temperature selected yet, selecting ice implies cold? Or just let user select.
+                      // Requirement: "if the user selects Less or Regular Ice, the drink customization must change back to Cold"
+                      // Implies we force it to Cold.
+                      const coldOption = temperatureOptions.find(t => t.name === 'Cold');
+                      if (ice.name !== 'No Ice' && coldOption) {
+                        newTemperature = coldOption;
+                      }
+                    } else if (newTemperature?.name === 'Hot' && ice.name !== 'No Ice') {
+                      const coldOption = temperatureOptions.find(t => t.name === 'Cold');
+                      if (coldOption) newTemperature = coldOption;
+                    }
+                    setSelectedAddOns({ ...selectedAddOns, iceLevel: ice, temperature: newTemperature });
+                  }}
                   variant={selectedAddOns.iceLevel?.id === ice.id ? 'primary' : 'secondary'}
                 >
                   {ice.name}
@@ -1072,29 +1151,6 @@ function BobaKioskContent() {
             </div>
           </div>
 
-          <div style={{
-            backgroundColor: theme.cardBg,
-            borderRadius: highContrast ? '0' : '16px',
-            border: theme.border,
-            padding: '24px',
-            marginBottom: '24px',
-            boxShadow: theme.shadow
-          }}>
-            <h3 style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text, marginBottom: '1em' }}>
-              Size
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
-              {drinkSizes.map((size) => (
-                <KioskButton
-                  key={size.id}
-                  onClick={() => setSelectedAddOns({ ...selectedAddOns, drinkSize: size })}
-                  variant={selectedAddOns.drinkSize?.id === size.id ? 'primary' : 'secondary'}
-                >
-                  {size.name}
-                </KioskButton>
-              ))}
-            </div>
-          </div>
 
           <div style={{
             backgroundColor: theme.cardBg,
@@ -1149,7 +1205,7 @@ function BobaKioskContent() {
                   addToCart(selectedDrink);
                 }
               }}
-              disabled={!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel || !selectedAddOns.drinkSize}
+              disabled={((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedAddOns.temperature) || !selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel || !selectedAddOns.drinkSize}
               variant="success"
               style={{ width: '100%', fontSize: '1.5em', padding: '1em' }}
             >
@@ -1161,9 +1217,9 @@ function BobaKioskContent() {
                 "Add to Cart"
               )}
             </KioskButton>
-            {(!selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel || !selectedAddOns.drinkSize) && (
+            {(((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedAddOns.temperature) || !selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel || !selectedAddOns.drinkSize) && (
               <p style={{ textAlign: 'center', color: theme.danger, fontSize: '1.2em', marginTop: '1em', fontWeight: 'bold' }}>
-                ⚠ Please select Ice Level, Sweetness Level, and Size
+                ⚠ Please select {((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedAddOns.temperature) ? 'Temperature, ' : ''}Ice Level, Sweetness Level, and Size
               </p>
             )}
           </div>
@@ -1265,6 +1321,8 @@ function BobaKioskContent() {
                       </div>
                     </div>
                     <div style={{ fontSize: '1em', color: theme.textSecondary, marginLeft: '8px' }}>
+                      {item.customizations.drinkSize && <div>• Size: {item.customizations.drinkSize.name}</div>}
+                      {item.customizations.temperature && <div>• Temperature: {item.customizations.temperature.name}</div>}
                       {item.customizations.iceLevel && <div>• Ice: {item.customizations.iceLevel.name}</div>}
                       {item.customizations.sweetnessLevel && <div>• Sweetness: {item.customizations.sweetnessLevel.name}</div>}
                       {item.customizations.toppings.length > 0 && (
