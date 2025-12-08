@@ -619,7 +619,7 @@ function BobaCashier() {
           overflow: 'hidden'
         }}>
           <div style={{ marginBottom: '20px' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: theme.text }}>Order #{orderNumber}</h2>
+            {/* <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: theme.text }}>Order #{orderNumber}</h2> */}
             <p style={{ color: theme.textSecondary }}>Current Cart</p>
           </div>
 
