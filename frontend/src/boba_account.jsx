@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Star, Clock, ShoppingBag, ChevronDown, Loader } from 'lucide-react';
 
 // --- CONFIGURATION ---
@@ -12,20 +13,21 @@ import { ArrowLeft, Star, Clock, ShoppingBag, ChevronDown, Loader } from 'lucide
 const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
 const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/orders/';
 
-function BobaAccount({ onNavigate }) {
+function BobaAccount() {
+    const navigate = useNavigate();
     const { user, isLoaded, isSignedIn } = useUser();
-    
+
     // Data State
     const [customerInfo, setCustomerInfo] = useState(null);
     const [orderHistory, setOrderHistory] = useState([]);
-    
+
     // Loading State
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
 
     // Pagination State
     // "Offset" tracks how many orders we have already loaded
-    const [offset, setOffset] = useState(0); 
+    const [offset, setOffset] = useState(0);
     const LIMIT = 5; // How many to fetch at a time
     const [hasMore, setHasMore] = useState(true);
 
@@ -48,7 +50,7 @@ function BobaAccount({ onNavigate }) {
                 // Backend must support: /api/customers/?email=...
                 const customerRes = await fetch(`${CUSTOMERS_URL}?email=${userEmail}`);
                 const customerData = await customerRes.json();
-                
+
                 // The API might return a list [Object] or a paginated object { results: [Object] }
                 // We handle both cases safely:
                 const results = Array.isArray(customerData) ? customerData : (customerData.results || []);
@@ -83,7 +85,7 @@ function BobaAccount({ onNavigate }) {
             // limit: Only send 5 items
             // offset: Skip the items we already have
             const query = `?customer=${customerId}&ordering=-order_date_time&limit=${LIMIT}&offset=${currentOffset}`;
-            
+
             const res = await fetch(ORDERS_URL + query);
             const data = await res.json();
 
@@ -118,7 +120,7 @@ function BobaAccount({ onNavigate }) {
         return (
             <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: theme.bg, color: theme.text }}>
                 Please log in to view your account.
-                <button onClick={() => onNavigate('landing')} style={{ marginLeft: '10px', fontWeight: 'bold' }}>Go Back</button>
+                <button onClick={() => navigate('/')} style={{ marginLeft: '10px', fontWeight: 'bold' }}>Go Back</button>
             </div>
         );
     }
@@ -133,10 +135,10 @@ function BobaAccount({ onNavigate }) {
         }}>
             {/* --- Header --- */}
             <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', alignItems: 'center', marginBottom: '30px' }}>
-                <button 
-                    onClick={() => onNavigate('landing')}
-                    style={{ 
-                        background: 'white', border: 'none', borderRadius: '50%', padding: '12px', 
+                <button
+                    onClick={() => navigate('/')}
+                    style={{
+                        background: 'white', border: 'none', borderRadius: '50%', padding: '12px',
                         cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', marginRight: '20px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.primary
                     }}
@@ -147,7 +149,7 @@ function BobaAccount({ onNavigate }) {
             </div>
 
             <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                
+
                 {/* --- Points Card --- */}
                 <div style={{
                     background: theme.primary,
@@ -185,7 +187,7 @@ function BobaAccount({ onNavigate }) {
                     </h3>
 
                     {loading ? (
-                         <div style={{ textAlign: 'center', padding: '40px', opacity: 0.7 }}>
+                        <div style={{ textAlign: 'center', padding: '40px', opacity: 0.7 }}>
                             <Loader size={32} className="animate-spin" style={{ margin: '0 auto 10px' }} />
                             <p>Loading your history...</p>
                         </div>
@@ -212,7 +214,7 @@ function BobaAccount({ onNavigate }) {
                                                     {new Date(order.order_date_time).toLocaleDateString()}
                                                 </div>
                                                 <div style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: '500' }}>
-                                                    {new Date(order.order_date_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                    {new Date(order.order_date_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
                                             </div>
                                             <div style={{ fontWeight: '800', color: theme.primary, fontSize: '1.5rem' }}>
@@ -223,9 +225,9 @@ function BobaAccount({ onNavigate }) {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                             {order.items.map((item, idx) => (
                                                 <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                                                    <div style={{ 
-                                                        background: '#fff7ed', color: theme.primary, 
-                                                        fontWeight: '700', padding: '4px 10px', 
+                                                    <div style={{
+                                                        background: '#fff7ed', color: theme.primary,
+                                                        fontWeight: '700', padding: '4px 10px',
                                                         borderRadius: '8px', fontSize: '0.9rem',
                                                         minWidth: '32px', textAlign: 'center'
                                                     }}>
@@ -249,7 +251,7 @@ function BobaAccount({ onNavigate }) {
                             {/* View More Button */}
                             {hasMore && (
                                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: '30px', paddingBottom: '40px' }}>
-                                    <button 
+                                    <button
                                         onClick={handleLoadMore}
                                         disabled={loadingMore}
                                         style={{

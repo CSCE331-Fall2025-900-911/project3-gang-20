@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { Coffee, LogOut, ChevronRight, User } from 'lucide-react';
 import { useUser, useClerk } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
 import { CustomSignIn, CustomSignUp } from './Auth';
 import { useAccessibility } from './AccessibilityContext';
 
@@ -15,11 +16,12 @@ const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/a
 const MANAGER_SLUG = 'manager-1762837696';
 const CASHIER_SLUG = 'cashier-1763751666';
 
-function LandingPage({ onNavigate }) {
+function LandingPage() {
+    const navigate = useNavigate();
+    const { theme, highContrast, fontSizeMultiplier } = useAccessibility();
     const [authMode, setAuthMode] = useState(null);
     const { isSignedIn, user, isLoaded } = useUser();
     const { signOut } = useClerk();
-    const { theme, highContrast } = useAccessibility();
 
     // --- Role / Permission Logic ---
     const checkUserRole = (roleSlug) => {
@@ -31,7 +33,8 @@ function LandingPage({ onNavigate }) {
     const isCashier = checkUserRole(CASHIER_SLUG) || isManager;
     const isEmployee = isManager || isCashier;
 
-    const overlay = highContrast ? 'rgba(0, 0, 0, 0.9)' : 'rgba(120, 53, 15, 0.4)';
+    // --- Dynamic Styles ---
+    const overlay = theme.overlay; // Use theme.overlay
 
     // --- Sync User to Database & Organization ---
     useEffect(() => {
@@ -117,10 +120,10 @@ function LandingPage({ onNavigate }) {
                         fontWeight: '600',
                         alignItems: 'center'
                     }}>
-                        <button onClick={() => onNavigate('home')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}><span>Home</span></button>
-                        <button onClick={() => onNavigate('menu_board')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}><span>Menu</span></button>
+                        <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}><span>Home</span></button>
+                        <button onClick={() => navigate('/menu')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}><span>Menu</span></button>
                         {isSignedIn && (
-                            <button onClick={() => onNavigate('account')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}><span>Account</span></button>
+                            <button onClick={() => navigate('/account')} style={{ background: 'none', border: 'none', color: theme.text, cursor: 'pointer', fontSize: '1rem', fontWeight: '600' }}><span>Account</span></button>
                         )}
                     </div>
 
@@ -134,7 +137,7 @@ function LandingPage({ onNavigate }) {
                                             Hello, {user?.firstName || 'User'}
                                         </div>
                                         <button
-                                            onClick={() => signOut(() => onNavigate('landing'))}
+                                            onClick={() => signOut(() => navigate('/'))}
                                             style={{
                                                 background: 'transparent',
                                                 border: `2px solid ${theme.primary}`,
@@ -212,15 +215,15 @@ function LandingPage({ onNavigate }) {
                         }}>
                             <span>Bobaclat</span>
                         </h1>
-                        <p style={{ fontSize: 'clamp(1rem, 2vh, 1.25rem)', color: theme.textSecondary, maxWidth: '600px', margin: '0 auto 3vh', lineHeight: '1.6' }}>
+                        <p style={{ fontSize: 'clamp(1rem, 2vh, 1.25rem)', color: theme.textLight, maxWidth: '600px', margin: '0 auto 3vh', lineHeight: '1.6' }}>
                             <span>Experience the perfect blend of premium tea, fresh milk, and chewy tapioca pearls. Handcrafted daily for your delight.</span>
                         </p>
 
                         <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                            <button onClick={() => onNavigate('kiosk')} style={{ background: theme.primary, color: 'white', padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 10px 25px -5px rgba(217, 119, 6, 0.4)', transition: 'transform 0.2s' }}>
+                            <button onClick={() => navigate('/kiosk')} style={{ background: theme.primary, color: 'white', padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 10px 25px -5px rgba(217, 119, 6, 0.4)', transition: 'transform 0.2s' }}>
                                 <span>Order Now</span> <ChevronRight size={20} />
                             </button>
-                            <button onClick={() => onNavigate('menu_board')} style={{ background: theme.cardBg, color: theme.text, padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: theme.border, cursor: 'pointer', boxShadow: theme.shadow }}>
+                            <button onClick={() => navigate('/menu')} style={{ background: theme.cardBg, color: theme.text, padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: theme.border, cursor: 'pointer', boxShadow: theme.shadow }}>
                                 <span>View Menu</span>
                             </button>
                         </div>
@@ -233,16 +236,16 @@ function LandingPage({ onNavigate }) {
                             <div style={{ display: 'flex', justifyContent: 'center', gap: '2vh', flexWrap: 'wrap' }}>
 
                                 {isManager && (
-                                    <div onClick={() => onNavigate('manager')} style={{ background: theme.cardBg, padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: theme.shadow, border: theme.border, transition: 'transform 0.2s' }}>
+                                    <div onClick={() => navigate('/manager')} style={{ background: theme.cardBg, padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: theme.shadow, border: theme.border, transition: 'transform 0.2s' }}>
                                         <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Manager Dashboard</h3>
-                                        <p style={{ color: theme.textSecondary, fontSize: '0.95rem' }}>Access inventory, staff management, and sales reports.</p>
+                                        <p style={{ color: theme.textLight, fontSize: '0.95rem' }}>Access inventory, staff management, and sales reports.</p>
                                     </div>
                                 )}
 
                                 {isCashier && (
-                                    <div onClick={() => onNavigate('cashier')} style={{ background: theme.cardBg, padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: theme.shadow, border: theme.border, transition: 'transform 0.2s' }}>
+                                    <div onClick={() => navigate('/cashier')} style={{ background: theme.cardBg, padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: theme.shadow, border: theme.border, transition: 'transform 0.2s' }}>
                                         <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Cashier POS</h3>
-                                        <p style={{ color: theme.textSecondary, fontSize: '0.95rem' }}>Handle customer orders, process payments, and manage the till.</p>
+                                        <p style={{ color: theme.textLight, fontSize: '0.95rem' }}>Handle customer orders, process payments, and manage the till.</p>
                                     </div>
                                 )}
 

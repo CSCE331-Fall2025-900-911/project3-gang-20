@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { LogOut, Sun, Cloud, CloudRain, CloudSnow, CloudLightning } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 /* -------------------------------------------------------------------------- */
 /*                                   STYLES                                   */
@@ -499,7 +500,8 @@ function useMenuData(pollMs = POLL_DEFAULT) {
 /*                             MAIN COMPONENT                                 */
 /* -------------------------------------------------------------------------- */
 
-export default function BobaMenuBoard({ pollMs, onBack }) {
+export default function BobaMenuBoard({ pollMs }) {
+    const navigate = useNavigate();
     const { data, isLoading, error } = useMenuData(pollMs);
     const categories = data.categories;
     const promos = data.promos;
@@ -543,9 +545,7 @@ export default function BobaMenuBoard({ pollMs, onBack }) {
     const [description, setDescription] = useState("");
 
     const handleLogout = () => {
-        if (onBack) {
-            onBack();
-        }
+        navigate('/');
     };
 
     // Update clock every second
@@ -591,32 +591,30 @@ export default function BobaMenuBoard({ pollMs, onBack }) {
             <style>{styles}</style>
 
             <div className="menu-board-root">
-                {onBack && (
-                    <button
-                        onClick={handleLogout}
-                        style={{
-                            position: 'fixed', // Changed to fixed to match Kiosk
-                            top: '24px',
-                            left: '24px',
-                            backgroundColor: '#dc2626', // theme.danger
-                            color: 'white',
-                            borderRadius: '20px', // Match Cashier
-                            padding: '16px 32px', // Match Cashier
-                            boxShadow: '0 4px 6px rgba(220, 38, 38, 0.2)', // Match Cashier
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            zIndex: 1000,
-                            fontSize: '1.2rem', // Match Cashier
-                            fontWeight: 'bold'
-                        }}
-                    >
-                        <LogOut size={24} />
-                        Exit
-                    </button>
-                )}
+                <button
+                    onClick={handleLogout}
+                    style={{
+                        position: 'fixed', // Changed to fixed to match Kiosk
+                        top: '24px',
+                        left: '24px',
+                        backgroundColor: '#dc2626', // theme.danger
+                        color: 'white',
+                        borderRadius: '20px', // Match Cashier
+                        padding: '16px 32px', // Match Cashier
+                        boxShadow: '0 4px 6px rgba(220, 38, 38, 0.2)', // Match Cashier
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        zIndex: 1000,
+                        fontSize: '1.2rem', // Match Cashier
+                        fontWeight: 'bold'
+                    }}
+                >
+                    <LogOut size={24} />
+                    Exit
+                </button>
 
 
                 <div className="menu-board-header-info">

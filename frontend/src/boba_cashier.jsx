@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react';
 import { Trash2, LogOut, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Edit } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
 
 // API Endpoints
 const ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
@@ -38,7 +39,8 @@ const theme = {
 /*
   The main component for the cashier POS interface.
 */
-function BobaCashier({ onBack }) {
+function BobaCashier() {
+  const navigate = useNavigate();
   // State for storing data fetched from the API
   const [menuItems, setMenuItems] = useState([]);
   const [customizationOptions, setCustomizationOptions] = useState([]);
@@ -391,9 +393,7 @@ function BobaCashier({ onBack }) {
   };
 
   const handleLogout = () => {
-    if (onBack) {
-      onBack();
-    }
+    navigate('/');
   };
 
 

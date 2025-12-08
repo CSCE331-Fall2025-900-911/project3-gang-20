@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { ShoppingCart, LogOut, Type, Sun, Moon, Minus, Plus, Volume2, VolumeX, Star, Gift, Dice6, RotateCcw, Check, Lock, ArrowLeft, Pencil, Globe } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
 
 // --- Accessibility Context & Theme ---
 
@@ -406,7 +407,8 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
   Main Content Component for the Kiosk.
   Handles the entire ordering flow: Welcome -> Categories -> Customization -> Checkout -> Payment.
 */
-function BobaKioskContent({ onBack }) {
+function BobaKioskContent() {
+  const navigate = useNavigate();
   const { theme, highContrast } = useAccessibility();
 
   const { user, isSignedIn } = useUser();
@@ -1385,13 +1387,13 @@ function BobaKioskContent({ onBack }) {
         // Logout Button
         <button
           key="logout-btn"
-          onClick={onBack}
+          onClick={() => navigate('/')}
           style={{
             position: 'fixed',
             top: '24px',
             left: '24px',
-            backgroundColor: theme.danger,
-            color: 'white',
+            backgroundColor: theme.secondary,
+            color: theme.text,
             borderRadius: '12px',
             padding: '16px 24px',
             boxShadow: theme.shadow,
@@ -1510,14 +1512,5 @@ function BobaKioskContent({ onBack }) {
   );
 }
 
-/*
-  Root Kiosk Component.
-  Wraps the content in the AccessibilityProvider to ensure global access to theme settings.
-*/
-function BobaKiosk(props) {
-  return (
-    <BobaKioskContent {...props} />
-  );
-}
-
-export default BobaKiosk;
+// Main Content Component with Router Logic
+export default BobaKioskContent;

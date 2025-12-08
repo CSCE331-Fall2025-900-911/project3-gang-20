@@ -5,8 +5,9 @@
   authentication requirements for restricted areas using Clerk.
 */
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useUser, AuthenticateWithRedirectCallback } from '@clerk/clerk-react';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 
 import BobaKiosk from './boba_kiosk';
 import BobaManager from './boba_manager';
@@ -20,8 +21,9 @@ import { AccessibilityProvider, AccessibilityControls } from './AccessibilityCon
 /*
   Wrapper component to enforce organization membership for portal access.
 */
-const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage, onBack }) => {
+const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage }) => {
   const { isLoaded, isSignedIn, user } = useUser();
+  const navigate = useNavigate();
 
   if (!isLoaded) {
     return <div style={{ padding: '50px', textAlign: 'center' }}><h1>Loading...</h1></div>;
@@ -32,7 +34,7 @@ const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage, on
       <div style={{ padding: '50px', textAlign: 'center', backgroundColor: '#fed7aa', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
         <h1 style={{ fontSize: '2em', color: '#78350f', marginBottom: '1em' }}>🔒 Access Denied</h1>
         <p style={{ fontSize: '1.2em', color: '#92400e', marginBottom: '2em' }}>You must be signed in to access this employee portal.</p>
-        <button onClick={onBack} style={{ padding: '10px 20px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Back</button>
+        <button onClick={() => navigate('/')} style={{ padding: '10px 20px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Back</button>
       </div>
     );
   }
@@ -46,7 +48,7 @@ const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage, on
       <div style={{ padding: '50px', textAlign: 'center', backgroundColor: '#fed7aa', minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
         <h1 style={{ fontSize: '2em', color: '#dc2626', marginBottom: '1em' }}>🛑 Unauthorized</h1>
         <p style={{ fontSize: '1.2em', color: '#92400e', marginBottom: '2em', fontWeight: 'bold' }}>{unauthorizedMessage}</p>
-        <button onClick={onBack} style={{ padding: '10px 20px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Go Back</button>
+        <button onClick={() => navigate('/')} style={{ padding: '10px 20px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Go Back</button>
       </div>
     );
   }
@@ -56,18 +58,7 @@ const PortalAccessChecker = ({ children, requiredGroups, unauthorizedMessage, on
 
 // Main application component. Handles initial loading state and routing.
 function App() {
-  // Handle Clerk SSO callback (must be before other routing)
-  if (window.location.pathname === '/sso-callback') {
-    return <AuthenticateWithRedirectCallback signInForceRedirectUrl="/" signUpForceRedirectUrl="/" continueSignUpUrl="/" />;
-  }
-
-  const [currentPage, setCurrentPage] = useState(() => {
-    return sessionStorage.getItem('currentPage') || 'landing';
-  });
-
-  useEffect(() => {
-    sessionStorage.setItem('currentPage', currentPage);
-  }, [currentPage]);
+  const location = useLocation();
 
   useEffect(() => {
     const unlockAudio = () => {
@@ -89,43 +80,44 @@ function App() {
 
   // ---------- Portal Routing ----------
 
-  // Landing Page (Default View)
   return (
     <AccessibilityProvider>
       {/* 
           Keep AccessibilityControls mounted GLOBALLY to prevent Google Translate from breaking.
           We only hide it visually on pages where it's not wanted (Manager, Cashier, etc.).
        */}
-      <div style={{ display: (currentPage === 'landing' || currentPage === 'kiosk') ? 'block' : 'none' }}>
+      <div style={{ display: (location.pathname === '/' || location.pathname === '/kiosk') ? 'block' : 'none' }}>
         <AccessibilityControls />
       </div>
 
-      {/* Lifted Provider to wrap all page views */}
-      {currentPage === 'kiosk' ? (
-        <BobaKiosk onBack={() => setCurrentPage('landing')} />
-      ) : currentPage === 'manager' ? (
-        <PortalAccessChecker
-          requiredGroups={['manager']}
-          unauthorizedMessage="Must be a Manager to access this portal."
-          onBack={() => setCurrentPage('landing')}
-        >
-          <BobaManager onBack={() => setCurrentPage('landing')} />
-        </PortalAccessChecker>
-      ) : currentPage === 'cashier' ? (
-        <PortalAccessChecker
-          requiredGroups={['cashier', 'manager']}
-          unauthorizedMessage="Must be an Employee (Cashier or Manager) to access this portal."
-          onBack={() => setCurrentPage('landing')}
-        >
-          <BobaCashier onBack={() => setCurrentPage('landing')} />
-        </PortalAccessChecker>
-      ) : currentPage === 'menu_board' ? (
-        <BobaMenuBoard onBack={() => setCurrentPage('landing')} />
-      ) : currentPage === 'account' ? (
-        <BobaAccount onNavigate={setCurrentPage} />
-      ) : (
-        <LandingPage onNavigate={setCurrentPage} />
-      )}
+      <Routes>
+        <Route path="/sso-callback" element={<AuthenticateWithRedirectCallback signInForceRedirectUrl="/" signUpForceRedirectUrl="/" continueSignUpUrl="/" />} />
+
+        <Route path="/" element={<LandingPage />} />
+
+        <Route path="/kiosk" element={<BobaKiosk />} />
+
+        <Route path="/manager" element={
+          <PortalAccessChecker
+            requiredGroups={['manager']}
+            unauthorizedMessage="Must be a Manager to access this portal."
+          >
+            <BobaManager />
+          </PortalAccessChecker>
+        } />
+
+        <Route path="/cashier" element={
+          <PortalAccessChecker
+            requiredGroups={['cashier', 'manager']}
+            unauthorizedMessage="Must be an Employee (Cashier or Manager) to access this portal."
+          >
+            <BobaCashier />
+          </PortalAccessChecker>
+        } />
+
+        <Route path="/menu" element={<BobaMenuBoard />} />
+        <Route path="/account" element={<BobaAccount />} />
+      </Routes>
     </AccessibilityProvider>
   );
 }
