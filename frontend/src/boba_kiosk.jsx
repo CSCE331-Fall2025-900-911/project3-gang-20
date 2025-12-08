@@ -73,7 +73,8 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
   const [selectedAddOns, setSelectedAddOns] = useState({
     iceLevel: null,
     sweetnessLevel: null,
-    toppings: []
+    toppings: [],
+    temp: null,
   });
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);

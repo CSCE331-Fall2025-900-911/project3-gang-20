@@ -667,7 +667,7 @@ function BobaCashier() {
                       <div>• Sweet: {item.customizations.sweetnessLevel.name}</div>
                     )}
                     {item.customizations.toppings.length > 0 && (
-                      <div>• Toppings: {item.customizations.toppings.map(t => t.name).join(', ')}</div>
+                      <div>• Toppings: {item.customizations.toppings.reverse().map(t => t.name).join(', ')}</div>
                     )}
                   </div>
                 </div>
