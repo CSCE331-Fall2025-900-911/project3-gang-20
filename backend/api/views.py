@@ -2,7 +2,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import LimitOffsetPagination
-from django.db.models import Sum, Count, F, FloatField, Q, DecimalField
+from django.db.models import Sum, Count, F, FloatField, Q, DecimalField, Max
 from django.db.models.functions import TruncHour, Cast
 from django.utils import timezone
 import datetime
@@ -97,6 +97,13 @@ class OrdersViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update']:
             return OrderWriteSerializer
         return OrderReadSerializer
+
+    @action(detail=False, methods=['get'])
+    def latest_id(self, request):
+        # Aggregate the maximum ID from the Order table
+        max_id = Order.objects.aggregate(Max('id'))['id__max']
+        # If no orders exist, max_id will be None, so return 0
+        return Response({'latest_id': max_id or 0})
 
     @action(detail=False, methods=['get'])
     def x_report(self, request):
