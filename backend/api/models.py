@@ -112,6 +112,8 @@ class MenuItem(models.Model):
         blank=True, 
         null=True
     )
+    
+    is_active = models.BooleanField(default=True) # Soft deletion flag
 
     image = models.ImageField(
         upload_to='menu_items/',  # Will save to /media/menu_items/filename.jpg

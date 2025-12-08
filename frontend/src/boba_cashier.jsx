@@ -58,7 +58,6 @@ function BobaCashier() {
     temperature: null,
     iceLevel: null,
     sweetnessLevel: null,
-    drinkSize: null,
     toppings: []
   });
   const [quantity, setQuantity] = useState(1);
@@ -162,7 +161,6 @@ function BobaCashier() {
       temperature: null,
       iceLevel: null,
       sweetnessLevel: null,
-      drinkSize: null,
       toppings: []
     });
     setCustomizationModal(true);
@@ -174,7 +172,6 @@ function BobaCashier() {
     if (selectedCustomizations.temperature) price += parseFloat(selectedCustomizations.temperature.price);
     if (selectedCustomizations.iceLevel) price += parseFloat(selectedCustomizations.iceLevel.price);
     if (selectedCustomizations.sweetnessLevel) price += parseFloat(selectedCustomizations.sweetnessLevel.price);
-    if (selectedCustomizations.drinkSize) price += parseFloat(selectedCustomizations.drinkSize.price);
 
     selectedCustomizations.toppings.forEach(topping => {
       price += parseFloat(topping.price);
@@ -223,7 +220,6 @@ function BobaCashier() {
       temperature: null,
       iceLevel: null,
       sweetnessLevel: null,
-      drinkSize: null,
       toppings: []
     });
     setQuantity(1);
@@ -335,7 +331,6 @@ function BobaCashier() {
           if (custom.temperature) allCustomizationIds.push(custom.temperature.id);
           if (custom.iceLevel) allCustomizationIds.push(custom.iceLevel.id);
           if (custom.sweetnessLevel) allCustomizationIds.push(custom.sweetnessLevel.id);
-          if (custom.drinkSize) allCustomizationIds.push(custom.drinkSize.id);
           custom.toppings.forEach(topping => allCustomizationIds.push(topping.id));
         });
 
@@ -686,11 +681,11 @@ function BobaCashier() {
                     {item.customizations.sweetnessLevel && (
                       <div>• Sweet: {item.customizations.sweetnessLevel.name}</div>
                     )}
-                    {item.customizations.drinkSize && (
-                      <div>• Size: {item.customizations.drinkSize.name}</div>
+                    {item.customizations.toppings.find(t => t.category === 'Size') && (
+                      <div>• Size: {item.customizations.toppings.find(t => t.category === 'Size').name}</div>
                     )}
-                    {item.customizations.toppings.length > 0 && (
-                      <div>• Toppings: {item.customizations.toppings.reverse().map(t => t.name).join(', ')}</div>
+                    {item.customizations.toppings.filter(t => t.category !== 'Size').length > 0 && (
+                      <div>• Toppings: {item.customizations.toppings.filter(t => t.category !== 'Size').reverse().map(t => t.name).join(', ')}</div>
                     )}
                   </div>
                 </div>
@@ -870,15 +865,18 @@ function BobaCashier() {
                   {getCustomizationsByCategory('Size').reverse().map((size) => (
                     <button
                       key={size.id}
-                      onClick={() => setSelectedCustomizations({ ...selectedCustomizations, drinkSize: size })}
+                      onClick={() => {
+                        const otherToppings = selectedCustomizations.toppings.filter(t => t.category !== 'Size');
+                        setSelectedCustomizations({ ...selectedCustomizations, toppings: [...otherToppings, size] });
+                      }}
                       style={{
                         padding: '12px',
                         borderRadius: '12px',
                         fontWeight: 'bold',
                         border: 'none',
                         cursor: 'pointer',
-                        background: selectedCustomizations.drinkSize?.id === size.id ? theme.primary : theme.secondary,
-                        color: selectedCustomizations.drinkSize?.id === size.id ? theme.primaryText : theme.secondaryText
+                        background: selectedCustomizations.toppings.some(t => t.id === size.id) ? theme.primary : theme.secondary,
+                        color: selectedCustomizations.toppings.some(t => t.id === size.id) ? theme.primaryText : theme.secondaryText
                       }}
                     >
                       {size.name}
@@ -1080,9 +1078,9 @@ function BobaCashier() {
                 </div>
 
                 {/* Validation Message */}
-                {(((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedCustomizations.temperature) || !selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel || !selectedCustomizations.drinkSize) && (
+                {(((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedCustomizations.temperature) || !selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel || !selectedCustomizations.toppings.some(t => t.category === 'Size')) && (
                   <p style={{ color: theme.danger, textAlign: 'center', marginBottom: '16px', fontWeight: 'bold' }}>
-                    * Please select {((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedCustomizations.temperature) ? 'temperature, ' : ''}ice level and sweetness level
+                    * Please select {((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedCustomizations.temperature) ? 'temperature, ' : ''}ice level, sweetness level and size
                   </p>
                 )}
 
@@ -1105,7 +1103,7 @@ function BobaCashier() {
                   </button>
                   <button
                     onClick={addToCart}
-                    disabled={((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedCustomizations.temperature) || !selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel || !selectedCustomizations.drinkSize}
+                    disabled={((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedCustomizations.temperature) || !selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel || !selectedCustomizations.toppings.some(t => t.category === 'Size')}
                     style={{
                       background: theme.success,
                       color: 'white',
@@ -1114,8 +1112,8 @@ function BobaCashier() {
                       fontWeight: 'bold',
                       fontSize: '1.1rem',
                       border: 'none',
-                      cursor: (((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedCustomizations.temperature) || !selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel || !selectedCustomizations.drinkSize) ? 'not-allowed' : 'pointer',
-                      opacity: (((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedCustomizations.temperature) || !selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel || !selectedCustomizations.drinkSize) ? 0.5 : 1
+                      cursor: (((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedCustomizations.temperature) || !selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel || !selectedCustomizations.toppings.some(t => t.category === 'Size')) ? 'not-allowed' : 'pointer',
+                      opacity: (((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedCustomizations.temperature) || !selectedCustomizations.iceLevel || !selectedCustomizations.sweetnessLevel || !selectedCustomizations.toppings.some(t => t.category === 'Size')) ? 0.5 : 1
                     }}
                   >
                     {editingItem ? 'Update Cart' : 'Add to Cart'}

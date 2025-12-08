@@ -78,7 +78,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
 
   const [selectedAddOns, setSelectedAddOns] = useState(() => {
     const saved = localStorage.getItem('kiosk_selectedAddOns');
-    return saved ? JSON.parse(saved) : { temperature: null, iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] };
+    return saved ? JSON.parse(saved) : { temperature: null, iceLevel: null, sweetnessLevel: null, toppings: [] };
   });
 
   const [cart, setCart] = useState(() => {
@@ -163,7 +163,6 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     if (selectedAddOns.temperature) total += parseFloat(selectedAddOns.temperature.price);
     if (selectedAddOns.iceLevel) total += parseFloat(selectedAddOns.iceLevel.price);
     if (selectedAddOns.sweetnessLevel) total += parseFloat(selectedAddOns.sweetnessLevel.price);
-    if (selectedAddOns.drinkSize) total += parseFloat(selectedAddOns.drinkSize.price);
     selectedAddOns.toppings.forEach(topping => total += parseFloat(topping.price));
     return total;
   };
@@ -184,7 +183,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     }
     setCart([...cart, ...newItems]);
 
-    setSelectedAddOns({ temperature: null, iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
+    setSelectedAddOns({ temperature: null, iceLevel: null, sweetnessLevel: null, toppings: [] });
     setQuantity(1);
     setSelectedDrink(null);
     setCurrentView('checkout');
@@ -223,14 +222,14 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     // Cleanup and reset state
     setEditingCartItem(null);
     setSelectedDrink(null);
-    setSelectedAddOns({ temperature: null, iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
+    setSelectedAddOns({ temperature: null, iceLevel: null, sweetnessLevel: null, toppings: [] });
     setCurrentView('checkout');
   };
 
   const cancelEdit = () => {
     setEditingCartItem(null);
     setSelectedDrink(null);
-    setSelectedAddOns({ temperature: null, iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] });
+    setSelectedAddOns({ temperature: null, iceLevel: null, sweetnessLevel: null, toppings: [] });
     setCurrentView('checkout');
   };
 
@@ -243,7 +242,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
       name: `🎲 ${drink.name}`, // Add icon to indicate mystery
       cartId: Date.now(),
       base_price: finalPrice, // Override database price with Gamified Price
-      customizations: { iceLevel: null, sweetnessLevel: null, drinkSize: null, toppings: [] }, // Defaults (none)
+      customizations: { iceLevel: null, sweetnessLevel: null, toppings: [] }, // Defaults (none)
       customizationPrice: 0,
       totalPrice: finalPrice.toFixed(2)
     };
@@ -309,7 +308,6 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     if (cartItem.customizations.temperature) ids.push(cartItem.customizations.temperature.id);
     if (cartItem.customizations.iceLevel) ids.push(cartItem.customizations.iceLevel.id);
     if (cartItem.customizations.sweetnessLevel) ids.push(cartItem.customizations.sweetnessLevel.id);
-    if (cartItem.customizations.drinkSize) ids.push(cartItem.customizations.drinkSize.id);
     cartItem.customizations.toppings.forEach(topping => ids.push(topping.id));
     return ids;
   };
@@ -1045,8 +1043,11 @@ function BobaKioskContent() {
               {drinkSizes.reverse().map((size) => (
                 <KioskButton
                   key={size.id}
-                  onClick={() => setSelectedAddOns({ ...selectedAddOns, drinkSize: size })}
-                  variant={selectedAddOns.drinkSize?.id === size.id ? 'primary' : 'secondary'}
+                  onClick={() => {
+                    const others = selectedAddOns.toppings.filter(t => t.category !== 'Size');
+                    setSelectedAddOns({ ...selectedAddOns, toppings: [...others, size] });
+                  }}
+                  variant={selectedAddOns.toppings.some(t => t.id === size.id) ? 'primary' : 'secondary'}
                   style={{ flexDirection: 'column', alignItems: 'flex-start', padding: '16px' }}
                 >
                   <div>{size.name}</div>
@@ -1260,7 +1261,7 @@ function BobaKioskContent() {
                   addToCart(selectedDrink);
                 }
               }}
-              disabled={((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedAddOns.temperature) || !selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel || !selectedAddOns.drinkSize}
+              disabled={((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedAddOns.temperature) || !selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel || !selectedAddOns.toppings.some(t => t.category === 'Size')}
               variant="success"
               style={{ width: '100%', fontSize: '1.5em', padding: '1em' }}
             >
@@ -1272,7 +1273,7 @@ function BobaKioskContent() {
                 "Add to Cart"
               )}
             </KioskButton>
-            {(((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedAddOns.temperature) || !selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel || !selectedAddOns.drinkSize) && (
+            {(((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedAddOns.temperature) || !selectedAddOns.iceLevel || !selectedAddOns.sweetnessLevel || !selectedAddOns.toppings.some(t => t.category === 'Size')) && (
               <p style={{ textAlign: 'center', color: theme.danger, fontSize: '1.2em', marginTop: '1em', fontWeight: 'bold' }}>
                 ⚠ Please select {((!['Fruity', 'Ice-Blended'].includes(selectedDrink.category) && !selectedDrink.name.includes('Ice-Blended')) && !selectedAddOns.temperature) ? 'Temperature, ' : ''}Ice Level, Sweetness Level, and Size
               </p>
@@ -1376,12 +1377,14 @@ function BobaKioskContent() {
                       </div>
                     </div>
                     <div style={{ fontSize: '1em', color: theme.textSecondary, marginLeft: '8px' }}>
-                      {item.customizations.drinkSize && <div>• Size: {item.customizations.drinkSize.name}</div>}
+                      {item.customizations.toppings.find(t => t.category === 'Size') &&
+                        <div>• Size: {item.customizations.toppings.find(t => t.category === 'Size').name}</div>
+                      }
                       {item.customizations.temperature && <div>• Temperature: {item.customizations.temperature.name}</div>}
                       {item.customizations.iceLevel && <div>• Ice: {item.customizations.iceLevel.name}</div>}
                       {item.customizations.sweetnessLevel && <div>• Sweetness: {item.customizations.sweetnessLevel.name}</div>}
-                      {item.customizations.toppings.length > 0 && (
-                        <div>• Toppings: {item.customizations.toppings.map(t => t.name).join(', ')}</div>
+                      {item.customizations.toppings.filter(t => t.category !== 'Size').length > 0 && (
+                        <div>• Toppings: {item.customizations.toppings.filter(t => t.category !== 'Size').map(t => t.name).join(', ')}</div>
                       )}
                     </div>
                   </div>

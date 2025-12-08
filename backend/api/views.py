@@ -65,7 +65,8 @@ class CustomizationOptionViewSet(viewsets.ModelViewSet):
         return CustomizationOptionWriteSerializer if self.action in ['create', 'update', 'partial_update'] else CustomizationOptionReadSerializer
 
 class MenuItemViewSet(viewsets.ModelViewSet):
-    queryset = MenuItem.objects.all().select_related('category').prefetch_related('recipeitem_set__ingredient__unit')
+    # Only show active items by default (Soft Deletion)
+    queryset = MenuItem.objects.filter(is_active=True).select_related('category').prefetch_related('recipeitem_set__ingredient__unit')
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['category'] 
     def get_serializer_class(self):

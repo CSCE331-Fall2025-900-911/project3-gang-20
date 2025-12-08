@@ -85,7 +85,7 @@ class MenuItemReadSerializer(serializers.ModelSerializer):
         model = MenuItem
         fields = [
             'id', 'name', 'category', 'base_price', 
-            'image',
+            'image', 'is_active', 
             'recipe'
             # , 'available_customizations'
         ]
@@ -185,7 +185,7 @@ class MenuItemWriteSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = MenuItem
-        fields = ['id', 'name', 'category', 'base_price', 'image']
+        fields = ['id', 'name', 'category', 'base_price', 'image', 'is_active']
 
 class OrderItemWriteSerializer(serializers.ModelSerializer):
     """Serialserializes an OrderItem for writing (nested inside an Order)."""
