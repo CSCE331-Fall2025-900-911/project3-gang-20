@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { Coffee, LogOut, ChevronRight, User } from 'lucide-react';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { CustomSignIn, CustomSignUp } from './Auth';
-import { AccessibilityProvider, AccessibilityControls } from './AccessibilityContext';
+import { useAccessibility } from './AccessibilityContext';
 
 // --- Configuration ---
 const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
@@ -19,6 +19,7 @@ function LandingPage({ onNavigate }) {
     const [authMode, setAuthMode] = useState(null);
     const { isSignedIn, user, isLoaded } = useUser();
     const { signOut } = useClerk();
+    const { theme, highContrast } = useAccessibility();
 
     // --- Role / Permission Logic ---
     const checkUserRole = (roleSlug) => {
@@ -30,14 +31,7 @@ function LandingPage({ onNavigate }) {
     const isCashier = checkUserRole(CASHIER_SLUG) || isManager;
     const isEmployee = isManager || isCashier;
 
-    // --- Theme ---
-    const theme = {
-        primary: '#d97706',
-        bg: 'linear-gradient(to bottom right, #fffbeb, #fed7aa)',
-        text: '#78350f',
-        textLight: '#92400e',
-        overlay: 'rgba(120, 53, 15, 0.4)',
-    };
+    const overlay = highContrast ? 'rgba(0, 0, 0, 0.9)' : 'rgba(120, 53, 15, 0.4)';
 
     // --- Sync User to Database & Organization ---
     useEffect(() => {
@@ -100,10 +94,11 @@ function LandingPage({ onNavigate }) {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     padding: '1.5vh 20px', // Reduced side padding slightly for mobile
-                    background: 'rgba(255, 255, 255, 0.8)',
-                    backdropFilter: 'blur(10px)',
+                    background: highContrast ? theme.cardBg : 'rgba(255, 255, 255, 0.8)',
+                    backdropFilter: highContrast ? 'none' : 'blur(10px)',
                     zIndex: 100,
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+                    boxShadow: theme.shadow,
+                    borderBottom: theme.border
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{ background: theme.primary, padding: '8px', borderRadius: '12px', color: 'white' }}>
@@ -210,13 +205,14 @@ function LandingPage({ onNavigate }) {
                             fontWeight: '900',
                             lineHeight: '1.1',
                             marginBottom: '1.5vh',
-                            background: `linear-gradient(135deg, ${theme.text} 0%, ${theme.primary} 100%)`,
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent'
+                            background: highContrast ? 'none' : `linear-gradient(135deg, ${theme.text} 0%, ${theme.primary} 100%)`,
+                            WebkitBackgroundClip: highContrast ? 'none' : 'text',
+                            WebkitTextFillColor: highContrast ? 'currentColor' : 'transparent',
+                            color: theme.text
                         }}>
                             <span>Bobaclat</span>
                         </h1>
-                        <p style={{ fontSize: 'clamp(1rem, 2vh, 1.25rem)', color: theme.textLight, maxWidth: '600px', margin: '0 auto 3vh', lineHeight: '1.6' }}>
+                        <p style={{ fontSize: 'clamp(1rem, 2vh, 1.25rem)', color: theme.textSecondary, maxWidth: '600px', margin: '0 auto 3vh', lineHeight: '1.6' }}>
                             <span>Experience the perfect blend of premium tea, fresh milk, and chewy tapioca pearls. Handcrafted daily for your delight.</span>
                         </p>
 
@@ -224,7 +220,7 @@ function LandingPage({ onNavigate }) {
                             <button onClick={() => onNavigate('kiosk')} style={{ background: theme.primary, color: 'white', padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 10px 25px -5px rgba(217, 119, 6, 0.4)', transition: 'transform 0.2s' }}>
                                 <span>Order Now</span> <ChevronRight size={20} />
                             </button>
-                            <button onClick={() => onNavigate('menu_board')} style={{ background: 'white', color: theme.text, padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                            <button onClick={() => onNavigate('menu_board')} style={{ background: theme.cardBg, color: theme.text, padding: '1.5vh 32px', borderRadius: '50px', fontSize: '1.1rem', fontWeight: 'bold', border: theme.border, cursor: 'pointer', boxShadow: theme.shadow }}>
                                 <span>View Menu</span>
                             </button>
                         </div>
@@ -237,16 +233,16 @@ function LandingPage({ onNavigate }) {
                             <div style={{ display: 'flex', justifyContent: 'center', gap: '2vh', flexWrap: 'wrap' }}>
 
                                 {isManager && (
-                                    <div onClick={() => onNavigate('manager')} style={{ background: 'white', padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)', transition: 'transform 0.2s' }}>
+                                    <div onClick={() => onNavigate('manager')} style={{ background: theme.cardBg, padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: theme.shadow, border: theme.border, transition: 'transform 0.2s' }}>
                                         <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Manager Dashboard</h3>
-                                        <p style={{ color: theme.textLight, fontSize: '0.95rem' }}>Access inventory, staff management, and sales reports.</p>
+                                        <p style={{ color: theme.textSecondary, fontSize: '0.95rem' }}>Access inventory, staff management, and sales reports.</p>
                                     </div>
                                 )}
 
                                 {isCashier && (
-                                    <div onClick={() => onNavigate('cashier')} style={{ background: 'white', padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)', transition: 'transform 0.2s' }}>
+                                    <div onClick={() => onNavigate('cashier')} style={{ background: theme.cardBg, padding: '2.5vh 24px', borderRadius: '20px', cursor: 'pointer', minWidth: '280px', boxShadow: theme.shadow, border: theme.border, transition: 'transform 0.2s' }}>
                                         <h3 style={{ fontSize: '1.35rem', fontWeight: 'bold', marginBottom: '4px' }}>Cashier POS</h3>
-                                        <p style={{ color: theme.textLight, fontSize: '0.95rem' }}>Handle customer orders, process payments, and manage the till.</p>
+                                        <p style={{ color: theme.textSecondary, fontSize: '0.95rem' }}>Handle customer orders, process payments, and manage the till.</p>
                                     </div>
                                 )}
 
@@ -262,7 +258,7 @@ function LandingPage({ onNavigate }) {
 
                 {/* --- Auth Modal Overlay --- */}
                 {(authMode === 'login' || authMode === 'signup') && (
-                    <div onClick={handleCloseModal} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: theme.overlay, zIndex: 1000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', animation: 'fadeIn 0.3s ease-out', backdropFilter: 'blur(4px)' }}>
+                    <div onClick={handleCloseModal} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: overlay, zIndex: 1000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', animation: 'fadeIn 0.3s ease-out', backdropFilter: 'blur(4px)' }}>
                         <div onClick={handleModalContentClick} style={{ animation: 'slideUp 0.3s ease-out' }}>
                             {authMode === 'login' ? (
                                 <CustomSignIn onSuccess={handleCloseModal} onClose={handleCloseModal} />

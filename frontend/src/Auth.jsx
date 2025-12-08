@@ -4,13 +4,14 @@
   Includes custom logic for:
   1. Phone Number requirement & validation.
   2. Automatic syncing of new users to your backend Database (PostgreSQL/API).
-  3. "Amber" styling to match your brand.
+  3. "Amber" styling to match your brand (now theme-aware).
   4. Google OAuth integration.
 */
 
 import { useState } from 'react';
 import { useSignIn, useSignUp } from '@clerk/clerk-react';
 import { Phone, Mail, Lock, User as UserIcon, X } from 'lucide-react';
+import { useAccessibility } from './AccessibilityContext';
 
 // --- Configuration ---
 const CUSTOMERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customers/';
@@ -30,70 +31,92 @@ const GoogleIcon = () => (
 );
 
 // --- Shared UI Components ---
-const InputField = ({ icon: Icon, error, ...props }) => (
-    <div style={{ position: 'relative', marginBottom: error ? '8px' : '16px' }}>
-        <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#d97706' }}>
-            <Icon size={20} />
+const InputField = ({ icon: Icon, error, ...props }) => {
+    const { theme, highContrast } = useAccessibility();
+
+    return (
+        <div style={{ position: 'relative', marginBottom: error ? '8px' : '16px' }}>
+            <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: highContrast ? theme.text : theme.primary }}>
+                <Icon size={20} />
+            </div>
+            <input
+                {...props}
+                style={{
+                    width: '100%', padding: '12px 16px 12px 48px', borderRadius: highContrast ? '0' : '12px',
+                    border: error ? `2px solid ${theme.danger}` : (highContrast ? theme.border : `2px solid #fed7aa`),
+                    fontSize: '1rem', outline: 'none',
+                    backgroundColor: highContrast ? '#ffffff' : '#fffbeb',
+                    color: highContrast ? '#000000' : '#78350f'
+                }}
+                onFocus={(e) => !error && (e.target.style.borderColor = theme.primary)}
+                onBlur={(e) => !error && (e.target.style.borderColor = highContrast ? (theme.border === 'none' ? 'black' : theme.border) : '#fed7aa')}
+            />
+            {error && <div style={{ color: theme.danger, fontSize: '0.8rem', marginTop: '4px', marginLeft: '4px' }}>{error}</div>}
         </div>
-        <input
-            {...props}
+    );
+};
+
+const AuthButton = ({ children, onClick, isLoading }) => {
+    const { theme, highContrast } = useAccessibility();
+
+    return (
+        <button
+            onClick={onClick}
+            disabled={isLoading}
             style={{
-                width: '100%', padding: '12px 16px 12px 48px', borderRadius: '12px',
-                border: error ? '2px solid #dc2626' : '2px solid #fed7aa',
-                fontSize: '1rem', outline: 'none', backgroundColor: '#fffbeb', color: '#78350f'
+                width: '100%', padding: '14px', borderRadius: highContrast ? '0' : '12px',
+                border: highContrast ? theme.border : 'none',
+                backgroundColor: theme.primary, color: theme.primaryText,
+                fontSize: '1.1rem', fontWeight: 'bold',
+                cursor: isLoading ? 'wait' : 'pointer', marginTop: '8px', opacity: isLoading ? 0.7 : 1,
+                transition: 'background-color 0.2s',
+                boxShadow: theme.shadow
             }}
-            onFocus={(e) => !error && (e.target.style.borderColor = '#d97706')}
-            onBlur={(e) => !error && (e.target.style.borderColor = '#fed7aa')}
-        />
-        {error && <div style={{ color: '#dc2626', fontSize: '0.8rem', marginTop: '4px', marginLeft: '4px' }}>{error}</div>}
-    </div>
-);
+        >
+            {isLoading ? 'Processing...' : children}
+        </button>
+    );
+};
 
-const AuthButton = ({ children, onClick, isLoading }) => (
-    <button
-        onClick={onClick}
-        disabled={isLoading}
-        style={{
-            width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
-            backgroundColor: '#d97706', color: 'white', fontSize: '1.1rem', fontWeight: 'bold',
-            cursor: isLoading ? 'wait' : 'pointer', marginTop: '8px', opacity: isLoading ? 0.7 : 1,
-            transition: 'background-color 0.2s'
-        }}
-    >
-        {isLoading ? 'Processing...' : children}
-    </button>
-);
+const GoogleButton = ({ onClick, text }) => {
+    const { theme, highContrast } = useAccessibility();
 
-const GoogleButton = ({ onClick, text }) => (
-    <button
-        onClick={onClick}
-        type="button"
-        style={{
-            width: '100%', padding: '12px', borderRadius: '12px',
-            border: '2px solid #fed7aa', backgroundColor: 'white',
-            color: '#78350f', fontSize: '1rem', fontWeight: '600',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: '12px', marginBottom: '20px', transition: 'background-color 0.2s'
-        }}
-        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fffbeb'}
-        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'white'}
-    >
-        <GoogleIcon />
-        {text}
-    </button>
-);
+    return (
+        <button
+            onClick={onClick}
+            type="button"
+            style={{
+                width: '100%', padding: '12px', borderRadius: highContrast ? '0' : '12px',
+                border: highContrast ? theme.border : '2px solid #fed7aa',
+                backgroundColor: theme.cardBg,
+                color: theme.text, fontSize: '1rem', fontWeight: '600',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                gap: '12px', marginBottom: '20px', transition: 'background-color 0.2s'
+            }}
+            onMouseOver={(e) => !highContrast && (e.currentTarget.style.backgroundColor = '#fffbeb')}
+            onMouseOut={(e) => !highContrast && (e.currentTarget.style.backgroundColor = theme.cardBg)}
+        >
+            <GoogleIcon />
+            {text}
+        </button>
+    );
+};
 
-const Divider = () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-        <div style={{ flex: 1, height: '1px', backgroundColor: '#fed7aa' }}></div>
-        <span style={{ color: '#92400e', fontSize: '0.9rem', fontWeight: '500' }}>OR</span>
-        <div style={{ flex: 1, height: '1px', backgroundColor: '#fed7aa' }}></div>
-    </div>
-);
+const Divider = () => {
+    const { theme } = useAccessibility();
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ flex: 1, height: '1px', backgroundColor: theme.textSecondary, opacity: 0.3 }}></div>
+            <span style={{ color: theme.textSecondary, fontSize: '0.9rem', fontWeight: '500' }}>OR</span>
+            <div style={{ flex: 1, height: '1px', backgroundColor: theme.textSecondary, opacity: 0.3 }}></div>
+        </div>
+    );
+};
 
 // --- Shared Sign In Component ---
 export function CustomSignIn({ onSuccess, onClose }) {
     const { signIn, setActive, isLoaded } = useSignIn();
+    const { theme, highContrast } = useAccessibility();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState(null);
@@ -121,7 +144,7 @@ export function CustomSignIn({ onSuccess, onClose }) {
             const result = await signIn.create({ identifier: email, password });
             if (result.status === "complete") {
                 await setActive({ session: result.createdSessionId });
-                if(onSuccess) onSuccess();
+                if (onSuccess) onSuccess();
             }
         } catch (err) {
             setError(err.errors?.[0]?.longMessage || "Login failed");
@@ -131,21 +154,30 @@ export function CustomSignIn({ onSuccess, onClose }) {
     };
 
     return (
-        <div style={{ padding: '32px', background: 'white', borderRadius: '24px', width: '100%', maxWidth: '400px', position: 'relative' }}>
+        <div style={{
+            padding: '32px',
+            background: theme.cardBg,
+            borderRadius: highContrast ? '0' : '24px',
+            width: '100%',
+            maxWidth: '400px',
+            position: 'relative',
+            border: theme.border,
+            boxShadow: theme.shadow
+        }}>
             {onClose && (
-                <button onClick={onClose} style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', cursor: 'pointer', color: '#78350f' }}>
+                <button onClick={onClose} style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', cursor: 'pointer', color: theme.text }}>
                     <X size={24} />
                 </button>
             )}
-            <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#78350f', marginBottom: '24px', textAlign: 'center' }}>Welcome Back</h2>
-            
+            <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: theme.text, marginBottom: '24px', textAlign: 'center' }}>Welcome Back</h2>
+
             <GoogleButton onClick={handleGoogleSignIn} text="Sign in with Google" />
             <Divider />
 
             <form onSubmit={handleSignIn}>
                 <InputField type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} icon={Mail} required />
                 <InputField type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} icon={Lock} required />
-                {error && <p style={{ color: '#dc2626', marginBottom: '16px', textAlign: 'center' }}>{error}</p>}
+                {error && <p style={{ color: theme.danger, marginBottom: '16px', textAlign: 'center' }}>{error}</p>}
                 <AuthButton isLoading={loading} onClick={handleSignIn}>Log In</AuthButton>
             </form>
         </div>
@@ -155,6 +187,7 @@ export function CustomSignIn({ onSuccess, onClose }) {
 // --- Shared Sign Up Component (Includes DB Sync) ---
 export function CustomSignUp({ onSuccess, onClose }) {
     const { signUp, setActive, isLoaded } = useSignUp();
+    const { theme, highContrast } = useAccessibility();
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [phone, setPhone] = useState("");
@@ -214,7 +247,7 @@ export function CustomSignUp({ onSuccess, onClose }) {
                 } catch (dbError) {
                     console.error("DB Sync Error:", dbError);
                 }
-                if(onSuccess) onSuccess();
+                if (onSuccess) onSuccess();
             }
         } catch (err) {
             setFieldErrors({ general: err.errors?.[0]?.longMessage || "Sign up failed" });
@@ -224,14 +257,23 @@ export function CustomSignUp({ onSuccess, onClose }) {
     };
 
     return (
-        <div style={{ padding: '32px', background: 'white', borderRadius: '24px', width: '100%', maxWidth: '400px', position: 'relative' }}>
+        <div style={{
+            padding: '32px',
+            background: theme.cardBg,
+            borderRadius: highContrast ? '0' : '24px',
+            width: '100%',
+            maxWidth: '400px',
+            position: 'relative',
+            border: theme.border,
+            boxShadow: theme.shadow
+        }}>
             {onClose && (
-                <button onClick={onClose} style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', cursor: 'pointer', color: '#78350f' }}>
+                <button onClick={onClose} style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', cursor: 'pointer', color: theme.text }}>
                     <X size={24} />
                 </button>
             )}
-            <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#78350f', marginBottom: '24px', textAlign: 'center' }}>Create Account</h2>
-            
+            <h2 style={{ fontSize: '2rem', fontWeight: 'bold', color: theme.text, marginBottom: '24px', textAlign: 'center' }}>Create Account</h2>
+
             <GoogleButton onClick={handleGoogleSignUp} text="Sign up with Google" />
             <Divider />
 
@@ -243,7 +285,7 @@ export function CustomSignUp({ onSuccess, onClose }) {
                 <InputField type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} icon={Mail} error={fieldErrors.email} />
                 <InputField type="tel" placeholder="Phone (10 digits)" value={phone} onChange={(e) => setPhone(e.target.value)} icon={Phone} maxLength="14" error={fieldErrors.phone} />
                 <InputField type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} icon={Lock} required />
-                {fieldErrors.general && <p style={{ color: '#dc2626', marginBottom: '16px', textAlign: 'center' }}>{fieldErrors.general}</p>}
+                {fieldErrors.general && <p style={{ color: theme.danger, marginBottom: '16px', textAlign: 'center' }}>{fieldErrors.general}</p>}
                 <AuthButton isLoading={loading} onClick={handleSignUp}>Sign Up</AuthButton>
             </form>
         </div>
