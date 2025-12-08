@@ -10,7 +10,7 @@ import { Trash2, LogOut, Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Edit 
 import { useUser } from '@clerk/clerk-react';
 
 // API Endpoints
-const API_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
+const ITEMS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/menu-items/';
 const CUSTOMIZATION_OPTIONS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/customization-options/';
 const ORDERS_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/orders/';
 const EMPLOYEES_URL = 'https://project3-gang-20-810838872032.us-south1.run.app/api/employees/';
@@ -111,7 +111,7 @@ function BobaCashier({ onBack }) {
     try {
       setLoading(true);
       const [menuResponse, customizationsResponse] = await Promise.all([
-        fetch(API_URL),
+        fetch(ITEMS_URL),
         fetch(CUSTOMIZATION_OPTIONS_URL)
       ]);
 
@@ -127,23 +127,14 @@ function BobaCashier({ onBack }) {
     }
   };
 
-  // Fetches all existing orders to determine the next display order number.
   const fetchNextOrderNumber = async () => {
     try {
-      const response = await fetch(ORDERS_URL);
-      const orders = await response.json();
-
-      if (orders.length > 0) {
-        // Find the maximum order ID and add 1 for display
-        const maxOrderId = Math.max(...orders.map(order => order.id));
-        setOrderNumber(maxOrderId + 1);
-      } else {
-        // If no orders exist, start from 1
-        setOrderNumber(1);
-      }
+      const response = await fetch(`${ORDERS_URL}latest_id/`);
+      const data = await response.json();
+      setOrderNumber(data.latest_id + 1);
     } catch (err) {
       console.error("Error fetching order number:", err);
-      setOrderNumber(1); // Default to 1 on failure
+      setOrderNumber(1);
     }
   };
 

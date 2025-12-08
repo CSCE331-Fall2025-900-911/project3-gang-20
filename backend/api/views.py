@@ -2,7 +2,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import LimitOffsetPagination
-from django.db.models import Sum, Count, F, FloatField, Q, ExpressionWrapper, DecimalField
+from django.db.models import Sum, Count, F, FloatField, Q, ExpressionWrapper, DecimalField, Max
 from django.db.models.functions import TruncHour, Cast
 
 from django_filters.rest_framework import DjangoFilterBackend
@@ -110,6 +110,17 @@ class OrdersViewSet(viewsets.ModelViewSet):
         return OrderReadSerializer
 
     # --- REPORT ACTIONS (Server-Side Aggregation) ---
+
+    @action(detail=False, methods=['get'])
+    def latest_id(self, request):
+        """
+        Efficiently retrieve the ID of the most recent order.
+        Used by the frontend to determine the next order number without fetching all records.
+        """
+        # Aggregate the maximum ID from the Order table
+        max_id = Order.objects.aggregate(Max('id'))['id__max']
+        # If no orders exist, max_id will be None, so return 0
+        return Response({'latest_id': max_id or 0})
 
     @action(detail=False, methods=['get'])
     def x_report(self, request):
