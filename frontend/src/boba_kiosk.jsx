@@ -76,6 +76,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     toppings: [],
     temp: null,
   });
+  const [quantity, setQuantity] = useState(1);
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -130,6 +131,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     let total = 0;
     if (selectedAddOns.iceLevel) total += parseFloat(selectedAddOns.iceLevel.price);
     if (selectedAddOns.sweetnessLevel) total += parseFloat(selectedAddOns.sweetnessLevel.price);
+    if (selectedAddOns.temp) total += parseFloat(selectedAddOns.temp.price);
     selectedAddOns.toppings.forEach(topping => total += parseFloat(topping.price));
     return total;
   };
@@ -138,18 +140,23 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     const customizationPrice = calculateCustomizationPrice();
     const totalPrice = parseFloat(drink.base_price) + customizationPrice;
 
-    setCart([...cart, {
-      ...drink,
-      cartId: Date.now(),
-      customizations: { ...selectedAddOns },
-      customizationPrice,
-      totalPrice: totalPrice.toFixed(2)
-    }]);
+    const newItems = [];
+    for (let i = 0; i < quantity; i++) {
+      newItems.push({
+        ...drink,
+        cartId: Date.now() + i,
+        customizations: { ...selectedAddOns },
+        customizationPrice,
+        totalPrice: totalPrice.toFixed(2)
+      });
+    }
+    setCart([...cart, ...newItems]);
 
-    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
+    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [], temp: null });
+    setQuantity(1);
     setSelectedDrink(null);
     setCurrentView('checkout');
-    setSelectedRedemption(null); // Reset redemption when adding new items
+    setSelectedRedemption(null);
   };
 
   // Prepares the state for editing an existing cart item
@@ -184,7 +191,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     // Cleanup and reset state
     setEditingCartItem(null);
     setSelectedDrink(null);
-    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [] });
+    setSelectedAddOns({ iceLevel: null, sweetnessLevel: null, toppings: [], temp: null });
     setCurrentView('checkout');
   };
 
@@ -390,6 +397,7 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
     selectedCategory, setSelectedCategory,
     selectedDrink, setSelectedDrink,
     selectedAddOns, setSelectedAddOns,
+    quantity, setQuantity,
     cart, removeFromCart, addToCart, addMysteryToCart,
     loading, error,
     processingPayment,
@@ -422,6 +430,7 @@ function BobaKioskContent() {
     menuItems, addOns, categories, activeFilter, setActiveFilter,
     selectedDrink, setSelectedDrink,
     selectedAddOns, setSelectedAddOns,
+    quantity, setQuantity,
     cart, removeFromCart, addToCart, addMysteryToCart,
     loading, error,
     processingPayment,
@@ -937,6 +946,7 @@ function BobaKioskContent() {
     const iceLevels = getAddOnsByCategory('Ice Level');
     const sweetnessLevels = getAddOnsByCategory('Sweetness Level');
     const toppings = getAddOnsByCategory('Toppings');
+    const temperatures = getAddOnsByCategory('Temperature');
 
     const customizationPrice = calculateCustomizationPrice();
     const totalPrice = parseFloat(selectedDrink.base_price) + customizationPrice;
@@ -998,7 +1008,7 @@ function BobaKioskContent() {
               Ice Level
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
-              {iceLevels.map((ice) => (
+              {iceLevels.reverse().map((ice) => (
                 <KioskButton
                   key={ice.id}
                   onClick={() => setSelectedAddOns({ ...selectedAddOns, iceLevel: ice })}
@@ -1023,7 +1033,7 @@ function BobaKioskContent() {
             </h3>
             {/* FIX: Changed minmax from 140px to 120px to match Ice Level and fit better in the constrained width */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
-              {sweetnessLevels.map((sweet) => (
+              {sweetnessLevels.reverse().map((sweet) => (
                 <KioskButton
                   key={sweet.id}
                   onClick={() => setSelectedAddOns({ ...selectedAddOns, sweetnessLevel: sweet })}
@@ -1047,7 +1057,7 @@ function BobaKioskContent() {
               Toppings (Optional)
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-              {toppings.map((topping) => {
+              {toppings.reverse().map((topping) => {
                 const isSelected = selectedAddOns.toppings.some(t => t.id === topping.id);
                 return (
                   <KioskButton
@@ -1066,6 +1076,67 @@ function BobaKioskContent() {
             </div>
           </div>
 
+          {/* Temperature Selection */}
+          <div style={{
+            backgroundColor: theme.cardBg,
+            borderRadius: highContrast ? '0' : '16px',
+            border: theme.border,
+            padding: '24px',
+            marginBottom: '24px',
+            boxShadow: theme.shadow
+          }}>
+            <h3 style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text, marginBottom: '1em' }}>
+              Temperature
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px' }}>
+              {temperatures.reverse().map((temp) => (
+                <KioskButton
+                  key={temp.id}
+                  onClick={() => setSelectedAddOns({ ...selectedAddOns, temp: temp })}
+                  variant={selectedAddOns.temp?.id === temp.id ? 'primary' : 'secondary'}
+                >
+                  {temp.name}
+                </KioskButton>
+              ))}
+            </div>
+          </div>
+
+          {/* Quantity Selector */}
+          {!editingCartItem && (
+            <div style={{
+              backgroundColor: theme.cardBg,
+              borderRadius: highContrast ? '0' : '16px',
+              border: theme.border,
+              padding: '24px',
+              marginBottom: '24px',
+              boxShadow: theme.shadow
+            }}>
+              <h3 style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text, marginBottom: '1em' }}>
+                Quantity
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px' }}>
+                <KioskButton
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  variant="secondary"
+                  disabled={quantity <= 1}
+                  style={{ fontSize: '1.5em', padding: '0.5em 1em', minWidth: '60px' }}
+                >
+                  <Minus size={24} />
+                </KioskButton>
+                <span style={{ fontSize: '2.5em', fontWeight: 'bold', color: theme.text, minWidth: '80px', textAlign: 'center' }}>
+                  {quantity}
+                </span>
+                <KioskButton
+                  onClick={() => setQuantity(quantity + 1)}
+                  variant="secondary"
+                  style={{ fontSize: '1.5em', padding: '0.5em 1em', minWidth: '60px' }}
+                >
+                  <Plus size={24} />
+                </KioskButton>
+              </div>
+            </div>
+          )}
+
           <div style={{
             backgroundColor: theme.cardBg,
             borderRadius: highContrast ? '0' : '16px',
@@ -1075,9 +1146,16 @@ function BobaKioskContent() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <span style={{ fontSize: '1.5em', fontWeight: 'bold', color: theme.text }}>Total:</span>
-              <span style={{ fontSize: '2em', fontWeight: 'bold', color: theme.success }}>
-                ${totalPrice.toFixed(2)}
-              </span>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '2em', fontWeight: 'bold', color: theme.success }}>
+                  ${(totalPrice * (editingCartItem ? 1 : quantity)).toFixed(2)}
+                </span>
+                {!editingCartItem && quantity > 1 && (
+                  <div style={{ fontSize: '0.9em', color: theme.textSecondary }}>
+                    ${totalPrice.toFixed(2)} × {quantity}
+                  </div>
+                )}
+              </div>
             </div>
             {/* Primary Action Button: Handles both adding new items and saving edits */}
             <KioskButton

@@ -843,7 +843,7 @@ function BobaCashier() {
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: theme.text, marginBottom: '16px' }}>Ice Level *</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
-                  {getCustomizationsByCategory('Ice Level').map((ice) => (
+                  {getCustomizationsByCategory('Ice Level').reverse().map((ice) => (
                     <button
                       key={ice.id}
                       onClick={() => setSelectedCustomizations({ ...selectedCustomizations, iceLevel: ice })}
@@ -867,7 +867,7 @@ function BobaCashier() {
               <div>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: theme.text, marginBottom: '16px' }}>Sweetness Level *</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
-                  {getCustomizationsByCategory('Sweetness Level').map((sweet) => (
+                  {getCustomizationsByCategory('Sweetness Level').reverse().map((sweet) => (
                     <button
                       key={sweet.id}
                       onClick={() => setSelectedCustomizations({ ...selectedCustomizations, sweetnessLevel: sweet })}
