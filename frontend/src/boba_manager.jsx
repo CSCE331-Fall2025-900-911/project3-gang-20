@@ -148,6 +148,8 @@ export default function BobaManager({ onBack }) {
   const [error, setError] = useState(null);
 
   // --- GRANULAR FETCHING LOGIC ---
+  // These functions only fetch data if it hasn't been loaded yet (cached in dataStore)
+  // or if forceRefresh is true. This prevents unnecessary network calls.
 
   const fetchMenuData = useCallback(async (forceRefresh = false) => {
     if (loadStatus.menu && loadStatus.ingredients && !forceRefresh) return;
@@ -215,6 +217,8 @@ export default function BobaManager({ onBack }) {
   }, [loadStatus]);
 
   // --- LAZY LOADING CONTROLLER ---
+  // Watches the activeTab and triggers the appropriate fetcher.
+  // This ensures data is loaded just-in-time when the user navigates.
   useEffect(() => {
     switch (activeTab) {
       case 'menu': fetchMenuData(); break;

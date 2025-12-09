@@ -167,6 +167,7 @@ function BobaCashier() {
   };
 
   // Calculates the total price of all currently selected customizations in the modal.
+  // Iterates through temperature, ice, sweetness, and toppings to sum up their prices.
   const calculateCustomizationPrice = () => {
     let price = 0;
     if (selectedCustomizations.temperature) price += parseFloat(selectedCustomizations.temperature.price);
@@ -180,6 +181,8 @@ function BobaCashier() {
   };
 
   // Adds or Updates the currently customized drink in the cart.
+  // If editing, replaces the existing item.
+  // If adding, appends new items based on the quantity selector.
   const addToCart = () => {
     const customizationPrice = calculateCustomizationPrice();
     const totalPrice = parseFloat(selectedDrink.base_price) + customizationPrice;
@@ -305,7 +308,7 @@ function BobaCashier() {
 
     try {
       // 2. PREPARE THE ITEMS DATA FIRST
-      // Group cart items by menu item ID to get quantities
+      // Group cart items by menu item ID to get quantities and consolidate customizations
       const itemQuantities = {};
       cart.forEach(item => {
         if (itemQuantities[item.id]) {

@@ -62,7 +62,11 @@ const getDrinkDescription = (drink) => {
   CUSTOM HOOK: useBobaOrdering
   Manages all complex ordering state and logic, centralizing the bulk of the component's hooks
   to fix the "Rules of Hooks" violation in the parent component.
-*/
+  Handles:
+  - Menu data fetching
+  - Cart state & LocalStorage persistence
+  - Gamification (Mystery Drink)
+ */
 function useBobaOrdering(dbCustomer, setDbCustomer) {
   // -- PERSISTENCE: Lazy Intializers --
   const [currentView, setCurrentView] = useState(() => localStorage.getItem('kiosk_currentView') || 'welcome');
@@ -303,6 +307,8 @@ function useBobaOrdering(dbCustomer, setDbCustomer) {
 
   const getTotal = () => getSubtotal() + getServiceCharge() + getTax();
 
+  // Flattens the selected customizations object into a list of IDs for the backend.
+  // Backend expects a flat list of customization IDs for each order item.
   const getCustomizationIDs = (cartItem) => {
     const ids = [];
     if (cartItem.customizations.temperature) ids.push(cartItem.customizations.temperature.id);
